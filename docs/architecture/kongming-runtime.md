@@ -11,7 +11,7 @@
 | `launch.config.json` | 短命令对应的 profile 选择 | Kongming |
 | `profiles/` | profile 清单、应用配置和 Web 原版对照 | Kongming |
 | `bundles/kongming/` | headless/SDK 使用的产品 persona | Kongming |
-| `packages/` | 预留的自有业务插件位置，按需要新增 | Kongming |
+| `packages/` | 自有插件；`kmh-echo` 将自身生命周期名字追加到本地文件 | Kongming |
 | `tests/runtime/` | Kongming 启动与底座接入集成测试，验证配置选择、目录链接和 SDK 交互 | Kongming |
 | `.githooks/` | 当前 Node 提交和推送检查 | Kongming |
 | `.kmh/` | 默认运行数据、profile 登记链接和本地迁移备份 | 本地状态，Git 忽略 |
@@ -49,7 +49,7 @@ pnpm web
 pnpm sdk
 ```
 
-`setup` 初始化固定版本子模块、按 DSH 锁文件安装依赖并登记 profile；`build` 委托 DSH 完整构建。跨机器初始化要求 Fork 可获取所记录的子模块提交，发布前应验证该提交的远程可用性。
+`setup` 初始化固定版本子模块、按 DSH 锁文件安装依赖并登记 profile；`build` 依次构建 DSH 和 Kongming 自有插件。跨机器初始化要求 Fork 可获取所记录的子模块提交，发布前应验证该提交的远程可用性。
 
 ## 配置归属与组合
 
@@ -99,7 +99,9 @@ Web 完整文件包含 base 服务、GUI/API、Web 承载、四个 Agent 预设�
 
 新增业务插件在 Kongming 自有包中实现，通过 DSH 现有服务、事件与 effect 接入。DSH 核心更新在自有 Fork 的 `kmh/runtime-core` 上维护，审查上游变化、完成相关检查后，再更新 Kongming 子模块指针。Web 配置升级同时审查新版原配置与 Kongming 配置的差异。
 
-当前检查为 `pnpm lint` 和 `pnpm test`。12 项启动集成测试覆盖目录链接冲突、配置保持、真实 profile 加载、Web 端口与欢迎版本编辑、配置文件选择 profile、headless 启动和 SDK shutdown。Web 启动与用户流程另外使用实际浏览器验证。
+[`kmh-echo`](../../packages/kmh-echo/README.md) 使用函数式入口，在 headless、Web、SDK profile 中各加载一个实例。日志路径、阶段名字、写入与清理语义由包 README 说明。自有插件快速构建与类型检查使用 `pnpm build:kmh` 和 `pnpm typecheck:kmh`。
+
+当前检查为 `pnpm lint`、`pnpm typecheck:kmh`、`pnpm format:check` 和 `pnpm test`。19 项运行测试覆盖插件生命周期与文件追加、配置校验、目录链接冲突、配置保持、真实 profile 加载、Web 端口与欢迎版本编辑、配置文件选择 profile、headless 启动和 SDK shutdown。测试前自动构建 Kongming 自有插件；涉及仓库配置修改的测试按文件串行执行。Web 启动与用户流程另外使用实际浏览器验证。
 
 `pnpm hooks` 安装 Node Git 钩子。pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前启动测试。
 

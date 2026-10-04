@@ -15,11 +15,15 @@ pnpm web
 pnpm run sdk
 ```
 
-`setup` 初始化固定版本子模块、安装子模块自己的锁定依赖，再登记 profile；`build` 调用 DSH 的完整构建。入口使用构建后的 `dsh` CLI 和受支持的 profile，子进程继承调用者工作目录、环境变量和模型凭据，返回真实退出状态。SDK 模式使用标准输入输出传输，启动器把日志交给 DSH。
+`setup` 初始化固定版本子模块、安装子模块自己的锁定依赖，再登记 profile；`build` 依次构建 DSH 和 Kongming 自有插件。入口使用构建后的 `dsh` CLI 和受支持的 profile，子进程继承调用者工作目录、环境变量和模型凭据，返回真实退出状态。SDK 模式使用标准输入输出传输，启动器把日志交给 DSH。
 
 `pnpm hooks` 安装当前 Node Git 检查；原 Python 钩子保存在本地迁移备份中。
 
-DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作区仅包含 `bundles/*` 与后续自有 `packages/*`，DSH 的 Cordis、基础包、native 和构建配置归子模块所有。
+DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作区包含 `bundles/*` 与自有 `packages/*`，DSH 的 Cordis、基础包、native 和构建配置归子模块所有。
+
+## DSH 技能
+
+[DSH 技能接入](skills.md) 说明 Kongming 如何发现子模块技能、解析配套文件、执行翻译检查，以及处理初始化和链接问题。
 
 ## profile 与 bundle
 
@@ -39,6 +43,8 @@ KMH_HOME=/absolute/runtime-home pnpm web
 ```
 
 新增业务插件归 Kongming 的 `packages/`，bundle 的 dependencies 声明实际使用的插件；插件通过 DSH 已有的服务、事件与 effect 扩展。DSH 的外部链接包解析使用运行时依赖提供 peer，插件的 TypeScript 开发依赖需要另行声明对应 DSH 包的本地开发引用。
+
+[`kmh-echo`](../../packages/kmh-echo/README.md) 是三个 profile 共用的函数式生命周期示例，配置与日志用法见包 README。修改自有插件后使用 `pnpm build:kmh` 快速构建，`pnpm typecheck:kmh`、`pnpm lint` 和 `pnpm format:check` 检查自有代码，`pnpm test` 验证插件和启动链路。
 
 ## 版本升级
 
