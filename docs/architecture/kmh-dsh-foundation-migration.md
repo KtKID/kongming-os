@@ -1,5 +1,7 @@
 # KMH：DSH 基础框架源码迁移交付报告（2026-10-02）
 
+状态：历史迁移记录。当前底座归属与启动流程见 [DSH 底座接入](../kmh/README.md)。
+
 当前工作区已于 2026-10-03 上移到仓库根，现行入口见 [KMH 工作区](../kmh/README.md)。下文带日期的验证记录保留当时的命令；当前命令从根目录执行 `pnpm`。
 
 执行 [kmh-dsh-framework-cli-scope.md](./kmh-dsh-framework-cli-scope.md) 定义的源码迁移第一轮：

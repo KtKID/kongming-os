@@ -1,5 +1,7 @@
 # KMH 与 DSH 基线差异台账（自动生成，勿手编）
 
+状态：历史迁移记录。当前底座归属与启动流程见 [DSH 底座接入](../kmh/README.md)。
+
 > 由 `scripts/diff-with-dsh.mjs` 生成；基线 `/Volumes/machub_app/proj/agent/deepseek-harness`（提交 85805356）。
 > 迁移策略：src 源码 1:1（零差异为硬约束）；清单（package.json 依赖区、tsconfig
 > references）因未迁移包被单向修剪。**全部包迁完后，按本台账逐条回填清单并重跑脚本，
