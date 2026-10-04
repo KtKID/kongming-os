@@ -1,0 +1,6 @@
+# Kongming 的应用层配置，位于 DSH 官方 bundle 之后、profile 覆盖之前。
+- id: system-prompt
+  config:
+    personaPrefix: >-
+      You are Kongming, a coding agent powered by the {{model}} model.
+    personaSuffix: Your working directory is {{cwd}}.

@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant DRV as XSpace Driver
+    participant CMD as Command Parser
+    participant LIFE as Lifecycle Manager
+    participant SDKB as SDK Bridge
+    participant SDK as claude_agent_sdk
+    participant TRANS as Message Translator
+    participant OUT as Output Writer
+
+    Note over DRV: sidecar 之前崩了，driver 重拉新进程
+    DRV->>OUT: 等到 claude_sidecar_ready
+    DRV->>CMD: stdin: reconnect{workspaceId, threadId, runId, runtimeSessionId}
+    CMD->>LIFE: dispatch reconnect
+    LIFE->>SDKB: ClaudeSDKClient(options=resume=runtimeSessionId, include_partial_messages=True)
+    SDKB->>SDK: client.connect()
+
+    alt SDK 找到该 session
+        SDK-->>SDKB: connected, session restored
+        Note over SDKB: 不重发 claude_session_created (契约 §6.4-3)
+        alt 上次 run 仍在进行
+            SDK-->>TRANS: 续发 SDK message 流
+            TRANS->>OUT: claude_assistant_delta / claude_tool_* / 等
+            OUT-->>DRV: 续接事件
+        else 上次 run 已结束但终态未送达
+            SDK-->>TRANS: ResultMessage
+            TRANS->>OUT: 补发 claude_run_finished/failed/interrupted
+            OUT-->>DRV: 终态事件
+        end
+    else SDK 找不到 runtimeSessionId
+        SDK-->>SDKB: error
+        SDKB->>OUT: claude_transport_error(recoverable=false, threadId必填, runId已知时填)
+        OUT-->>DRV: 失败事件
+        Note over DRV: XSpace 标记 thread 失败，提示用户重新发起新 run
+    end

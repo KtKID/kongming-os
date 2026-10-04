@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "cli": "kmh-headless",
+    "web": "kmh-web",
+    "sdk": "kmh-sdk"
+  }
+}

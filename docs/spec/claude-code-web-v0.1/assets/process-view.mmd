@@ -1,0 +1,46 @@
+flowchart LR
+    subgraph CLIENT["客户端 (XSpace 桌面 / Web 浏览器 / 任意 WS 客户端)"]
+        UI[Web UI]
+    end
+
+    subgraph SERVER["kongming-agent 进程 (FastAPI + uvicorn)"]
+        WS["WebSocket Endpoints<br/>/ws/claude-code?thread_id=... v0.1.6<br/>/ws/threads/id generic_chat"]
+        subgraph CC["src/web/integrations/claude_code/ 新模块"]
+            ROUTE[route.py - WS 路由]
+            SVC[service.py - SDK 调用]
+            NORM[normalizer.py - 消息归一]
+            APR[approval.py - 审批回调]
+            SM[session_manager.py - 活跃会话]
+        end
+        subgraph EXIST["现有 web 主线 (generic_chat)"]
+            GC[OpenAI/Anthropic Provider]
+        end
+    end
+
+    subgraph CLI_PROC["claude_agent_sdk 子进程"]
+        SDK[claude CLI]
+    end
+
+    subgraph CLOUD["Anthropic API"]
+        API[Claude API]
+    end
+
+    UI <-->|WebSocket JSON| WS
+    WS --> ROUTE
+    ROUTE --> SVC
+    ROUTE --> SM
+    SVC <--> APR
+    SVC --> NORM
+    NORM --> WS
+    SVC <-->|Python API| SDK
+    SDK <-->|HTTPS| API
+
+    UI -.->|chat 走同一 WS| WS
+    WS -.->|backendKind=generic_chat| GC
+
+    style CC fill:#e1f5ff,stroke:#0277bd,stroke-width:2px
+    style SERVER fill:#f5f5f5,stroke:#666
+    style CLIENT fill:#fff3e0,stroke:#e65100
+    style CLI_PROC fill:#f3e5f5,stroke:#6a1b9a
+    style CLOUD fill:#e8f5e9,stroke:#2e7d32
+    style EXIST fill:#fafafa,stroke:#999,stroke-dasharray:3 3

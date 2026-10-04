@@ -1,0 +1,27 @@
+flowchart TB
+    T1[claude-sidecar-skeleton<br/>Entrypoint + Command Parser + Output Writer<br/>纯协议层无 SDK]:::p0
+
+    T2[claude-sidecar-sdk-bridge<br/>SDK 客户端封装 + 多 run 复用]:::p1
+    T3[claude-sidecar-translator<br/>SDK Message → SidecarEvent + 状态跟踪 + 去重]:::p1
+
+    T4[claude-sidecar-approval<br/>can_use_tool 异步对接 + deny 去重]:::p2
+    T5[claude-sidecar-lifecycle<br/>interrupt + reconnect + shutdown]:::p2
+
+    T6[claude-sidecar-error-handling<br/>横切错误时机]:::p3
+    T7[claude-sidecar-test-suite<br/>单元 + smoke 回归 + mock driver]:::p3
+
+    T1 --> T2
+    T1 --> T3
+    T2 --> T4
+    T2 --> T5
+    T3 --> T4
+    T2 --> T6
+    T3 --> T6
+    T4 --> T7
+    T5 --> T7
+    T6 --> T7
+
+    classDef p0 fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef p1 fill:#fff3e0,stroke:#e65100
+    classDef p2 fill:#fce4ec,stroke:#ad1457
+    classDef p3 fill:#f3e5f5,stroke:#6a1b9a

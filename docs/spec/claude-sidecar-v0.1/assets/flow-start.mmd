@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant DRV as XSpace Driver
+    participant CMD as Command Parser
+    participant SDKB as SDK Bridge
+    participant APR as Approval Bridge
+    participant SDK as claude_agent_sdk
+    participant TRANS as Message Translator
+    participant OUT as Output Writer
+
+    DRV->>CMD: stdin: start{workspaceId, threadId, runId, prompt, ...}
+    CMD->>CMD: validate fields + protocolVersion
+    alt 字段非法
+        CMD->>OUT: claude_transport_error(recoverable=false, runId=null)
+        Note over CMD: 保持等待，不退出
+    else 字段合法
+        CMD->>SDKB: dispatch start
+        alt 首次 start
+            SDKB->>SDK: ClaudeSDKClient(options=<br/>include_partial_messages=True,<br/>can_use_tool=APR.callback,<br/>system_prompt=SystemPromptFile,<br/>resume=...)
+            SDK-->>SDKB: client connected
+        else 后续 start (复用 client)
+            Note over SDKB: 跳过 client 创建
+        end
+        SDKB->>SDK: client.query(prompt)
+        SDK-->>SDKB: SystemMessage(init){session_id}
+        SDKB->>TRANS: dispatch SystemMessage
+        TRANS->>OUT: claude_session_created(runtimeSessionId)
+        OUT-->>DRV: stdout
+        loop SDK message stream
+            SDK-->>SDKB: AssistantMessage / StreamEvent / ToolUseBlock / ResultMessage
+            SDKB->>TRANS: dispatch
+            TRANS->>OUT: claude_*_event
+            OUT-->>DRV: stdout
+        end
+    end

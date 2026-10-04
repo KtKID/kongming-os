@@ -1,0 +1,109 @@
+# 参考项目源码（用于借鉴，不纳入版本控制）
+other/
+
+# 开发期 plugin 软链（如 plugins/client/XSpace 是指向另一个 git 仓库的 symlink），
+# commit 进来会让其他人 clone 时破链 —— 永久排除。
+plugins/
+
+# macOS
+.DS_Store
+
+# 工具产物
+.rtk/
+.serena/
+.xcodeatlas/
+.kongming/
+*.yaml.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Env —— 本地环境变量（含 API key 等 secret），不入仓
+.env
+.env.local
+.env.*
+!.env.example
+.claude/skills/openspec-apply-change
+.claude/commands/opsx/archive.md
+.claude/commands/opsx/explore.md
+.claude/commands/opsx/propose.md
+.claude/commands/opsx/apply.md
+.claude/skills/openspec-archive-change/SKILL.md
+.claude/skills/openspec-explore/SKILL.md
+.claude/skills/openspec-propose/SKILL.md
+.playwright-mcp
+
+# 本地缓存（pre-commit / verify 工具产物）
+.cache/
+
+# AI 学习产出本地缓存（不入仓）
+.learnings/
+
+# 顶层调试 / sleep-dev 临时产物（截图、测试输出、snapshot）
+/full-snapshot.md
+/snapshot-after-load.md
+/evolution-*.png
+/thread-*.png
+/whiteboard-*.png
+/scheduler-test-*.txt
+/log/
+/whiteboard/
+/kongming-agent.code-workspace
+/web/src/modules/dashboard/config/.gitkeep
+/web/src/modules/dashboard/config/components/.gitkeep
+/web/src/modules/dashboard/config/sections/.gitkeep
+
+# 顶层 node_modules（项目根的依赖缓存，与 web/node_modules 分别管理）
+/node_modules/
+web/.npm-cache
+web/node_modules/
+.pip-cache
+
+# zcode CLI 本地会话数据（plans 等，每个 clone 各自维护，不入仓）
+.zcode/
+
+# dev-checklist 工作中的临时状态 flag（带 hash 后缀，跑完即丢弃）
+.dev-checklist.md.flag-*.tmp
+
+# Node 工作区（与 DSH 一致的根目录布局）
+node_modules/
+.env
+*.tsbuildinfo
+.DS_Store
+
+# tsc 增量构建把产物写到 src 旁（rewriteRelativeImportExtensions），不提交；
+# 判定以 DSH 原仓库为准：DSH 中不存在的 src 下 .js/.d.ts/.map 均为本地生成物
+packages/**/src/**/*.js
+packages/**/src/**/*.js.map
+packages/**/src/**/*.d.ts
+packages/**/src/**/*.d.ts.map
+vendor/**/src/**/*.js
+vendor/**/src/**/*.js.map
+vendor/**/src/**/*.d.ts
+vendor/**/src/**/*.d.ts.map
+
+# Kongming 的 DSH 运行数据、迁移备份与 profile 依赖。
+/.kmh/
+/profiles/*/node_modules/
+/profiles/*/cordis.yml
+/profiles/*/pnpm-lock.yaml

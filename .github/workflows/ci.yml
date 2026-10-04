@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-integration:
+    name: DSH build + Kongming runtime integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Enable pinned pnpm
+        run: corepack enable
+      - name: Install Kongming workspace
+        run: pnpm install --frozen-lockfile
+      - name: Install pinned DSH runtime and register profiles
+        run: pnpm run setup
+      - name: Build complete DSH runtime
+        run: pnpm run build
+      - name: Check Kongming launcher syntax
+        run: pnpm lint
+      - name: Test external bundles and profile launch
+        run: pnpm test

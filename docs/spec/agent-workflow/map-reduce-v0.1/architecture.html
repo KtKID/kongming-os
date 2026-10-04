@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>map-reduce-v0.1 · 架构图</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1d1d1f;
+      background: #f5f5f7;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 24px;
+      color: #6e6e73;
+    }
+    .diagram {
+      background: #fff;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      padding: 24px;
+      overflow: auto;
+    }
+  </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "base" });
+  </script>
+</head>
+<body>
+  <main>
+    <h1>map-reduce-v0.1 · 架构图</h1>
+    <p>面向大工程代码分析的分片、mapper、校验、reducer 和审计链路。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  classDef p0 fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:1.5px
+  classDef p1 fill:#FFF4E5,stroke:#FF9500,color:#1D1D1F,stroke-width:1.5px
+  classDef p2 fill:#F2F2F7,stroke:#8E8E93,color:#1D1D1F,stroke-width:1.5px
+
+  subgraph Entry["入口层"]
+    TOOL["AgentWorkflowTool<br/>P0 · 统一 workflow 调用入口"]:::p0
+    HANDLE["AgentWorkflowHandle<br/>P0 · late-bound manager"]:::p0
+    PAYLOAD["map_reduce JSON payload<br/>P0 · tool 参数"]:::p0
+  end
+
+  subgraph Strategy["编排层"]
+    MANAGER["AgentWorkflowManager<br/>P0 · 模式分发"]:::p0
+    SPEC["MapReduceWorkflowSpec<br/>P0 · executors 内部规范"]:::p0
+    STRAT["MapReduceStrategy<br/>P0 · 状态机"]:::p0
+    PLAN["MapReducePlanner<br/>P0 · 分片"]:::p0
+    INPUT["MapperInputMaterializer<br/>P0 · 输入物化"]:::p0
+    LIMIT["MapReduceLimits<br/>P0 · 资源控制"]:::p0
+  end
+
+  subgraph Mapper["Mapper 层"]
+    PROMPT["MapperPromptBuilder<br/>P0 · prompt 生成"]:::p0
+    SUB["Mapper SubAgents ×N<br/>P0 · shard 分析"]:::p0
+    VALID["MapperOutputValidator<br/>P0 · 输出校验"]:::p0
+  end
+
+  subgraph Reduce["Reducer 层"]
+    REDUCE["MapReduceReducer<br/>P0 · 去重排序归并"]:::p0
+    CONTRACT["CodeFindingsContract<br/>P0 · finding 契约"]:::p0
+  end
+
+  subgraph Files["文件与审计"]
+    AUDIT["audit.jsonl<br/>P0 · 阶段审计"]:::p0
+    RESULT["root result.json<br/>P0 · workflow 结果"]:::p0
+    REDUCER_RESULT["map_reduce/reducer/result.json<br/>P0 · reducer 细节"]:::p0
+    INDEX["reports/index.json<br/>P0 · Web 投影"]:::p0
+    MANIFEST["input_manifest.json<br/>P0 · 原始路径映射"]:::p0
+  end
+
+  subgraph Index["代码索引"]
+    RG["rg --files<br/>P0 · 第一版发现文件"]:::p0
+    ATLAS["xcodeatlas<br/>P2 · v0.2 模块/依赖图增强"]:::p2
+  end
+
+  TOOL --> PAYLOAD --> HANDLE --> MANAGER --> SPEC --> STRAT
+  STRAT --> PLAN
+  STRAT --> LIMIT
+  PLAN --> RG
+  PLAN -.-> ATLAS
+  PLAN --> INPUT --> PROMPT --> SUB --> VALID
+  INPUT --> MANIFEST
+  VALID --> REDUCE
+  CONTRACT --> VALID
+  CONTRACT --> REDUCE
+  STRAT --> AUDIT
+  REDUCE --> RESULT
+  REDUCE --> REDUCER_RESULT
+  REDUCE --> INDEX
+      </pre>
+    </div>
+  </main>
+</body>
+</html>

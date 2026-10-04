@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>generic-new-thread-v0.1 · 图集</title>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --surface: #F5F5F7;
+    --surface-2: #FAFAFC;
+    --border: #D2D2D7;
+    --hairline: rgba(60,60,67,0.12);
+    --label: #86868B;
+    --text: #1D1D1F;
+    --text-2: #424245;
+    --link: #0071E3;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .wrap { max-width: 1240px; margin: 56px auto; padding: 0 28px; }
+  h1 { font-size: 32px; font-weight: 600; letter-spacing: 0; margin: 0 0 6px; }
+  h2 { font-size: 22px; font-weight: 600; letter-spacing: 0; margin: 40px 0 12px; }
+  .meta { color: var(--label); font-size: 14px; margin-bottom: 28px; }
+  .meta a { color: var(--link); text-decoration: none; }
+  .meta a:hover { text-decoration: underline; }
+  .toc { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+  .toc a { color: var(--link); text-decoration: none; border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 10px; background: var(--surface-2); }
+  .diagram { background: var(--bg); border: 1px solid var(--hairline); border-radius: 14px; padding: 28px; margin: 18px 0 28px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04); }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; margin: 8px 0 18px; font-size: 13.5px; color: var(--text-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend .swatch { width: 16px; height: 16px; border-radius: 5px; display: inline-block; border: 1.5px solid; }
+  code { background: var(--surface); padding: 2px 7px; border-radius: 4px; font-size: 0.88em; font-family: "SF Mono", Menlo, Consolas, monospace; color: var(--text); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif',
+      fontSize: '14px',
+      primaryColor: '#FFFFFF',
+      primaryTextColor: '#1D1D1F',
+      primaryBorderColor: '#D2D2D7',
+      lineColor: '#86868B',
+      tertiaryColor: '#F5F5F7',
+      clusterBkg: '#FAFAFC',
+      clusterBorder: '#D2D2D7'
+    },
+    flowchart: { curve: 'basis', padding: 18, nodeSpacing: 38, rankSpacing: 48 }
+  });
+</script>
+</head>
+<body>
+<div class="wrap">
+<h1>generic-new-thread-v0.1 · 图集</h1>
+<p class="meta">来源：x-spec 阶段产出。<a href="./README.md">README.md</a> 是导航入口。</p>
+
+<div class="toc">
+  <a href="#architecture">架构</a>
+  <a href="#flow">流程</a>
+  <a href="#sequence">时序</a>
+  <a href="#state">状态</a>
+  <a href="#data">数据</a>
+</div>
+
+<div class="legend">
+  <span><span class="swatch" style="background:#E8F1FE;border-color:#0071E3"></span> P0 阻塞性 / 核心</span>
+  <span><span class="swatch" style="background:#FFF4E5;border-color:#FF9500"></span> P1 必须完成 / 主要</span>
+  <span><span class="swatch" style="background:#F2F2F7;border-color:#8E8E93"></span> P2 增强 / 辅助</span>
+</div>
+
+<h2 id="architecture">架构</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TD
+  classDef p0 fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:1.5px
+  classDef p1 fill:#FFF4E5,stroke:#FF9500,color:#1D1D1F,stroke-width:1.5px
+  classDef p2 fill:#F2F2F7,stroke:#8E8E93,color:#1D1D1F,stroke-width:1.5px
+
+  subgraph FE["Web 前端"]
+    Entry["GenericPendingThreadEntry<br/>P0 · 加号进入 pending 空白页"]:::p0
+    EmptyView["GenericEmptyThreadView<br/>P0 · 居中 Composer 和首发提交"]:::p0
+    Selector["ThreadProjectSelector<br/>P1 · 从已有 thread 派生 cwd"]:::p1
+    Composer["Composer<br/>P1 · 复用输入框和附属控件"]:::p1
+    Store["useThreadsStore<br/>P0 · thread/pending 状态门户"]:::p0
+  end
+
+  subgraph API["Web 后端"]
+    Protocol["GenericFirstMessageProtocol<br/>P0 · 首发创建 DTO"]:::p0
+    Creator["FirstMessageThreadCreator<br/>P0 · user message + metadata 持久化"]:::p0
+    TM["ThreadManager<br/>P0 · thread 生命周期门户"]:::p0
+    Session["Session backend<br/>P0 · 第一条 user message 真源"]:::p0
+    Runtime["Existing generic runtime<br/>P1 · 后续 LLM 流程"]:::p1
+    WS["/ws/threads/{thread_id}<br/>P1 · 现有通用频道 WS"]:::p1
+  end
+
+  Entry --> Store
+  Store --> EmptyView
+  EmptyView --> Selector
+  EmptyView --> Composer
+  EmptyView --> Protocol
+  Protocol --> Creator
+  Creator --> TM
+  Creator --> Session
+  Creator --> Runtime
+  Runtime -.-> WS
+  Selector -.-> Store
+</pre>
+</div>
+
+<h2 id="flow">流程</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  classDef p0 fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:1.5px
+  classDef p1 fill:#FFF4E5,stroke:#FF9500,color:#1D1D1F,stroke-width:1.5px
+  classDef p2 fill:#F2F2F7,stroke:#8E8E93,color:#1D1D1F,stroke-width:1.5px
+
+  Plus["点击通用加号<br/>P0 · 进入新页"]:::p0
+  Pending["pending generic 状态<br/>P0 · 无真实 thread"]:::p0
+  Blank["空白页 Composer<br/>P0 · 无历史消息"]:::p0
+  Project["选择项目或默认 home<br/>P1 · 解析 cwd"]:::p1
+  Send["发送第一句话<br/>P0 · 业务创建动作"]:::p0
+  Persist["user message + metadata 持久化<br/>P0 · 创建真实 thread"]:::p0
+  Navigate["跳转 /chat/{thread_id}<br/>P0 · 进入真实会话"]:::p0
+  Stream["现有 WS 流式响应<br/>P1 · 复用通用频道"]:::p1
+
+  Plus --> Pending --> Blank --> Project --> Send --> Persist --> Navigate --> Stream
+</pre>
+</div>
+
+<h2 id="sequence">时序</h2>
+<div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  participant U as 用户
+  participant FE as GenericEmptyThreadView
+  participant API as /api/threads/generic/first-message
+  participant TM as ThreadManager
+  participant S as Session backend
+  participant R as Generic runtime
+  participant WS as /ws/threads/{thread_id}
+
+  U->>FE: 点击通用加号
+  FE->>FE: 写 pending generic 状态并渲染空白页
+  U->>FE: 选择项目并发送第一句话
+  FE->>API: POST text + preset_id + cwd
+  API->>API: 解析请求并校验字段
+  API->>TM: create_generic_thread_from_first_message
+  TM->>TM: 生成 thread_id 并准备 metadata
+  TM->>S: append Message.user(text)
+  S-->>TM: append 成功
+  TM->>TM: 写入业务可见 metadata
+  TM->>R: 启动或排队后续 generic run
+  TM-->>API: ThreadMetadata
+  API-->>FE: ThreadMetadataDTO
+  FE->>FE: fetchThreads + navigate /chat/{thread_id}
+  FE->>WS: 打开现有通用 WS
+  WS-->>FE: thread.history + 后续流式帧
+</pre>
+</div>
+
+<h2 id="state">状态</h2>
+<div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> PendingGenericBlank: click generic plus
+  PendingGenericBlank --> FirstMessageSubmitting: submit first message
+  FirstMessageSubmitting --> ThreadCreated: metadata and user message persisted
+  ThreadCreated --> ExistingGenericThread: navigate real thread
+  FirstMessageSubmitting --> CreateFailed: validation or persistence failed
+  CreateFailed --> PendingGenericBlank: keep draft input
+  ExistingGenericThread --> [*]
+</pre>
+</div>
+
+<h2 id="data">数据</h2>
+<div class="diagram">
+<pre class="mermaid">
+erDiagram
+  PENDING_NEW_SESSION {
+    string backendKind "generic_chat"
+    string cwd "selected cwd or empty"
+    string projectName "display only"
+  }
+  THREAD_PROJECT_OPTION {
+    string cwd "absolute path"
+    string label "display name"
+    string title "full path"
+    number threadCount "source count"
+  }
+  FIRST_MESSAGE_REQUEST {
+    string text "first user message"
+    string preset_id "generic preset"
+    string cwd "absolute path or empty"
+    string reasoning_effort "low medium high null"
+  }
+  THREAD_METADATA {
+    string id "thread id"
+    string backend_kind "generic_chat"
+    string preset_id "generic preset"
+    string cwd "workspace cwd"
+    number message_count "initial 1 after first message"
+  }
+  SESSION_MESSAGE {
+    string role "user"
+    string content "first message"
+    object metadata "attachments optional"
+  }
+
+  PENDING_NEW_SESSION ||--o{ THREAD_PROJECT_OPTION : selects
+  THREAD_PROJECT_OPTION ||--o{ FIRST_MESSAGE_REQUEST : fills_cwd
+  FIRST_MESSAGE_REQUEST ||--|| THREAD_METADATA : creates
+  THREAD_METADATA ||--|| SESSION_MESSAGE : persists_first
+</pre>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# unified-scheduled-run-ownership · 开发清单
+
+> spec: docs/spec/scheduled-thread-submit-run-v1
+> risk: Q3
+
+**状态**：`[ ] ⏳` 未开始 / `[ ] ▶️` 进行中 / `[ ] 🟡` 待测试 / `[x] 🟢` 测试通过 / `[x] ✅` 已完成 / `[!] 🔴` 测试失败
+
+| # | 任务说明 | Scenario IDs | 风险 | 涉及文件 | 依赖 | 状态 | fix |
+|---|---|---|---|---|---|---|---|
+| T1 | 先写红灯测试并定义 reservation identity、submit receipt、run cell、条件终态与取消原因合同，覆盖幂等、非法状态跳转和迟到终态 | SC_02, SC_07, SC_08, SC_09, SC_14, SC_16 | J2、J11、J18；首个 terminal 获胜，reservation 恰好一次 | `src/scheduler/domain.py`, `src/scheduler/store.py`, `src/application/scheduled_runs/`, `tests/unit/scheduler/` | None | [!] 🔴 | None |
+| T2 | 实现 ScheduledRunManager live owner，以 per-task admission、Manager semaphore 和 HostDispatcher/AgentManager/TaskRegistry 启动链收口 ALLOW、FORBID、REPLACE、pending、shutdown 与 cron 专属运行 plan | SC_02, SC_03, SC_04, SC_05, SC_06, SC_07, SC_08, SC_09, SC_10, SC_11, SC_13, SC_16, SC_17 | J3—J11、J17—J19；ID 到真实 handle 唯一映射与资源收编 | `src/application/scheduled_runs/`, `src/hosts/shared/host_dispatcher.py`, `src/application/agents/`, `src/runtime_assembly/session_engine.py`, `tests/unit/scheduler/`, `tests/unit/test_host_dispatcher*.py`, `tests/unit/application/agents/` | T1 | [!] 🔴 | R2 issue-1—issue-6 closed; R3 issue-2 closed |
+| T3 | 把 ticker 收敛为 reserve+submit 触发器，迁移 runtime factory、CLI/Web lifespan 和 manual trigger 到同一个 ScheduledRunManager，并固定 startup/shutdown 顺序 | SC_01, SC_03, SC_10, SC_14, SC_17 | J1、J8、J12、J13；ticker 零 live task owner，进程内 Manager 单例 | `src/scheduler/ticker.py`, `src/scheduler/runtime_factory.py`, `src/scheduler/manager.py`, `src/hosts/cli/main.py`, `src/hosts/web/app.py`, `src/hosts/web/routers/cron.py`, `tests/unit/scheduler/`, `tests/unit/test_cli_main_scheduler.py`, `tests/unit/test_web_app_lifespan_scheduler.py` | T2 | [!] 🔴 | R2 issue-2, issue-5 closed; R3 issue-2 closed |
+| T4 | 保持定时任务面板与 run timeline：将 started/finished 纳入 Python/TS wire 真源，REST 从 durable result 与 live Manager 组合投影，前端按 run_id 维护多 live run | SC_04, SC_07, SC_12, SC_14, SC_15 | J14、J15；started/finished 持久化先行，ALLOW 多 run 独立收口 | `src/hosts/web/protocol/`, `src/hosts/web/app_support/cron_delivery.py`, `src/hosts/web/routers/cron.py`, `web/src/protocol.ts`, `web/src/modules/scheduler/`, `tests/unit/web/`, `web/src/modules/scheduler/__tests__/` | T3 | [!] 🔴 | R2 issue-3, issue-4, issue-6 closed; R3 issue-1 closed |
+| T5 | 跑真实 Store→ticker→ScheduledRunManager→HostDispatcher→Runner→Store/WS/UI 薄链路，补齐 REPLACE/ALLOW/fresh-session/Web 面板 E2E、模块文档和逐 Scenario verify 证据 | SC_01, SC_04, SC_06, SC_10, SC_11, SC_12, SC_13, SC_15, SC_16 | Q3；并发、持久化、协议、资源与用户可见结果完整证据 | `tests/e2e/test_scheduler_e2e.py`, `tests/e2e/test_cron_trigger_live_real.py`, `tests/e2e/test_cron_router_e2e.py`, `web/tests/e2e/`, `docs/modules/定时任务/README.md`, `docs/modules/应用/README.md`, `docs/modules/宿主/README.md`, `docs/spec/scheduled-thread-submit-run-v1/tasks/unified-scheduled-run-ownership/` | T4 | [!] 🔴 | R2 issue-6 closed; R3 issue-1 closed |

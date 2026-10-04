@@ -1,0 +1,64 @@
+flowchart LR
+    subgraph IN["前端发来的 WS 消息"]
+        I1[claude-command<br/>command + options]
+        I2[claude-permission-response<br/>requestId + allow + ...]
+        I3[abort-session<br/>sessionId]
+        I4[check-session-status<br/>sessionId]
+    end
+
+    ROUTE[route.py<br/>分发器]
+
+    subgraph SDK_LAYER["SDK 调用 + 回调"]
+        SVC[service.py]
+        APR[approval.py]
+    end
+
+    subgraph SDK_MSG["claude_agent_sdk 流出"]
+        M1[AssistantMessage<br/>含 TextBlock / ThinkingBlock / ToolUseBlock]
+        M2[UserMessage<br/>含 ToolResultBlock]
+        M3[SystemMessage<br/>init / hook / task]
+        M4[ResultMessage<br/>含 stop_reason / usage]
+        M5[StreamEvent<br/>partial delta]
+    end
+
+    NORM[normalizer.py<br/>SDK 对象 → 统一字典<br/>过滤 hook 噪声<br/>deny 后 ToolResult 去重]
+
+    subgraph OUT["推回前端的 WS 消息（按产生方分组）"]
+        O1[kind=session_created]
+        O2[kind=text / thinking]
+        O3[kind=stream_delta / stream_end]
+        O4[kind=tool_use / tool_result]
+        O5[kind=complete]
+        O6[kind=permission_request]
+        O7[kind=error]
+    end
+
+    I1 --> ROUTE
+    I2 --> ROUTE
+    I3 --> ROUTE
+    I4 --> ROUTE
+    ROUTE --> SVC
+    ROUTE -.->|requestId| APR
+    SVC <-->|can_use_tool 同步阻塞| APR
+
+    SVC --> M1 & M2 & M3 & M4 & M5
+    M1 --> NORM
+    M2 --> NORM
+    M3 -.->|hook/task 丢弃| DROP[/丢弃/]:::drop
+    M3 -->|init 通过| NORM
+    M4 --> NORM
+    M5 --> NORM
+
+    NORM --> O1
+    NORM --> O2
+    NORM --> O3
+    NORM --> O4
+    NORM --> O5
+    APR -.->|直接 emit 到 ws| O6
+    ROUTE -.->|异常 / 非法命令<br/>直接 emit 到 ws| O7
+
+    classDef drop fill:#ffebee,stroke:#c62828,stroke-dasharray:3 3
+    style IN fill:#e3f2fd,stroke:#1565c0
+    style SDK_LAYER fill:#fce4ec,stroke:#ad1457
+    style SDK_MSG fill:#f3e5f5,stroke:#6a1b9a
+    style OUT fill:#e8f5e9,stroke:#2e7d32

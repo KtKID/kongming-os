@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    participant UI as 前端 Web UI
+    participant WS as FastAPI WebSocket
+    participant ROUTE as route.py
+    participant SVC as service.py
+    participant APR as approval.py
+    participant SDK as claude_agent_sdk
+    participant NORM as normalizer.py
+
+    Note over UI,SDK: 用户发了一条 prompt，Claude 想用工具
+    UI->>WS: { type: "claude-command", command: "...", options: {...} }
+    WS->>ROUTE: 分发
+    ROUTE->>SVC: queryClaudeCode(command, options, ws)
+    SVC->>SDK: query(prompt, options) — async iterator
+    SDK->>APR: can_use_tool(toolName, input, ctx)
+    activate APR
+    Note over APR: requestId = ctx.tool_use_id<br/>创建 asyncio.Future
+    APR->>NORM: { kind: "permission_request", requestId, toolName, input }
+    NORM-->>UI: WebSocket push (经 ws.send_text)
+    UI->>UI: 弹审批 UI
+    UI-->>WS: { type: "claude-permission-response", requestId, allow: true }
+    WS->>ROUTE: 分发
+    ROUTE->>APR: resolve_approval(requestId, decision)
+    APR->>APR: Future.set_result(decision)
+    APR-->>SDK: PermissionResultAllow(updated_input=input)
+    deactivate APR
+
+    Note over SDK: SDK 继续，执行工具
+    SDK-->>SVC: AssistantMessage(ToolUseBlock)
+    SVC->>NORM: handle
+    NORM-->>UI: { kind: "tool_use", toolName, toolInput, toolId }
+    SDK-->>SVC: UserMessage(ToolResultBlock)
+    SVC->>NORM: handle
+    NORM-->>UI: { kind: "tool_result", toolId, content, isError }
+
+    Note over UI,SDK: 拒绝路径同理：APR 返回 PermissionResultDeny<br/>SDK 自动产生 ToolResultBlock(is_error=True) 由 normalizer 去重丢掉

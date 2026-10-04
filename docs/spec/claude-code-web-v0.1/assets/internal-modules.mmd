@@ -1,0 +1,33 @@
+flowchart TB
+    WS_IN([WebSocket 入站消息<br/>?thread_id 可选 v0.1.6]):::ext
+    WS_OUT([WebSocket 出站消息]):::ext
+    TM[thread_manager.py<br/>list_threads<br/>v0.1.6 thread_id 校验]:::ext
+
+    subgraph MODULE["src/web/integrations/claude_code/"]
+        ROUTE[route.py<br/>WebSocket endpoint 注册<br/>命令分发<br/>v0.1.6 thread_id 校验 + bound]
+        SVC[service.py<br/>ClaudeCodeService<br/>调 claude_agent_sdk.query<br/>SDK 选项装配<br/>v0.1.6 register_id_override]
+        APR[approval.py<br/>can_use_tool 回调<br/>asyncio Future 桥接]
+        NORM[normalizer.py<br/>SDK Message → 字典<br/>14 种 kind]
+        SM[session_manager.py<br/>active_sessions dict<br/>writer 替换 / 重连]
+    end
+
+    WS_IN --> ROUTE
+    ROUTE -.->|thread_id 校验<br/>list_threads + backend_kind| TM
+    ROUTE -->|claude-command<br/>含 bound_thread_id| SVC
+    ROUTE -->|claude-permission-response| APR
+    ROUTE -->|abort-session| SVC
+    ROUTE -->|check-session-status| SM
+    SVC -->|register thread_id 或 placeholder| SM
+    SVC <-->|can_use_tool 桥接| APR
+    APR -->|deny → add_pending_deny| NORM
+    SVC -->|SDK msg 喂入| NORM
+    NORM --> WS_OUT
+    APR -.->|permission_request 直发| WS_OUT
+    ROUTE -.->|error 兜底直发| WS_OUT
+
+    classDef ext fill:#fafafa,stroke:#888,stroke-dasharray:3 3
+    style ROUTE fill:#e3f2fd,stroke:#1565c0
+    style SVC fill:#fce4ec,stroke:#ad1457
+    style APR fill:#fff8e1,stroke:#f57c00
+    style NORM fill:#f3e5f5,stroke:#6a1b9a
+    style SM fill:#e8f5e9,stroke:#2e7d32

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Kongming Node 推送检查：验证真实 DSH profile、配置选择和 SDK 启动行为。
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+pnpm test

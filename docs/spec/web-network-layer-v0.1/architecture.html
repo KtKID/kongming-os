@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-network-layer-v0.1</title>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "default" });
+    </script>
+    <style>
+      body { margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, sans-serif; background: #f5f5f7; color: #1d1d1f; }
+      .card { max-width: 1280px; margin: 0 auto; background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08); }
+      h2 { margin-top: 32px; color: #1d1d1f; }
+      .legend { font-size: 13px; color: #666; margin-top: -8px; margin-bottom: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>web-network-layer-v0.1</h1>
+      <p class="legend">Network 层抽象总览。蓝色 = 已建网络层；橙色 = 当前 task-map 接入；灰色 = 现状保留；虚线 = 后续。</p>
+
+      <h2>前端架构（当前 task-map）</h2>
+      <pre class="mermaid">
+flowchart TD
+  classDef new fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:2px
+  classDef changed fill:#FFF4E5,stroke:#FF9500,color:#1D1D1F,stroke-width:1.5px
+  classDef untouched fill:#F2F2F7,stroke:#8E8E93,color:#1D1D1F,stroke-width:1px
+  classDef v02 fill:#FFFFFF,stroke:#C7C7CC,color:#8E8E93,stroke-width:1px,stroke-dasharray: 5 3
+
+  subgraph "业务组件 (不直接 new WebSocket)"
+    A1[ClaudeCodeView]
+    A2["Generic Chat view"]:::changed
+  end
+
+  subgraph "Hooks (生命周期桥)"
+    H1["useClaudeCodeWS<br/>改为薄包装"]:::changed
+    H2["generic transport owner<br/>NetworkManager 主链路"]:::changed
+  end
+
+  subgraph "Network 层 (本次新建)"
+    NM["NetworkManager<br/>(singleton)"]:::new
+    HB["Heartbeat 类<br/>(per-connection 实例)"]:::new
+    TL["tools.ts<br/>(私有工具)"]:::new
+  end
+
+  subgraph "Stores"
+    CS[connectionStatusStore]:::untouched
+  end
+
+  subgraph "当前 v0.2 task"
+    OS1["ThreadSocket/useWS/useStreamingRender (generic)<br/>已删除"]:::changed
+  end
+
+  subgraph "后续频道"
+    OS2["CodexSocket"]:::v02
+    OS3["useThreadStatusWS"]:::v02
+    OS4["scheduler/ws"]:::v02
+    OS5["workspace-shell ws"]:::v02
+  end
+
+  A1 --> H1
+  A2 --> H2
+  H1 --> NM
+  H2 --> NM
+  NM --> HB
+  NM -.内部调用.-> TL
+  HB -.内部调用.-> TL
+  NM --> CS
+  NM ==WebSocket==> WS["浏览器原生 WebSocket"]
+
+  OS1 -.迁移到.-> NM
+  OS2 -.v0.2.-> NM
+  OS3 -.v0.2.-> NM
+  OS4 -.v0.2.-> NM
+  OS5 -.v0.2.-> NM
+      </pre>
+
+      <h2>后端架构（当前 task-map）</h2>
+      <pre class="mermaid">
+flowchart TD
+  classDef new fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:2px
+  classDef changed fill:#FFF4E5,stroke:#FF9500,color:#1D1D1F,stroke-width:1.5px
+  classDef untouched fill:#F2F2F7,stroke:#8E8E93,color:#1D1D1F,stroke-width:1px
+  classDef v02 fill:#FFFFFF,stroke:#C7C7CC,color:#8E8E93,stroke-width:1px,stroke-dasharray: 5 3
+
+  subgraph "WS Routers"
+    R1["/ws/claude-code<br/>route.py 改造"]:::changed
+    R2["/ws/threads/{id}<br/>generic 当前接入"]:::changed
+    R3["/ws/codex"]:::v02
+    R4["/ws/thread-status"]:::v02
+    R5["/ws/cron"]:::v02
+  end
+
+  subgraph "Network 层 (本次新建)"
+    NM["NetworkManager<br/>(singleton)"]:::new
+    HB["Heartbeat 类<br/>(per-connection 实例)"]:::new
+    TL["tools.py<br/>(私有工具)"]:::new
+  end
+
+  subgraph "现状不动 (v0.1)"
+    WF["WebSocketFanout<br/>(thread fanout)"]:::untouched
+    BC1["ApprovalInboxBroadcaster"]:::untouched
+    BC2["CronWSBroker"]:::untouched
+    TS["thread_status_ws<br/>订阅者管理"]:::untouched
+  end
+
+  R1 --注册/路由--> NM
+  NM --> HB
+  NM -.内部.-> TL
+  HB -.内部.-> TL
+
+  R2 --注册/心跳拦截--> NM
+  R3 -.v0.2 收编.-> NM
+  R4 -.v0.2 收编.-> NM
+  R5 -.v0.2 收编.-> NM
+
+  BC1 -.v0.2 废弃.-> NM
+  BC2 -.v0.2 废弃.-> NM
+  TS -.v0.2 收编.-> NM
+      </pre>
+
+      <h2>多 Heartbeat 实例并发（v0.2 接入后场景）</h2>
+      <p class="legend">v0.1 实际只有 claude 一条线，但 NetworkManager 已经按 Map&lt;conn_id, Heartbeat&gt; 设计，v0.2 接入其他频道时不需要重写。</p>
+      <pre class="mermaid">
+flowchart LR
+  classDef new fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:1.5px
+
+  NM["NetworkManager<br/>heartbeats: Map&lt;conn_id, Heartbeat&gt;"]:::new
+  H1["Heartbeat<br/>conn=claude:thread-abc"]:::new
+  H2["Heartbeat<br/>conn=generic:thread-xyz<br/>(v0.2)"]
+  H3["Heartbeat<br/>conn=thread-status:global<br/>(v0.2)"]
+  H4["Heartbeat<br/>conn=codex:thread-def<br/>(v0.2)"]
+
+  NM --> H1
+  NM --> H2
+  NM --> H3
+  NM --> H4
+
+  H1 -.独立 timer + state.-> WS1[ws1]
+  H2 -.独立 timer + state.-> WS2[ws2]
+  H3 -.独立 timer + state.-> WS3[ws3]
+  H4 -.独立 timer + state.-> WS4[ws4]
+      </pre>
+
+      <h2>Import 边界（强制约束）</h2>
+      <pre class="mermaid">
+flowchart LR
+  classDef ok stroke:#34C759,color:#1D1D1F
+  classDef forbid stroke:#FF3B30,color:#1D1D1F,stroke-dasharray: 5 3
+
+  subgraph "业务层"
+    B1[claude_code/]
+    B2[threads/]
+    B3[approval/]
+  end
+
+  subgraph "Network 层"
+    NM["network/manager"]:::ok
+    HB["network/heartbeat"]:::ok
+    TL["network/tools<br/>(私有)"]:::ok
+  end
+
+  B1 --可以 import--> NM
+  B1 --可以 import--> HB
+  B1 -.禁止.-> TL
+  B2 --可以 import--> NM
+  B3 --可以 import--> NM
+
+  NM --> TL
+  HB --> TL
+  NM -.禁止反向.-> B1
+  HB -.禁止反向.-> B1
+      </pre>
+    </div>
+  </body>
+</html>

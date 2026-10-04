@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>multi-strategy-orchestration-v0.1 · 架构图</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1d1d1f;
+      background: #f5f5f7;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 24px;
+      color: #515154;
+      line-height: 1.5;
+    }
+    .diagram {
+      background: #fff;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      padding: 24px;
+      overflow: auto;
+    }
+  </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "base" });
+  </script>
+</head>
+<body>
+  <main>
+    <h1>multi-strategy-orchestration-v0.1 · 架构图</h1>
+    <p>多策略编排底座：LLM 通过中文 catalog / describe 选择策略，strategy 负责调度计划和归并规则，SubAgentManager 负责子 agent 生命周期，workflow runtime 负责审计和结果收口。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  classDef p0 fill:#E8F1FE,stroke:#0071E3,color:#1D1D1F,stroke-width:1.5px
+  classDef p1 fill:#FFF4E5,stroke:#FF9500,color:#1D1D1F,stroke-width:1.5px
+  classDef p2 fill:#F2F2F7,stroke:#8E8E93,color:#1D1D1F,stroke-width:1.5px
+
+  subgraph LlmLayer["LLM 可见层"]
+    LLM["LLM<br/>P0 · 选择策略和填写 payload"]:::p0
+    TOOL["AgentWorkflowTool v2<br/>P0 · list / describe / run"]:::p0
+    DESC["WorkflowStrategyDescription<br/>P0 · 中文策略说明"]:::p0
+  end
+
+  subgraph RuntimeLayer["Runtime 编排层"]
+    HANDLE["AgentWorkflowHandle<br/>P0 · late-bound manager"]:::p0
+    FACADE["AgentWorkflowManager<br/>P0 · 公开 facade"]:::p0
+    SMGR["AgentWorkflowStrategyManager<br/>P0 · registry + dispatch"]:::p0
+    CTX["WorkflowExecutionContext<br/>P0 · audit/result 上下文"]:::p0
+    STRAT["WorkflowStrategy<br/>P0 · 调度协议"]:::p0
+  end
+
+  subgraph Strategies["策略实现"]
+    PAR["ParallelWorkflowStrategy<br/>P0 · 已接入 registry"]:::p0
+    MAP["MapReduceStrategy<br/>P0 · 独立策略包接入"]:::p0
+    DAG["PipelineDagStrategy<br/>P2 · 依赖图调度"]:::p2
+    PANEL["ReviewPanelStrategy<br/>P2 · 多视角审查"]:::p2
+    SUP["SupervisorWorkerStrategy<br/>P2 · 迭代派活"]:::p2
+  end
+
+  subgraph Execution["执行与产物"]
+    SUB["SubAgentManager<br/>P0 · 创建和运行子 agent"]:::p0
+    AUDIT["Workflow Audit Files<br/>P0 · workflow/result/report"]:::p0
+  end
+
+  LLM --> TOOL --> HANDLE --> FACADE --> SMGR
+  SMGR --> DESC
+  SMGR --> CTX
+  SMGR --> STRAT
+  STRAT --> PAR
+  STRAT --> MAP
+  STRAT -.-> DAG
+  STRAT -.-> PANEL
+  STRAT -.-> SUP
+  PAR --> SUB
+  MAP --> SUB
+  DAG -.-> SUB
+  PANEL -.-> SUB
+  SUP -.-> SUB
+  CTX --> AUDIT
+  SUB --> AUDIT
+      </pre>
+    </div>
+  </main>
+</body>
+</html>

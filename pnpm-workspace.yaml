@@ -1,0 +1,5 @@
+# Kongming 自有包；DSH 使用子模块内部独立的工作区与锁文件。
+packages:
+  - bundles/*
+  - packages/*
+  - '!third_party/**'

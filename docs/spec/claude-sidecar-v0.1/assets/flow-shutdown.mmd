@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant DRV as XSpace Driver
+    participant CMD as Command Parser
+    participant LIFE as Lifecycle Manager
+    participant SDKB as SDK Bridge
+    participant SDK as claude_agent_sdk
+    participant ENT as Entrypoint
+
+    alt 显式 shutdown
+        DRV->>CMD: stdin: shutdown{threadId, reason?}
+        CMD->>LIFE: dispatch shutdown
+    else stdin EOF
+        DRV-->>CMD: stdin closed
+        CMD->>LIFE: dispatch shutdown(reason=stdin_closed)
+    end
+
+    Note over LIFE: 如果有进行中 run，先 interrupt
+    LIFE->>SDKB: client.disconnect()
+    SDKB->>SDK: terminate
+    SDK-->>SDKB: ok
+    LIFE->>ENT: exit code 0
+    ENT->>ENT: 进程退出

@@ -1,0 +1,16 @@
+{
+  "name": "@kmh/profile-headless",
+  "private": true,
+  "dependencies": {
+    "@kmh/bundle-kongming": "link:../../bundles/kongming"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-headless",
+        "@kmh/bundle-kongming"
+      ]
+    }
+  }
+}

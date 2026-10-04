@@ -1,0 +1,9 @@
+{
+  "name": "@kmh/profile-web",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}

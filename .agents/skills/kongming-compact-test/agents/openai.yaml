@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kongming Compact Test"
+  short_description: "运行 Kongming 上下文压缩真实 E2E 并核对 checkpoint、dump 和 token"
+  default_prompt: "使用 kongming-compact-test 在 60000 正式 Web runtime 上主动触发 /compact，检查 FileSession checkpoint、用户语言和新增事实、raw dump、system prompt 与压缩前后 usage，并恢复测试环境。"

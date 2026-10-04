@@ -1,0 +1,23 @@
+{
+  "name": "@kmh/workspace",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "setup": "node scripts/kmh.mjs setup",
+    "build": "node scripts/kmh.mjs build",
+    "cli": "node scripts/kmh.mjs cli",
+    "web": "node scripts/kmh.mjs web",
+    "config:web": "node scripts/kmh.mjs web --dump-config",
+    "sdk": "node scripts/kmh.mjs sdk",
+    "dsh": "node scripts/kmh.mjs dsh",
+    "profiles": "node scripts/kmh.mjs profiles",
+    "hooks": "node scripts/install-hooks.mjs",
+    "test": "node --test tests/runtime/*.test.mjs",
+    "typecheck": "pnpm --dir third_party/dsh run typecheck",
+    "lint": "node --check scripts/kmh.mjs && node --check scripts/install-hooks.mjs"
+  }
+}

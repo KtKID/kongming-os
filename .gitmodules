@@ -1,0 +1,4 @@
+[submodule "dsh"]
+	path = third_party/dsh
+	url = https://github.com/KtKID/deepseek-harness.git
+	branch = kmh/runtime-core
