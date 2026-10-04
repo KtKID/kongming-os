@@ -107,3 +107,10 @@ vendor/**/src/**/*.d.ts.map
 /profiles/*/node_modules/
 /profiles/*/cordis.yml
 /profiles/*/pnpm-lock.yaml
+/packages/*/lib/
+
+# codegraph 本地索引缓存与可视化产物（SQLite 索引 + 生成的 HTML，不入仓）
+/.codegraph/
+
+# 本地临时目录（kmh 运行数据与迁移备份）
+/tmp/
