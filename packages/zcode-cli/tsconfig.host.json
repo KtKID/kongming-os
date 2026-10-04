@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": "lib",
+    "declaration": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "rewriteRelativeImportExtensions": true,
+    "composite": true,
+    "tsBuildInfoFile": "lib/host.tsbuildinfo",
+    "noEmitOnError": true
+  },
+  "include": ["src/**/*.ts", "vendor/**/*.ts"],
+  "exclude": ["src/client"]
+}

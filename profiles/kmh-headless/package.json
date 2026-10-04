@@ -2,7 +2,8 @@
   "name": "@kmh/profile-headless",
   "private": true,
   "dependencies": {
-    "@kmh/bundle-kongming": "link:../../bundles/kongming"
+    "@kmh/bundle-kongming": "link:../../bundles/kongming",
+    "@kmh/kmh-echo": "link:../../packages/kmh-echo"
   },
   "dsh": {
     "profile": {

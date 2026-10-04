@@ -1,0 +1,4 @@
+Credential cipher from zai-org/ZCode, Apache-2.0.
+Source commit: 29628c9acdb81b703bbd4080c207a0e7ce5e276e
+Source: apps/zcode-cli/packages/adapters/src/auth/credential-cipher.ts
+Original source retained unchanged.

@@ -4,6 +4,14 @@
 # package.json 的 bundles 保持 []；此文件完整定义插件树。
 # 上游原配置：upstream.cordis.yml；插件字段定义见 README.md。
 - insert:
+    - id: kmh-zcode-cli
+      name: '@kmh/zcode-cli'
+      config:
+        providerId: account:bigmodel-individual-coding-plan
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('zcode-cli')
+    - id: kmh-echo
+      name: '@kmh/kmh-echo'
     # == upstream.cordis.yml
     - id: tool-plugin-manager
       name: '@deepseek-ai/dsh-plugin-manager/tools'

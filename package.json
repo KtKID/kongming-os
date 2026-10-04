@@ -9,6 +9,7 @@
   "scripts": {
     "setup": "node scripts/kmh.mjs setup",
     "build": "node scripts/kmh.mjs build",
+    "build:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli build",
     "cli": "node scripts/kmh.mjs cli",
     "web": "node scripts/kmh.mjs web",
     "config:web": "node scripts/kmh.mjs web --dump-config",
@@ -16,8 +17,19 @@
     "dsh": "node scripts/kmh.mjs dsh",
     "profiles": "node scripts/kmh.mjs profiles",
     "hooks": "node scripts/install-hooks.mjs",
-    "test": "node --test tests/runtime/*.test.mjs",
-    "typecheck": "pnpm --dir third_party/dsh run typecheck",
-    "lint": "node --check scripts/kmh.mjs && node --check scripts/install-hooks.mjs"
+    "test": "node --test --test-concurrency=1 tests/runtime/*.test.mjs",
+    "pretest": "pnpm build:kmh",
+    "typecheck": "pnpm typecheck:kmh && pnpm --dir third_party/dsh run typecheck",
+    "typecheck:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli typecheck",
+    "lint": "node --check scripts/kmh.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli lint",
+    "format:check": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli format:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^22.20.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.7.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.57.0"
   }
 }

@@ -1,0 +1,14 @@
+{
+  "name": "@kmh/profile-mini",
+  "private": true,
+  "dependencies": {
+    "@kmh/bundle-mini": "link:../../bundles/mini"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@kmh/bundle-mini"
+      ]
+    }
+  }
+}

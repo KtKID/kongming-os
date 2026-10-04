@@ -1,0 +1,51 @@
+/** Deployment configuration for official CLI execution and account isolation. */
+import schema from "@deepseek-ai/schemastery";
+import { isAbsolute } from "node:path";
+const absolute = schema
+  .transform(schema.string().required(), (value) => {
+    if (!isAbsolute(value))
+      throw new schema.ValidationError("Expected absolute path", { path: [] });
+    return value;
+  })
+  .required();
+/** Configurable executable, storage, model identity and process limits. */
+export const Config = schema.object({
+  command: schema.string().default("zcode"),
+  cwd: absolute,
+  dataDir: absolute,
+  builtinConfigFile: schema.string().default(""),
+  personalConfigFile: schema.string().default(""),
+  providerId: schema
+    .union([
+      schema.const("account:zai-individual-coding-plan"),
+      schema.const("account:bigmodel-individual-coding-plan"),
+    ])
+    .default("account:bigmodel-individual-coding-plan"),
+  model: schema.string().default("glm-5.3-flash"),
+  nativeModel: schema.string().default("GLM-5.3-Flash"),
+  apiBaseUrl: schema
+    .transform(
+      schema.string().default("https://open.bigmodel.cn/api/coding/paas/v4"),
+      (value) => {
+        const url = new URL(value);
+        if (url.protocol !== "https:" || url.username || url.password)
+          throw new schema.ValidationError("Expected HTTPS model endpoint", {
+            path: [],
+          });
+        return url.href.replace(/\/$/, "");
+      },
+    )
+    .default("https://open.bigmodel.cn/api/coding/paas/v4"),
+  allowedTools: schema.array(schema.string()).default(["read"]),
+  reasoningLevel: schema.const("high").default("high"),
+  defaultMaxTokens: schema.natural().min(1).max(2147483647).default(1000000),
+  requestTimeoutMs: schema.natural().min(1).max(2147483647).default(360000),
+  probeTimeoutMs: schema.natural().min(1).max(2147483647).default(15000),
+  probeMaxTokens: schema.natural().min(1).default(1),
+  loginTimeoutMs: schema.natural().min(1).max(2147483647).default(1200000),
+  graceMs: schema.natural().min(1).max(2147483647).default(1500),
+  maxLoginOutputBytes: schema.natural().min(1024).default(32768),
+  env: schema.dict(schema.string()).default({}),
+});
+/** Validated CLI settings. */
+export type Config = ReturnType<typeof Config>;

@@ -1,0 +1,3 @@
+# kmh-mini：组合验证 profile。插件树由 @kmh/bundle-mini 独立定义（仅 system-prompt），
+# 本层当前为空；需要覆盖 bundle 行时在此按 id 写 overlay。
+[]

@@ -1,0 +1,118 @@
+/** Locale-owned account and connection controls in Plugins. */
+export const zh = {
+  title: "kmh/zcode-cli",
+  description: "通过本机 ZCode CLI 使用模型，管理账号登录与连通测试。",
+  intro:
+    "在官方页面完成 Z.ai 账号授权。KMH 使用本机官方 CLI 中的模型，管理提示、工具和任务执行。",
+  bigmodelIntro:
+    "使用智谱 BigModel 账号登录。打开官方授权页，选择微信登录并扫码；授权后返回此页查看结果。KMH 管理提示、工具和任务执行。",
+  bigmodelLogin: "微信 / BigModel 登录",
+  bigmodelQr:
+    "二维码打开官方授权页。微信登录请在电脑打开官方授权页，选择微信后扫描官方显示的登录码。",
+  account: "账号",
+  credentialSource: "凭据来源",
+  sourcePlugin: "本插件登录",
+  sourceDesktop: "复用桌面端登录",
+  loading: "正在读取账号…",
+  model: "默认模型",
+  reasoning: "思考等级",
+  connection: "模型连接",
+  high: "高",
+  idle: "未登录",
+  starting: "正在获取授权地址",
+  waiting: "等待你完成授权",
+  signedIn: "已登录",
+  cancelled: "已取消",
+  failed: "失败",
+  unchecked: "待验证",
+  registered: "账号已注册，模型请求待验证",
+  ready: "模型请求已验证",
+  login: "登录 Z.ai",
+  retry: "重新登录",
+  cancel: "取消登录",
+  logout: "退出账号",
+  check: "测试连接",
+  checking: "测试中…",
+  probeTimeout: "连接测试超时，请重试。",
+  open: "打开官方授权页",
+  qr: "用手机扫描二维码，或打开官方授权页完成登录。",
+  back: "返回 KMH",
+  network: "连接失败，请刷新后重试。",
+  timeout: "授权超时，请重新登录。",
+  missing: "请安装官方 ZCode CLI，或配置程序路径。",
+  loginFailed: "官方登录启动失败，请检查 CLI 与网络后重试。",
+  credential: "账号凭据读取失败，请检查插件目录。",
+  loginRequired: "请先完成账号登录。",
+  modelFailed: "模型连接失败，请检查网络、CLI 版本与账号权益。",
+  registrationFailed:
+    "CLI 账号模型注册失败，请检查插件与官方 CLI 的版本兼容性。账号登录已保留。",
+  personalConfigInvalid:
+    "CLI 个人配置读取失败，请检查插件配置中的文件路径和内容。",
+  attemptChanged: "登录状态已变化，请刷新页面。",
+  actionFailed: "操作失败，请重试。",
+  errorCode: "错误码",
+  nativeCode: "CLI 错误码",
+  nativeMessage: "CLI 提示",
+};
+/** Keys accepted by the Plugins account locale reader. */
+export type LocaleKey = keyof typeof zh;
+type Copy = Record<LocaleKey, string>;
+export const en: Copy = {
+  title: "kmh/zcode-cli",
+  description:
+    "Use models through the local ZCode CLI and manage account sign-in and connection testing.",
+  intro:
+    "Authorize your Z.ai account on the official website. KMH uses the local official CLI model and owns prompts, tools and execution.",
+  bigmodelIntro:
+    "Sign in with your BigModel account. Open the official authorization page, choose WeChat and scan its sign-in code, then return here to check the result. KMH owns prompts, tools and tasks.",
+  bigmodelLogin: "WeChat / BigModel sign-in",
+  bigmodelQr:
+    "This code opens the official authorization page. For WeChat, open that page on your computer, choose WeChat and scan the sign-in code displayed there.",
+  account: "Account",
+  credentialSource: "Credential source",
+  sourcePlugin: "Signed in here",
+  sourceDesktop: "Reusing desktop sign-in",
+  loading: "Loading account…",
+  model: "Default model",
+  reasoning: "Reasoning",
+  connection: "Model connection",
+  high: "High",
+  idle: "Signed out",
+  starting: "Getting authorization URL",
+  waiting: "Waiting for your authorization",
+  signedIn: "Signed in",
+  cancelled: "Cancelled",
+  failed: "Failed",
+  unchecked: "Awaiting verification",
+  registered: "Account registered; model request pending",
+  ready: "Model request verified",
+  login: "Sign in to Z.ai",
+  retry: "Sign in again",
+  cancel: "Cancel sign-in",
+  logout: "Sign out",
+  check: "Test connection",
+  checking: "Testing…",
+  probeTimeout: "Connection test timed out. Please retry.",
+  open: "Open official authorization page",
+  qr: "Scan with your phone or open the official page to sign in.",
+  back: "Back to KMH",
+  network: "Connection failed. Refresh and retry.",
+  timeout: "Authorization expired. Sign in again.",
+  missing: "Install the official ZCode CLI or configure its executable path.",
+  loginFailed:
+    "Official sign-in failed to start. Check the CLI and network, then retry.",
+  credential:
+    "Unable to read account credentials. Check the plugin data directory.",
+  loginRequired: "Complete account sign-in first.",
+  modelFailed:
+    "Model connection failed. Check the network, CLI version and account access.",
+  registrationFailed:
+    "CLI account model registration failed. Check plugin and official CLI compatibility. Your sign-in is preserved.",
+  personalConfigInvalid:
+    "Unable to read CLI personal configuration. Check the configured file path and contents.",
+  attemptChanged: "Sign-in state changed. Refresh this page.",
+  actionFailed: "Action failed. Please retry.",
+  errorCode: "Error code",
+  nativeCode: "CLI error code",
+  nativeMessage: "CLI message",
+};

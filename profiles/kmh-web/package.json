@@ -1,6 +1,10 @@
 {
   "name": "@kmh/profile-web",
   "private": true,
+  "dependencies": {
+    "@kmh/kmh-echo": "link:../../packages/kmh-echo",
+    "@kmh/zcode-cli": "link:../../packages/zcode-cli"
+  },
   "dsh": {
     "profile": {
       "bundles": []

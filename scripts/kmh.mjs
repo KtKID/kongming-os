@@ -1,5 +1,5 @@
 /**
- * Kongming 的 DSH 启动入口：setup 安装独立子模块，build 构建，cli/web/sdk 选择自有 profile。
+ * Kongming 的 DSH 启动入口：setup 安装独立子模块，build 构建底座与自有插件，cli/web/sdk 选择自有 profile。
  * prepareProfiles 注册仓库内 profile/bundle；run 转发命令、工作目录、环境与退出状态。
  * profile 配置由 Kongming 版本控制；会话、凭据和日志写入 KMH_HOME（默认 .kmh）。
  * readLaunchProfiles 读取 launch.config.json 中短命令对应的 profile，并验证目录。
@@ -90,6 +90,7 @@ export function main(args = process.argv.slice(2)) {
   if (!existsSync(join(runtime, '.git'))) throw new Error('请先运行 pnpm run setup 初始化 DSH 子模块');
   if (command === 'build') {
     run(pnpm, ['run', 'build'], runtime);
+    run(pnpm, ['run', 'build:kmh']);
     return;
   }
   const home = resolve(process.env.KMH_HOME ?? join(root, '.kmh'));

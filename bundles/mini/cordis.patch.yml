@@ -1,0 +1,8 @@
+# Kongming 最小组合 bundle：此 insert 作用于 profile 空根之上，本身就是完整插件树，
+# 仅挂载 system-prompt 一个插件。叠加它的 profile 见 profiles/kmh-mini。
+- insert:
+    - id: system-prompt
+      name: '@deepseek-ai/dsh-system-prompt'
+      config:
+        includeHarnessIdentity: false
+        personaPrefix: You are Kongming Mini.
