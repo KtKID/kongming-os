@@ -255,7 +255,7 @@ test("login timeout clears the authorization URL and HTTP cancel rejects malform
   assert.equal(response.status, 400);
 });
 
-test("provider forwards only read while keeping the caller's tools and KMH system intact", async (t) => {
+test("provider forwards every caller tool while keeping KMH system intact", async (t) => {
   const { runtime, dir } = await fixture(t, "loop");
   await runtime.login();
   await until(runtime, "signed-in");
@@ -284,10 +284,6 @@ test("provider forwards only read while keeping the caller's tools and KMH syste
   const request = JSON.parse(readFileSync(join(dir, "requests.jsonl"), "utf8"));
   assert.deepEqual(
     request.tools.map((tool) => tool.name),
-    ["read"],
-  );
-  assert.deepEqual(
-    options.tools.map((tool) => tool.name),
     ["read", "shell"],
   );
   assert.equal(request.messages[0].content, options.system);
