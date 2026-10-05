@@ -21,8 +21,9 @@ export const Config = schema.object({
       schema.const("account:bigmodel-individual-coding-plan"),
     ])
     .default("account:bigmodel-individual-coding-plan"),
-  model: schema.string().default("glm-5.3-flash"),
-  nativeModel: schema.string().default("GLM-5.3-Flash"),
+  // 空 model 表示自动：登录后按官方模板与服务端模型列表的交集确定可用模型，
+  // 交集首选即默认模型；非空值固定为该模型（仍须在动态列表内）。
+  model: schema.string().default(""),
   apiBaseUrl: schema
     .transform(
       schema.string().default("https://open.bigmodel.cn/api/coding/paas/v4"),

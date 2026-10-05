@@ -18,6 +18,12 @@ import { loginBigModel } from "./bigmodel-login.ts";
 import { preparePersonalConfig } from "./personal-config.ts";
 import { extractAuthorizeUrl } from "./authorize-url.ts";
 import { projectRequest, GenerationResult } from "./protocol.ts";
+import {
+  builtinTemplateModels,
+  fetchAccountModels,
+  resolveCatalog,
+  type ModelEntry,
+} from "./models.ts";
 import { ReasoningEffortId, type GenerateOptions } from "@deepseek-ai/dsh-llm";
 
 import type { PublicStatus } from "./status.ts";
@@ -66,6 +72,7 @@ export class ZcodeCli extends Service {
   private readonly processes = new Set<SubprocessHandle>();
   private readonly lifetime = new AbortController();
   private attempt: Attempt | undefined;
+  private catalog: Promise<ModelEntry[]> | undefined;
   private state: PublicStatus;
   constructor(
     ctx: Context,
@@ -80,7 +87,10 @@ export class ZcodeCli extends Service {
     };
     ctx.effect(() => () => this.dispose(), "zcode-cli: processes");
   }
-  private async paths(signal?: AbortSignal): Promise<Paths> {
+  private async paths(
+    signal?: AbortSignal,
+    nativeIds: readonly string[] = [],
+  ): Promise<Paths> {
     await mkdir(this.config.dataDir, { recursive: true, mode: 0o700 });
     let command: string;
     try {
@@ -108,12 +118,64 @@ export class ZcodeCli extends Service {
       ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtinPath,
       ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: await preparePersonalConfig(
         this.config,
+        nativeIds,
       ),
     };
     const secret = process.env.ZCODE_CREDENTIAL_SECRET;
     if (secret !== undefined && env.ZCODE_CREDENTIAL_SECRET === undefined)
       env.ZCODE_CREDENTIAL_SECRET = secret;
     return { executable, builtin: builtinPath, env };
+  }
+  /**
+   * Resolve the account's usable models, caching until the next login change.
+   * The catalog head is the default model: the configured fixed model when set,
+   * otherwise the official template order intersected with the account endpoint.
+   */
+  private async resolveCatalog(signal?: AbortSignal): Promise<ModelEntry[]> {
+    if (this.catalog) return this.catalog;
+    const load = (async (): Promise<ModelEntry[]> => {
+      const fetchSignal = AbortSignal.any([
+        this.lifetime.signal,
+        AbortSignal.timeout(this.config.probeTimeoutMs),
+        ...(signal ? [signal] : []),
+      ]);
+      const paths = await this.paths(fetchSignal);
+      const account = await readAccount(
+        this.config.dataDir,
+        this.config.providerId,
+        paths.env,
+      );
+      if (!account) throw new Error("ZCODE_LOGIN_REQUIRED");
+      let accountIds: string[];
+      try {
+        accountIds = await fetchAccountModels(
+          this.config.apiBaseUrl,
+          account.apiKey,
+          fetchSignal,
+        );
+      } catch (error) {
+        if (signal?.aborted) throw new Error("ZCODE_REQUEST_CANCELLED");
+        if (fetchSignal.aborted) throw new Error("ZCODE_PROBE_TIMEOUT");
+        if (!this.config.model) throw error;
+        // 显式固定模型时即使模型端点不可用也保持旧行为：仅提供该模型。
+        return resolveCatalog([], [], this.config.model);
+      }
+      const builtin = await builtinTemplateModels(
+        paths.builtin,
+        this.config.apiBaseUrl,
+      );
+      return resolveCatalog(builtin, accountIds, this.config.model);
+    })();
+    this.catalog = load;
+    try {
+      const entries = await load;
+      const head = entries[0];
+      if (head !== undefined) this.state.model = head.id;
+      return entries;
+    } catch (error) {
+      if (this.catalog === load) this.catalog = undefined;
+      throw error;
+    }
   }
   /**
    * Resolve the requesting session's workspace directory when the sessions
@@ -233,13 +295,15 @@ export class ZcodeCli extends Service {
           paths.env,
           signal,
         );
-        if (this.attempt?.id === id)
+        if (this.attempt?.id === id) {
+          this.catalog = undefined;
           this.state = {
             login: "signed-in",
             connection: "unchecked",
             model: this.config.model,
             reasoning: this.config.reasoningLevel,
           };
+        }
         return;
       }
       child = this.spawn(paths, ["login", "--no-browser", "--json"], signal);
@@ -292,13 +356,15 @@ export class ZcodeCli extends Service {
           paths.env,
         );
         if (!account) throw new Error("ZCODE_LOGIN_CREDENTIAL_MISSING");
-        if (this.attempt?.id === id)
+        if (this.attempt?.id === id) {
+          this.catalog = undefined;
           this.state = {
             login: "signed-in",
             connection: "unchecked",
             model: this.config.model,
             reasoning: this.config.reasoningLevel,
           };
+        }
       } finally {
         stdoutStream?.off("data", onOut);
         stderrStream?.off("data", onErr);
@@ -381,6 +447,7 @@ export class ZcodeCli extends Service {
       child.terminate();
       await child.done.catch(() => undefined);
     }
+    this.catalog = undefined;
     this.state = {
       login: "idle",
       connection: "unchecked",
@@ -392,8 +459,12 @@ export class ZcodeCli extends Service {
     run: (rpc: JsonRpcLineTransport) => Promise<T>,
     signal: AbortSignal,
     requestCwd?: string,
+    catalog: readonly ModelEntry[] = [],
   ): Promise<T> {
-    const paths = await this.paths(signal);
+    const paths = await this.paths(
+      signal,
+      catalog.map((entry) => entry.nativeId),
+    );
     const account = await readAccount(
       this.config.dataDir,
       this.config.providerId,
@@ -437,7 +508,9 @@ export class ZcodeCli extends Service {
       if (
         request.providerId !== this.config.providerId ||
         request.modelSelection.providerId !== this.config.providerId ||
-        request.modelSelection.modelId !== this.config.nativeModel
+        !catalog.some(
+          (entry) => entry.nativeId === request.modelSelection.modelId,
+        )
       )
         throw new Error("ZCODE_AUTH_ROUTE_MISMATCH");
       return Promise.resolve({
@@ -457,7 +530,7 @@ export class ZcodeCli extends Service {
           providers: {
             [this.config.providerId]: {
               access: { type: "zhipu-account", entitled: true },
-              builtinModelIds: [this.config.nativeModel],
+              builtinModelIds: catalog.map((entry) => entry.nativeId),
             },
           },
           states: {
@@ -511,6 +584,13 @@ export class ZcodeCli extends Service {
       await child.done.catch(() => undefined);
     }
   }
+  /**
+   * @returns The account's usable models; the head is the default model.
+   * Requires a completed sign-in and reaches the account model endpoint once.
+   */
+  models(signal?: AbortSignal): Promise<readonly ModelEntry[]> {
+    return this.resolveCatalog(signal);
+  }
   /** Require completed sign-in, then send a separately bounded ping with no tools. */
   async check(): Promise<void> {
     if ((await this.status()).login !== "signed-in")
@@ -520,9 +600,12 @@ export class ZcodeCli extends Service {
       AbortSignal.timeout(this.config.probeTimeoutMs),
     ]);
     try {
+      const catalog = await this.resolveCatalog(signal);
+      const head = catalog[0];
+      if (head === undefined) throw new Error("ZCODE_MODELS_UNAVAILABLE");
       await this.generate({
         provider: "zcode-cli",
-        model: this.config.model,
+        model: head.id,
         reasoningEffort: ReasoningEffortId("low"),
         messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
         tools: [],
@@ -548,6 +631,12 @@ export class ZcodeCli extends Service {
    * @returns Validated by the adapter before emitting KMH events.
    */
   async generate(options: GenerateOptions): Promise<unknown> {
+    const catalog = await this.resolveCatalog(options.signal);
+    const entry =
+      options.model === undefined
+        ? catalog[0]
+        : catalog.find((item) => item.id === options.model?.toLowerCase());
+    if (entry === undefined) throw new Error("ZCODE_MODEL_UNAVAILABLE");
     const request = projectRequest({
       ...options,
       tools: (options.tools ?? []).filter((tool) =>
@@ -572,7 +661,7 @@ export class ZcodeCli extends Service {
             },
             selection: {
               providerId: this.config.providerId,
-              modelId: this.config.nativeModel,
+              modelId: entry.nativeId,
               options: {
                 reasoningLevel:
                   options.reasoningEffort ?? this.config.reasoningLevel,
@@ -588,6 +677,7 @@ export class ZcodeCli extends Service {
         ),
       signal,
       requestCwd,
+      catalog,
     );
     const validated = GenerationResult.parse(result);
     if (

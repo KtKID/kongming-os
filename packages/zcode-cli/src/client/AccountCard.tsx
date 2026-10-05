@@ -53,6 +53,9 @@ function errorKey(code: string): LocaleKey {
       return "registrationFailed";
     case "ZCODE_PERSONAL_CONFIG_INVALID":
       return "personalConfigInvalid";
+    case "ZCODE_MODELS_ENDPOINT_FAILED":
+    case "ZCODE_MODELS_ENDPOINT_EMPTY":
+      return "modelsUnavailable";
     case "ZCODE_LOGIN_ATTEMPT_CHANGED":
       return "attemptChanged";
     default:

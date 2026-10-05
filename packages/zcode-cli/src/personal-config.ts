@@ -53,11 +53,15 @@ const personal = z
   .passthrough();
 
 /**
- * Apply the model endpoint and output-token ceiling through the official personal configuration channel.
+ * Apply the model endpoint and output-token ceilings through the official personal configuration channel.
  * @param config - Validated plugin settings; an explicit source file must exist.
+ * @param nativeIds - Model identifiers needing the raised output-token ceiling.
  * @returns Plugin-owned file path passed to the CLI.
  */
-export async function preparePersonalConfig(config: Config): Promise<string> {
+export async function preparePersonalConfig(
+  config: Config,
+  nativeIds: readonly string[],
+): Promise<string> {
   let base: z.infer<typeof personal> = {
     schemaVersion: 1,
     config: {
@@ -97,39 +101,44 @@ export async function preparePersonalConfig(config: Config): Promise<string> {
     ...rules.filter((entry) => entry.providerId !== config.providerId),
     overlay,
   ];
-  // CLI 0.16.9 将 maxOutputTokens 视为必填并按合并后规格校验上限；内置 GLM-5.3-Flash
-  // 规格上限 128000，低于会话默认输出上限，须在个人配置中同步抬高才能放行默认请求。
-  const modelRules = base.config.modelConfigRules.providerModelRules;
-  const currentModel = modelRules.find(
-    (entry) =>
-      entry.providerId === config.providerId &&
-      entry.modelId === config.nativeModel,
-  );
-  const modelOverlay = {
-    ...currentModel,
-    providerId: config.providerId,
-    modelId: config.nativeModel,
-    config: {
-      ...currentModel?.config,
-      optionSpecs: {
-        ...currentModel?.config?.optionSpecs,
-        maxOutputTokens: {
-          ...currentModel?.config?.optionSpecs?.maxOutputTokens,
-          max: config.defaultMaxTokens,
-        },
-      },
-    },
-  };
-  base.config.modelConfigRules.providerModelRules = [
-    ...modelRules.filter(
+  // CLI 0.16.9 将 maxOutputTokens 视为必填并按合并后规格校验上限；内置模型规格
+  // 上限（如 GLM-5.3-Flash 的 128000）低于会话默认输出上限，动态清单里的每个模型
+  // 都须在个人配置中抬高才能放行默认请求。
+  if (nativeIds.length > 0) {
+    const modelRules = base.config.modelConfigRules.providerModelRules;
+    // 目录 ID 与服务端拼写一致（小写），源文件规则可能用官方大写拼写，按小写归一。
+    const raised = new Set(nativeIds.map((id) => id.toLowerCase()));
+    const kept = modelRules.filter(
       (entry) =>
         !(
           entry.providerId === config.providerId &&
-          entry.modelId === config.nativeModel
+          raised.has(entry.modelId.toLowerCase())
         ),
-    ),
-    modelOverlay,
-  ];
+    );
+    for (const modelId of nativeIds) {
+      const currentModel = modelRules.find(
+        (entry) =>
+          entry.providerId === config.providerId &&
+          entry.modelId.toLowerCase() === modelId.toLowerCase(),
+      );
+      kept.push({
+        ...currentModel,
+        providerId: config.providerId,
+        modelId,
+        config: {
+          ...currentModel?.config,
+          optionSpecs: {
+            ...currentModel?.config?.optionSpecs,
+            maxOutputTokens: {
+              ...currentModel?.config?.optionSpecs?.maxOutputTokens,
+              max: config.defaultMaxTokens,
+            },
+          },
+        },
+      });
+    }
+    base.config.modelConfigRules.providerModelRules = kept;
+  }
   const file = join(config.dataDir, "kmh-model-provider.json");
   const temporary = join(config.dataDir, `.model-provider-${randomUUID()}.tmp`);
   try {

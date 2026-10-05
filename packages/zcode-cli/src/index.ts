@@ -30,35 +30,38 @@ export class ZcodeAdapter extends LlmAdapter {
   override providerInfo(provider: string): { id: string; name: string } {
     return { id: provider, name: "KMH / ZCode CLI" };
   }
-  override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
-    return Promise.resolve([
-      {
-        provider,
-        id: this.runtime.config.model,
-        name: this.runtime.config.nativeModel,
-        inputModalities: ["text"],
-      },
-    ]);
+  override async listModels(
+    provider: string,
+  ): Promise<readonly LlmModelInfo[]> {
+    return (await this.runtime.models()).map((entry) => ({
+      provider,
+      id: entry.id,
+      name: entry.name,
+      inputModalities: ["text"],
+    }));
   }
-  override resolveModel(
+  override async resolveModel(
     provider: string,
     model: string,
   ): Promise<LlmResolvedModelInfo> {
-    if (provider !== "zcode-cli" || model !== this.runtime.config.model)
+    const entry = (await this.runtime.models()).find(
+      (candidate) => candidate.id === model.toLowerCase(),
+    );
+    if (provider !== "zcode-cli" || entry === undefined)
       return Promise.reject(
         new LlmError("ZCode model route is unavailable", "INVALID_MODEL"),
       );
-    return Promise.resolve({
+    return {
       provider,
-      id: model,
-      name: this.runtime.config.nativeModel,
+      id: entry.id,
+      name: entry.name,
       inputModalities: ["text"],
       defaultMaxTokens: this.runtime.config.defaultMaxTokens,
       reasoning: {
         efforts: [{ id: ReasoningEffortId("high"), name: "High" }],
         defaultEffort: ReasoningEffortId("high"),
       },
-    });
+    };
   }
   override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     await this.resolveModel(options.provider, options.model);

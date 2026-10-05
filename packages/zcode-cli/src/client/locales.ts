@@ -48,6 +48,8 @@ export const zh = {
     "CLI 账号模型注册失败，请检查插件与官方 CLI 的版本兼容性。账号登录已保留。",
   personalConfigInvalid:
     "CLI 个人配置读取失败，请检查插件配置中的文件路径和内容。",
+  modelsUnavailable:
+    "账号模型目录查询失败，请检查网络后重试；也可以在插件配置填入固定 model。",
   attemptChanged: "登录状态已变化，请刷新页面。",
   actionFailed: "操作失败，请重试。",
   errorCode: "错误码",
@@ -110,6 +112,8 @@ export const en: Copy = {
     "CLI account model registration failed. Check plugin and official CLI compatibility. Your sign-in is preserved.",
   personalConfigInvalid:
     "Unable to read CLI personal configuration. Check the configured file path and contents.",
+  modelsUnavailable:
+    "Unable to query the account model catalog. Check the network and retry, or set a fixed model in the plugin configuration.",
   attemptChanged: "Sign-in state changed. Refresh this page.",
   actionFailed: "Action failed. Please retry.",
   errorCode: "Error code",
