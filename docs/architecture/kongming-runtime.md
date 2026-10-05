@@ -14,7 +14,7 @@
 | `packages/` | 自有插件；`kmh-echo` 将自身生命周期名字追加到本地文件 | Kongming |
 | `tests/runtime/` | Kongming 启动与底座接入集成测试，验证配置选择、目录链接和 SDK 交互 | Kongming |
 | `.githooks/` | 当前 Node 提交和推送检查 | Kongming |
-| `.kmh/` | 默认运行数据、profile 登记链接和本地迁移备份 | 本地状态，Git 忽略 |
+| `.kmh/` | 本地运行数据 | 本地状态，Git 忽略 |
 | `web/` | 原界面源码与资产，供后续界面选型使用 | 保留的产品资料 |
 
 Kongming 与 DSH 分别维护 pnpm 工作区和锁文件。根工作区包含自有 `bundles/*` 和后续 `packages/*`；DSH 在子模块内管理自己的 workspace 依赖。子模块当前固定在 `ede2c76885626c1695a2878757d1b1c35998987b`，上游合入基线为 `5badb15009ae1756c3afe0ae0cef1faafc290ccc`。安装以 Git 记录的子模块提交为准。
@@ -91,7 +91,7 @@ Web 完整文件包含 base 服务、GUI/API、Web 承载、四个 Agent 预设�
 
 ## 状态与凭据
 
-`KMH_HOME` 默认为仓库 `.kmh/`，启动器将该位置作为 DSH 的 `DSH_HOME` 传入；会话、凭据和日志由 DSH 对应服务管理。profile 源文件受 Kongming 版本控制，运行数据、profile 依赖与 DSH 生成的空 `cordis.yml` 由 Git 忽略。
+运行数据目录、日志与父进程环境由[数据目录与运行记录](../kmh/runtime-records.md) 定义；KMH 启动器和 profile 共同固定相关路径。profile 源文件受 Kongming 版本控制，运行数据、profile 依赖与 DSH 生成的空 `cordis.yml` 由 Git 忽略。
 
 本地 `.env` 与历史 `.kongming/` 数据保留。当前模型凭据使用 DSH 提供方的配置与环境变量，例如 `DEEPSEEK_API_KEY`。
 
@@ -101,7 +101,7 @@ Web 完整文件包含 base 服务、GUI/API、Web 承载、四个 Agent 预设�
 
 [`kmh-echo`](../../packages/kmh-echo/README.md) 使用函数式入口，在 headless、Web、SDK profile 中各加载一个实例。日志路径、阶段名字、写入与清理语义由包 README 说明。自有插件快速构建与类型检查使用 `pnpm build:kmh` 和 `pnpm typecheck:kmh`。
 
-当前检查为 `pnpm lint`、`pnpm typecheck:kmh`、`pnpm format:check` 和 `pnpm test`。19 项运行测试覆盖插件生命周期与文件追加、配置校验、目录链接冲突、配置保持、真实 profile 加载、Web 端口与欢迎版本编辑、配置文件选择 profile、headless 启动和 SDK shutdown。测试前自动构建 Kongming 自有插件；涉及仓库配置修改的测试按文件串行执行。Web 启动与用户流程另外使用实际浏览器验证。
+当前检查为 `pnpm lint`、`pnpm typecheck:kmh`、`pnpm format:check` 和 `pnpm test`。运行测试覆盖插件生命周期与文件追加、配置校验、目录链接冲突、配置保持、真实 profile 加载、Web 端口与欢迎版本编辑、配置文件选择 profile、headless 启动和 SDK shutdown。测试前自动构建 Kongming 自有插件；涉及仓库配置修改的测试按文件串行执行。Web 启动与用户流程另外使用实际浏览器验证。
 
 `pnpm hooks` 安装 Node Git 钩子。pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前启动测试。
 

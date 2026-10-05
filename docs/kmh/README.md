@@ -15,7 +15,7 @@ pnpm web
 pnpm run sdk
 ```
 
-`setup` 初始化固定版本子模块、安装子模块自己的锁定依赖，再登记 profile；`build` 依次构建 DSH 和 Kongming 自有插件。入口使用构建后的 `dsh` CLI 和受支持的 profile，子进程继承调用者工作目录、环境变量和模型凭据，返回真实退出状态。SDK 模式使用标准输入输出传输，启动器把日志交给 DSH。
+`setup` 初始化固定版本子模块、安装子模块自己的锁定依赖，再登记 profile；`build` 依次构建 DSH 和 Kongming 自有插件。入口使用构建后的 `dsh` CLI 和受支持的 profile，子进程继承调用者工作目录、环境变量和模型凭据，返回真实退出状态。SDK 模式使用标准输入输出传输；启动器保留协议字节，同时保存进程输出。目录与父进程环境规则见[数据目录与运行记录](runtime-records.md)。
 
 `pnpm hooks` 安装当前 Node Git 检查；原 Python 钩子保存在本地迁移备份中。
 
@@ -33,7 +33,7 @@ Web profile 的 bundles 为 `[]`，`profiles/kmh-web/cordis.patch.yml` 完整展
 
 headless/SDK 的共同应用配置编辑 `bundles/kongming/cordis.patch.yml`，模式覆盖编辑相应 `profiles/<name>/cordis.patch.yml`。DSH 的 overlay 对目标条目的 config 整体替换，配置修改需要保留该条目所需的字段。机器偏好放在 `$KMH_HOME/cordis.patch.yml`，调用级覆盖通过 `--patch /absolute/path.yml` 提供。headless/SDK 层顺序为 DSH bundles → Kongming bundle → profile → home → 调用级 patch；Web 层顺序为完整 profile → home → 调用级 patch。
 
-启动器在 `$KMH_HOME/profiles/<name>` 建立目录链接，默认 home 为 Kongming 的 `.kmh`。profile 配置由 Kongming 版本控制，profile `node_modules` 和运行数据由 Git 忽略。已有同目标链接保持幂等；已有其他目录或目标时立即报错并保留原内容。运行 `dsh plugin --profile kmh-headless ...` 时，所选 profile 清单与 patch 的变化落在 Kongming，可按需审查和提交。
+启动器在 `$KMH_HOME/profiles/<name>` 建立目录链接，运行数据目录由[KMH_HOME](runtime-records.md) 选择。profile 配置由 Kongming 版本控制，profile `node_modules` 和运行数据由 Git 忽略。已有同目标链接保持幂等；已有其他目录或目标时立即报错并保留原内容。运行 `dsh plugin --profile kmh-headless ...` 时，所选 profile 清单与 patch 的变化落在 Kongming，可按需审查和提交。
 
 ```sh
 pnpm run profiles
@@ -47,6 +47,8 @@ KMH_HOME=/absolute/runtime-home pnpm web
 [`kmh-echo`](../../packages/kmh-echo/README.md) 是三个 profile 共用的函数式生命周期示例，配置与日志用法见包 README。修改自有插件后使用 `pnpm build:kmh` 快速构建，`pnpm typecheck:kmh`、`pnpm lint` 和 `pnpm format:check` 检查自有代码，`pnpm test` 验证插件和启动链路。
 
 ## 版本升级
+
+运行数据目录和日志配置的迁移步骤见[运行数据目录升级](runtime-home-upgrade.md)。
 
 在 DSH 维护仓库的 `kmh/runtime-core` 上合入经过评估的 upstream 更新，运行受影响检查并提交、推送自有 Fork。随后在 Kongming 更新子模块检出版本、执行 setup/build 和启动测试，再提交新的子模块指针。
 
