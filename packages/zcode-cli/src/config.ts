@@ -37,7 +37,6 @@ export const Config = schema.object({
       },
     )
     .default("https://open.bigmodel.cn/api/coding/paas/v4"),
-  allowedTools: schema.array(schema.string()).default(["read"]),
   reasoningLevel: schema.const("high").default("high"),
   defaultMaxTokens: schema.natural().min(1).max(2147483647).default(1000000),
   requestTimeoutMs: schema.natural().min(1).max(2147483647).default(360000),

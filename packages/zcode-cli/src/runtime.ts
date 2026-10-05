@@ -637,12 +637,7 @@ export class ZcodeCli extends Service {
         ? catalog[0]
         : catalog.find((item) => item.id === options.model?.toLowerCase());
     if (entry === undefined) throw new Error("ZCODE_MODEL_UNAVAILABLE");
-    const request = projectRequest({
-      ...options,
-      tools: (options.tools ?? []).filter((tool) =>
-        this.config.allowedTools.includes(tool.name),
-      ),
-    });
+    const request = projectRequest(options);
     const signal = AbortSignal.any([
       this.lifetime.signal,
       AbortSignal.timeout(this.config.requestTimeoutMs),
@@ -680,12 +675,6 @@ export class ZcodeCli extends Service {
       catalog,
     );
     const validated = GenerationResult.parse(result);
-    if (
-      validated.toolCalls?.some(
-        (call) => !this.config.allowedTools.includes(call.name),
-      )
-    )
-      throw new Error("ZCODE_TOOL_UNAVAILABLE");
     this.state.connection = "ready";
     delete this.state.error;
     delete this.state.diagnostic;
