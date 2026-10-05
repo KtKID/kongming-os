@@ -143,8 +143,7 @@ test("official login output, encrypted account registration, native framing and 
   assert.deepEqual(probe.messages, [{ role: "user", content: "ping" }]);
   assert.deepEqual(probe.tools, []);
   assert.equal(probe.maxOutputTokens, 1);
-  // 探测显式关闭思考；会话请求默认保持配置的高思考等级。
-  assert.equal(probe.selection.options.reasoningLevel, "disabled");
+  assert.equal(probe.selection.options.reasoningLevel, "low");
   const result = await runtime.generate({
     provider: "zcode-cli",
     model: "glm-5.3-flash",
@@ -616,6 +615,35 @@ test("session requests without maxTokens send the raised default and out-of-rang
     status.diagnostic.message,
     /maxOutputTokens is outside the model option range/,
   );
+});
+
+test("unsupported reasoning is rejected by the CLI and a low probe restores readiness", async (t) => {
+  const { runtime } = await fixture(t);
+  await runtime.login();
+  await until(runtime, "signed-in");
+  await assert.rejects(
+    runtime.generate({
+      provider: "zcode-cli",
+      model: "glm-5.3-flash",
+      reasoningEffort: "disabled",
+      messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
+      tools: [],
+      maxTokens: 1,
+    }),
+    /ZCODE_MODEL_CONNECTION_FAILED/,
+  );
+  const status = await runtime.status();
+  assert.equal(status.connection, "failed");
+  assert.equal(status.diagnostic.code, "invalid_model_request");
+  assert.equal(
+    status.diagnostic.message,
+    "Reasoning level is required for account:zai-individual-coding-plan/GLM-5.3-Flash",
+  );
+  await runtime.check();
+  const ready = await runtime.status();
+  assert.equal(ready.connection, "ready");
+  assert.equal(ready.error, undefined);
+  assert.equal(ready.diagnostic, undefined);
 });
 
 test("generation follows the requesting session workspace and falls back safely", async (t) => {

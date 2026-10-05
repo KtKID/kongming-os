@@ -119,6 +119,22 @@ if (process.argv[2] === "login") {
     } else if (frame.method === "runtime/capabilities")
       send({ id: frame.id, result: { version: "fixture" } });
     else if (frame.method === "workspace/generateText") {
+      // GLM-5.3-Flash 的无效档位经官方选择解析后产生缺少档位错误。
+      if (
+        !["low", "high", "max"].includes(
+          frame.params.selection.options?.reasoningLevel,
+        )
+      ) {
+        send({
+          id: frame.id,
+          error: {
+            code: -32603,
+            message: `Reasoning level is required for ${provider}/${frame.params.selection.modelId}`,
+            data: { code: "invalid_model_request" },
+          },
+        });
+        continue;
+      }
       // 镜像真实 CLI 0.16.9：maxOutputTokens 必填，且不超过个人配置规则与内置
       // 上限（GLM-5.3-Flash 内置 128000）合并后的最大值，越界返回同一错误文案。
       const personal = JSON.parse(
