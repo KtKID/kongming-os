@@ -395,8 +395,8 @@
     - id: system-prompt
       name: '@deepseek-ai/dsh-system-prompt'
       config:
-        personaPrefix: You are Kongming, a coding agent powered by the {{model}} model.
-        personaSuffix: Your working directory is {{cwd}}.
+        personaPrefix: 你是 Kongming，一个由 {{model}} 模型驱动的编程智能体。
+        personaSuffix: 你的工作目录是 {{cwd}}。
     # == upstream.cordis.yml
     - id: agent-loop
       name: '@deepseek-ai/dsh-agent-loop'
@@ -640,8 +640,8 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              suffix: Your working directory is {{cwd}}.
-              prefix: You are a coding agent powered by the {{model}} model.
+              suffix: 你的工作目录是 {{cwd}}。
+              prefix: 你是 Kongming，一个由 {{model}} 模型驱动的编程智能体。
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:
@@ -838,8 +838,8 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              suffix: Your working directory is {{cwd}}.
-              prefix: You are a coding agent powered by the {{model}} model.
+              suffix: 你的工作目录是 {{cwd}}。
+              prefix: 你是 Kongming，一个由 {{model}} 模型驱动的编程智能体。
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:
@@ -1042,7 +1042,7 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              prefix: You are a helpful software engineer assistant.
+              prefix: 你是一名乐于助人的软件工程助手。
               complete: true
               includeRuntimeContext: false
           - id: persistent-shell
@@ -1122,8 +1122,8 @@
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              suffix: Your working directory is {{cwd}}.
-              prefix: You are a coding agent powered by the {{model}} model.
+              suffix: 你的工作目录是 {{cwd}}。
+              prefix: 你是 Kongming，一个由 {{model}} 模型驱动的编程智能体。
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:
