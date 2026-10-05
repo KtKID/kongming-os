@@ -71,7 +71,8 @@ for (const mode of ['cli', 'web', 'sdk']) {
     t.after(() => { rmSync(home, { recursive: true, force: true }); rmSync(cwd, { recursive: true, force: true }); });
     const result = launch([mode, '--dump-config'], home, cwd);
     assert.equal(result.status, 0, result.stderr + result.stdout);
-    assert.match(result.stdout, /You are Kongming/);
+    // Web 的 persona 已中文化，headless/SDK（bundles/kongming）仍为英文，两种形态都算加载成功。
+    assert.match(result.stdout, /(You are|你是) Kongming/);
     assert.doesNotMatch(result.stderr, /skip.*bundle|cannot resolve profile bundle/i);
     assert.equal(realpathSync(join(home, 'profiles', `kmh-${mode === 'cli' ? 'headless' : mode}`)), join(root, 'profiles', `kmh-${mode === 'cli' ? 'headless' : mode}`));
   });
