@@ -34,7 +34,7 @@ KMH_HOME=/absolute/runtime-home pnpm web
 
 profile 的配置、依赖清单和安装协调状态仍由该 profile 拥有。链接后的 `package.json`、`cordis.patch.yml`、`node_modules/` 与 `.plugin-manager/run.json` 位于仓库 profile，安装锁由同一物理文件协调。不同数据目录访问同一份 profile 时共享这些配置和依赖。
 
-Agent 创建的项目文件由任务工作目录和工具参数决定。外部程序自己的用户文件、操作系统诊断与第三方服务记录各自由对应程序管理。home 级 patch 或 `--patch` 可显式覆盖表中服务的路径；上述表格描述三个 KMH profile 的默认配置。
+Agent 创建的项目文件由任务工作目录和工具参数决定。外部程序自己的用户文件、操作系统诊断与第三方服务记录各自由对应程序管理；官方 CLI 子进程自行在用户 home 保存运行日志与模型 I/O 记录，不写入 KMH 数据目录，路径与检索方式见 [zcode-cli 包说明](../../packages/zcode-cli/README.md)。home 级 patch 或 `--patch` 可显式覆盖表中服务的路径；上述表格描述三个 KMH profile 的默认配置。
 
 ## 日志与失败处理
 

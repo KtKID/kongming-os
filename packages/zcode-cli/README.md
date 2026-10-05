@@ -56,6 +56,12 @@ pnpm web
 
 当前真实验证版本为官方 CLI **0.16.9**。模型目录来自账号端点与官方内置模板，两者随账号套餐与 CLI 版本演进；目录中的模型需对应 Coding Plan 权益，端点列出但套餐未开放的模型在请求时由官方拒绝。官方账号存储和 app-server 协议随 CLI 版本演进。密码模块来自固定上游版本，来源和 Apache 许可证见 `vendor/zcode/NOTICE` 与 `vendor/zcode/LICENSE`。
 
+## 子进程运行记录
+
+官方 CLI 子进程自行保存两类记录，均写入用户 home 的 `~/.zcode/cli/`，与桌面端和独立 CLI 共用；插件设置的 `dataDir`（`ZCODE_DATA_BASE_DIR`）只作用于凭据与个人配置，不改变这两个位置。`log/zcode-<日期>.jsonl` 是按天滚动的进程运行日志，插件拉起的进程产生的记录可用 `"querySource":"kmh"` 字段过滤。`rollout/model-io-sess_<会话>.jsonl` 是模型 I/O 记录，每次模型请求追加一行完整 JSON，包含请求体（工具声明与消息原文）、响应文本和耗时。两类文件含对话明文，应按用户数据保存；空闲的 app-server 不写运行日志，日志中没有记录不代表子进程未启动。
+
+CLI 0.16.9 没有日志路径命令行参数。运行日志目录可由环境变量 `ZCODE_LOG_DIR` 重定向（为 0.16.9 打包源码逆向所得而非官方契约），经插件配置 `env` 注入子进程生效；rollout 目录在同一源码中硬编码用户 home，无对应变量。插件直接排空 app-server 的 stderr，`ZCODE_LOG_CONSOLE` 的控制台日志输出在本插件中不可见。
+
 ## 独立分发
 
 ```sh
