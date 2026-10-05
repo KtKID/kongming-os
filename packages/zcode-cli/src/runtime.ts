@@ -519,8 +519,7 @@ export class ZcodeCli extends Service {
       await this.generate({
         provider: "zcode-cli",
         model: this.config.model,
-        // 官方枚举的显式关闭值：探测不产生思考 token。
-        reasoningEffort: ReasoningEffortId("disabled"),
+        reasoningEffort: ReasoningEffortId("low"),
         messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
         tools: [],
         maxTokens: this.config.probeMaxTokens,
