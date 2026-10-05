@@ -87,6 +87,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { createRequire } from "node:module";
+const { parseDocument } = createRequire(
+  new URL("../../third_party/dsh/packages/boot/plugin-manager/package.json", import.meta.url),
+)("yaml");
 import { Context } from "../../third_party/dsh/vendor/cordis/lib/index.js";
 import { LocalSubprocessRuntime } from "../../third_party/dsh/packages/subprocess/subprocess-local/lib/index.js";
 import { Config } from "../../packages/zcode-cli/lib/src/config.js";
@@ -891,7 +895,6 @@ test("resolved model info carries the session default output cap for the llm lay
 });
 
 import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { runInNewContext } from "node:vm";
 test("published Client factory registers in Plugins and renders with the shared React runtime", () => {
   let handoff;
@@ -953,22 +956,26 @@ test("published Client factory registers in Plugins and renders with the shared 
 });
 
 test("normal KMH Web retains its stock preset definitions when ZCode is added", () => {
+  const insertion =
+    "    - id: kmh-zcode-cli\n      name: '@kmh/zcode-cli'\n      config:\n        providerId: account:bigmodel-individual-coding-plan\n        cwd: !!js process.cwd()\n        dataDir: !!js dshHomePath('zcode-cli')\n";
+  // 只比较预设定义，独立的启动日志和安装路径配置可正常演进。
+  const normalize = (text) => {
+    const document = parseDocument(text, {
+      customTags: [{ tag: "tag:yaml.org,2002:js", resolve: value => value }],
+    });
+    assert.equal(document.errors.length, 0);
+    const presets = document.toJS()[0].insert.filter(row => row.name === "@deepseek-ai/dsh-agent-preset");
+    assert.equal(presets.length, 4);
+    return presets;
+  };
   const current = readFileSync("profiles/kmh-web/cordis.patch.yml", "utf8");
   const baseline = execFileSync(
     "git",
     ["show", "HEAD:profiles/kmh-web/cordis.patch.yml"],
     { encoding: "utf8" },
   );
-  const insertion =
-    "    - id: kmh-zcode-cli\n      name: '@kmh/zcode-cli'\n      config:\n        providerId: account:bigmodel-individual-coding-plan\n        cwd: !!js process.cwd()\n        dataDir: !!js dshHomePath('zcode-cli')\n";
   assert.ok(current.includes(insertion));
-  const retained = current
-    .replace(insertion, "")
-    .replace("    - id: kmh-echo\n      name: '@kmh/kmh-echo'\n", "");
-  const originalDefinitions = retained.split(
-    "\n- id: agent-default-model\n",
-  )[0];
-  assert.equal(originalDefinitions.trimEnd(), baseline.trimEnd());
+  assert.deepEqual(normalize(current), normalize(baseline));
   assert.equal(existsSync("profiles/kmh-zcode"), false);
   assert.equal(existsSync("profiles/kmh-zcode-web"), false);
   const pkg = JSON.parse(

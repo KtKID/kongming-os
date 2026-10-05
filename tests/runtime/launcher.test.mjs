@@ -3,7 +3,7 @@
  * launch 启动公开 CLI；每项测试使用独立 KMH_HOME，退出时清理自己的运行数据。
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
@@ -58,6 +58,10 @@ test('未知启动命令返回失败状态', t => {
   const result = launch(['invalid'], home);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /未知命令/);
+  const logs = join(home, 'logs');
+  const entry = readdirSync(logs).find(name => name.startsWith('launcher-error-'));
+  assert.ok(entry);
+  assert.match(readFileSync(join(logs, entry, 'stderr.log'), 'utf8'), /未知命令/);
 });
 
 for (const mode of ['cli', 'web', 'sdk']) {

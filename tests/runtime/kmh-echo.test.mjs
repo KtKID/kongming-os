@@ -69,8 +69,8 @@ test('echo 更新路径时旧文件记录更新和卸载，新文件记录重新
   assert.equal(readFileSync(nextFile, 'utf8'), 'apply\neffect\nunload\n');
 });
 
-test('echo 配置默认指向 /tmp，空路径、相对路径和错误类型在加载时拒绝', async t => {
-  assert.equal(echo.Config({}).file, '/tmp/kmh-echo/events.log');
+test('echo 配置要求绝对路径，缺失、空路径、相对路径和错误类型在加载时拒绝', async t => {
+  assert.throws(() => echo.Config({}), /missing required value/);
   const { ctx, file: validFile } = fixture(t);
   for (const file of ['', 'relative.log', '   ', 123]) {
     const fiber = ctx.plugin(echo, { file }).ctx.fiber;
