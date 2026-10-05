@@ -1,4 +1,16 @@
 # Kongming 管理的应用覆盖；会话与机器偏好位于 KMH_HOME。
 - insert:
+    - id: runtime-log
+      name: '@kmh/runtime-log'
+      config:
+        file: !!js dshHomePath('logs', 'plugins', `runtime-${process.pid}.jsonl`)
     - id: kmh-echo
       name: '@kmh/kmh-echo'
+      config:
+        file: !!js dshHomePath('logs', 'kmh-echo', `events-${process.pid}.log`)
+- id: spill-local
+  config:
+    root: !!js dshHomePath('spill')
+- id: plugin-manager
+  config:
+    logRoot: !!js dshHomePath('logs', 'plugin-manager', 'kmh-sdk')

@@ -9,7 +9,7 @@
   "scripts": {
     "setup": "node scripts/kmh.mjs setup",
     "build": "node scripts/kmh.mjs build",
-    "build:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli build",
+    "build:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/runtime-log build",
     "cli": "node scripts/kmh.mjs cli",
     "web": "node scripts/kmh.mjs web",
     "config:web": "node scripts/kmh.mjs web --dump-config",
@@ -20,9 +20,9 @@
     "test": "node --test --test-concurrency=1 tests/runtime/*.test.mjs",
     "pretest": "pnpm build:kmh",
     "typecheck": "pnpm typecheck:kmh && pnpm --dir third_party/dsh run typecheck",
-    "typecheck:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli typecheck",
-    "lint": "node --check scripts/kmh.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli lint",
-    "format:check": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli format:check"
+    "typecheck:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/runtime-log typecheck",
+    "lint": "node --check scripts/kmh.mjs && node --check scripts/runtime-home.mjs && node --check scripts/runtime-logs.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/runtime-log lint",
+    "format:check": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/runtime-log format:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

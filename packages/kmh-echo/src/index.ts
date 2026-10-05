@@ -7,7 +7,7 @@ import { dirname, isAbsolute } from "node:path";
 /** Cordis 插件实例名称。 */
 export const name = "kmh-echo";
 
-/** 日志路径校验与默认值；文件使用运行主机上的绝对路径。 */
+/** 日志路径由部署配置提供，使用运行主机上的绝对路径。 */
 export const Config = z.object({
   file: z
     .transform(z.string().required(), (value) => {
@@ -15,7 +15,7 @@ export const Config = z.object({
         throw new z.ValidationError("file 必须是绝对路径", { path: ["file"] });
       return value;
     })
-    .default("/tmp/kmh-echo/events.log"),
+    .required(),
 });
 
 /** 经过配置校验的日志路径。 */

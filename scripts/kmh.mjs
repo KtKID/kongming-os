@@ -1,13 +1,15 @@
 /**
  * Kongming 的 DSH 启动入口：setup 安装独立子模块，build 构建底座与自有插件，cli/web/sdk 选择自有 profile。
  * prepareProfiles 注册仓库内 profile/bundle；run 转发命令、工作目录、环境与退出状态。
- * profile 配置由 Kongming 版本控制；会话、凭据和日志写入 KMH_HOME（默认 .kmh）。
+ * profile 配置由 Kongming 版本控制；会话、凭据和日志写入 KMH_HOME（默认 ~/.kmh）。
  * readLaunchProfiles 读取 launch.config.json 中短命令对应的 profile，并验证目录。
  */
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { resolveKmhHome, runtimeEnvironment } from './runtime-home.mjs';
+import { recordLauncherFailure, runLogged } from './runtime-logs.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = join(root, 'third_party/dsh');
@@ -70,7 +72,7 @@ export function readLaunchProfiles(file = join(root, 'launch.config.json')) {
 }
 
 /** 选择命令并启动支持的 dsh profile；输入命令行参数，输出子进程日志与状态。 */
-export function main(args = process.argv.slice(2)) {
+export async function main(args = process.argv.slice(2)) {
   const [command = 'help', ...forwarded] = args;
   if (command === 'help' || command === '--help') {
     console.log('Kongming：setup | build | cli <task> | web | sdk | dsh <args> | profiles\nlaunch.config.json 选择 profile；profiles/<name>/cordis.patch.yml 配置应用；KMH_HOME 指定运行数据目录。');
@@ -84,7 +86,7 @@ export function main(args = process.argv.slice(2)) {
     }
     run('git', ['submodule', 'update', '--init', '--recursive']);
     run(pnpm, ['install', '--frozen-lockfile'], runtime);
-    prepareProfiles(resolve(process.env.KMH_HOME ?? join(root, '.kmh')));
+    prepareProfiles(resolveKmhHome());
     return;
   }
   if (!existsSync(join(runtime, '.git'))) throw new Error('请先运行 pnpm run setup 初始化 DSH 子模块');
@@ -93,7 +95,8 @@ export function main(args = process.argv.slice(2)) {
     run(pnpm, ['run', 'build:kmh']);
     return;
   }
-  const home = resolve(process.env.KMH_HOME ?? join(root, '.kmh'));
+  const home = resolveKmhHome();
+  const env = runtimeEnvironment(home);
   prepareProfiles(home);
   if (command === 'profiles') {
     console.log(`profile：${join(root, 'profiles')}\nbundle：${join(root, 'bundles')}\n运行数据：${home}`);
@@ -104,17 +107,22 @@ export function main(args = process.argv.slice(2)) {
   const bin = join(runtime, 'apps/cli/lib/bin.js');
   if (!existsSync(bin)) throw new Error('请先运行 pnpm build 构建 DSH');
   const cliArgs = command === 'dsh' ? forwarded : ['--profile', profiles[command], ...forwarded];
-  const result = spawnSync(process.execPath, [bin, ...cliArgs], {
-    cwd: process.cwd(), env: { ...process.env, DSH_HOME: home }, stdio: 'inherit',
+  const result = await runLogged(process.execPath, [bin, ...cliArgs], {
+    home, label: command === 'dsh' ? 'dsh' : profiles[command], cwd: process.cwd(), env,
   });
-  if (result.error) throw result.error;
-  if (result.signal) throw new Error(`dsh 被 ${result.signal} 终止`);
+  if (result.signal) {
+    process.kill(process.pid, result.signal);
+    return;
+  }
   process.exitCode = result.status ?? 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  try { main(); } catch (error) {
+  try { await main(); } catch (error) {
     console.error(`kmh: ${error.message}`);
+    try { recordLauncherFailure(resolveKmhHome(), error); } catch (logError) {
+      console.error(`kmh: 启动异常记录失败：${logError.message}`);
+    }
     process.exitCode = 1;
   }
 }

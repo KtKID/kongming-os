@@ -3,7 +3,8 @@
   "private": true,
   "dependencies": {
     "@kmh/bundle-kongming": "link:../../bundles/kongming",
-    "@kmh/kmh-echo": "link:../../packages/kmh-echo"
+    "@kmh/kmh-echo": "link:../../packages/kmh-echo",
+    "@kmh/runtime-log": "link:../../packages/runtime-log"
   },
   "dsh": {
     "profile": {

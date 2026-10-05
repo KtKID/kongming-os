@@ -3,7 +3,8 @@
   "private": true,
   "dependencies": {
     "@kmh/kmh-echo": "link:../../packages/kmh-echo",
-    "@kmh/zcode-cli": "link:../../packages/zcode-cli"
+    "@kmh/zcode-cli": "link:../../packages/zcode-cli",
+    "@kmh/runtime-log": "link:../../packages/runtime-log"
   },
   "dsh": {
     "profile": {

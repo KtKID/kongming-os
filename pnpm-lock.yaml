@@ -41,6 +41,16 @@ importers:
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
 
+  packages/runtime-log:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../third_party/dsh/vendor/schemastery
+        version: link:../../third_party/dsh/vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../third_party/dsh/vendor/cordis
+        version: link:../../third_party/dsh/vendor/cordis
+
   packages/zcode-cli:
     dependencies:
       qrcode-generator:

@@ -4,6 +4,10 @@
 # package.json 的 bundles 保持 []；此文件完整定义插件树。
 # 上游原配置：upstream.cordis.yml；插件字段定义见 README.md。
 - insert:
+    - id: runtime-log
+      name: '@kmh/runtime-log'
+      config:
+        file: !!js dshHomePath('logs', 'plugins', `runtime-${process.pid}.jsonl`)
     - id: kmh-zcode-cli
       name: '@kmh/zcode-cli'
       config:
@@ -12,12 +16,16 @@
         dataDir: !!js dshHomePath('zcode-cli')
     - id: kmh-echo
       name: '@kmh/kmh-echo'
+      config:
+        file: !!js dshHomePath('logs', 'kmh-echo', `events-${process.pid}.log`)
     # == upstream.cordis.yml
     - id: tool-plugin-manager
       name: '@deepseek-ai/dsh-plugin-manager/tools'
       disabled: true
     - id: plugin-manager
       name: '@deepseek-ai/dsh-plugin-manager'
+      config:
+        logRoot: !!js dshHomePath('logs', 'plugin-manager', 'kmh-web')
       disabled: !!js '!ctx.get(''profileContext'')'
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -321,6 +329,8 @@
       name: '@deepseek-ai/dsh-tool-call-timeout-policy'
     - id: spill-local
       name: '@deepseek-ai/dsh-spill-local'
+      config:
+        root: !!js dshHomePath('spill')
     - id: spill-policy
       name: '@deepseek-ai/dsh-spill-policy'
       config:
