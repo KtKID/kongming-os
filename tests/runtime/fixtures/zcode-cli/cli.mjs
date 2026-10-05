@@ -186,7 +186,10 @@ if (process.argv[2] === "login") {
         method: "interaction/requestProviderRuntimeHeaders",
         params: {
           providerId: provider,
-          modelSelection: { providerId: provider, modelId: "GLM-5.3-Flash" },
+          modelSelection: {
+            providerId: provider,
+            modelId: currentRequest.selection.modelId,
+          },
         },
       });
     } else if (frame.id === "headers") {
