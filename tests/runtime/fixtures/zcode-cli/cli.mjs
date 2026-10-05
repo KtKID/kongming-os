@@ -62,6 +62,14 @@ if (process.argv[2] === "login") {
   rmSync(credential, { force: true });
   console.log(JSON.stringify({ status: "logged_out" }));
 } else if (process.argv[2] === "app-server") {
+  appendFileSync(
+    join(home, "server-envs.jsonl"),
+    JSON.stringify({
+      nodeProxy: process.env.NODE_USE_ENV_PROXY,
+      httpProxy: process.env.HTTP_PROXY,
+      noProxy: process.env.NO_PROXY,
+    }) + "\n",
+  );
   // 记录本进程工作目录，供会话 cwd 跟随测试断言。
   appendFileSync(join(home, "server-cwds.jsonl"), process.cwd() + "\n");
   const rl = createInterface({ input: process.stdin });

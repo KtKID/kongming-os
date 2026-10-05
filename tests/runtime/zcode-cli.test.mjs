@@ -585,9 +585,51 @@ test("connection testing uses its own short deadline and reports model failure",
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: "ZCODE_PROBE_TIMEOUT" });
   assert.equal((await runtime.status()).connection, "failed");
+  assert.equal((await runtime.status()).login, "signed-in");
   const probe = JSON.parse(readFileSync(join(dir, "requests.jsonl"), "utf8"));
   assert.deepEqual(probe.tools, []);
   assert.equal(probe.maxOutputTokens, 1);
+});
+
+test("connection testing requires completed login before starting its deadline or CLI", async (t) => {
+  const { runtime, dir } = await fixture(t, "waiting", {
+    probeTimeoutMs: 1,
+  });
+  await assert.rejects(runtime.check(), /ZCODE_LOGIN_REQUIRED/);
+  await runtime.login();
+  await until(runtime, "waiting");
+  await assert.rejects(runtime.check(), /ZCODE_LOGIN_REQUIRED/);
+  assert.equal((await runtime.status()).login, "waiting");
+  assert.equal(existsSync(join(dir, "server-cwds.jsonl")), false);
+});
+
+test("official CLI owns proxy routing while inherited proxy addresses survive", async (t) => {
+  const previous = process.env.NODE_USE_ENV_PROXY;
+  process.env.NODE_USE_ENV_PROXY = "1";
+  t.after(() => {
+    if (previous === undefined) delete process.env.NODE_USE_ENV_PROXY;
+    else process.env.NODE_USE_ENV_PROXY = previous;
+  });
+  const { runtime, dir } = await fixture(t, "success", {
+    env: {
+      ZCODE_CREDENTIAL_SECRET: "fixture-cipher",
+      KMH_FIXTURE_MODE: "success",
+      HTTP_PROXY: "http://127.0.0.1:1088",
+      NO_PROXY: "localhost,127.0.0.1,::1",
+    },
+  });
+  await runtime.login();
+  await until(runtime, "signed-in");
+  await runtime.check();
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(dir, "server-envs.jsonl"), "utf8")),
+    {
+      nodeProxy: "0",
+      httpProxy: "http://127.0.0.1:1088",
+      noProxy: "localhost,127.0.0.1,::1",
+    },
+  );
+  assert.equal((await runtime.status()).connection, "ready");
 });
 
 test("session requests without maxTokens send the raised default and out-of-range values fail like the real CLI", async (t) => {
