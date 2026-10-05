@@ -102,6 +102,8 @@ export class ZcodeCli extends Service {
     if (!isAbsolute(builtinPath)) throw new Error("ZCODE_CONFIG_PATH_INVALID");
     const env: NodeJS.ProcessEnv = {
       ...this.config.env,
+      // Official CLI owns proxy routing; Node's automatic proxy layer duplicates it.
+      NODE_USE_ENV_PROXY: "0",
       ZCODE_DATA_BASE_DIR: this.config.dataDir,
       ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtinPath,
       ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: await preparePersonalConfig(
@@ -509,8 +511,10 @@ export class ZcodeCli extends Service {
       await child.done.catch(() => undefined);
     }
   }
-  /** Send a bounded ping through the official model channel, with an empty tool list. */
+  /** Require completed sign-in, then send a separately bounded ping with no tools. */
   async check(): Promise<void> {
+    if ((await this.status()).login !== "signed-in")
+      throw new Error("ZCODE_LOGIN_REQUIRED");
     const signal = AbortSignal.any([
       this.lifetime.signal,
       AbortSignal.timeout(this.config.probeTimeoutMs),
