@@ -18,7 +18,7 @@ import { loginBigModel } from "./bigmodel-login.ts";
 import { preparePersonalConfig } from "./personal-config.ts";
 import { extractAuthorizeUrl } from "./authorize-url.ts";
 import { projectRequest, GenerationResult } from "./protocol.ts";
-import type { GenerateOptions } from "@deepseek-ai/dsh-llm";
+import { ReasoningEffortId, type GenerateOptions } from "@deepseek-ai/dsh-llm";
 
 import type { PublicStatus } from "./status.ts";
 export { PublicStatus } from "./status.ts";
@@ -519,6 +519,8 @@ export class ZcodeCli extends Service {
       await this.generate({
         provider: "zcode-cli",
         model: this.config.model,
+        // 官方枚举的显式关闭值：探测不产生思考 token。
+        reasoningEffort: ReasoningEffortId("disabled"),
         messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
         tools: [],
         maxTokens: this.config.probeMaxTokens,
@@ -568,7 +570,10 @@ export class ZcodeCli extends Service {
             selection: {
               providerId: this.config.providerId,
               modelId: this.config.nativeModel,
-              options: { reasoningLevel: this.config.reasoningLevel },
+              options: {
+                reasoningLevel:
+                  options.reasoningEffort ?? this.config.reasoningLevel,
+              },
             },
             ...request,
             querySource: "kmh",

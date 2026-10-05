@@ -139,7 +139,8 @@ test("official login output, encrypted account registration, native framing and 
   assert.deepEqual(probe.messages, [{ role: "user", content: "ping" }]);
   assert.deepEqual(probe.tools, []);
   assert.equal(probe.maxOutputTokens, 1);
-  assert.equal(probe.selection.options.reasoningLevel, "high");
+  // 探测显式关闭思考；会话请求默认保持配置的高思考等级。
+  assert.equal(probe.selection.options.reasoningLevel, "disabled");
   const result = await runtime.generate({
     provider: "zcode-cli",
     model: "glm-5.3-flash",
