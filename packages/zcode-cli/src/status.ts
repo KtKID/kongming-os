@@ -72,5 +72,14 @@ export const RequestStatus = z.object({
   cleanupResult: z
     .object({ ok: z.boolean(), detail: z.string().optional() })
     .optional(),
+  /** 用户停止链路：官方取消回执与本机退出确认。 */
+  stop: z
+    .object({
+      requestedAt: z.number(),
+      receipt: z.boolean().optional(),
+      receiptAt: z.number().optional(),
+      exitConfirmed: z.boolean().optional(),
+    })
+    .optional(),
 });
 export type RequestStatus = z.infer<typeof RequestStatus>;

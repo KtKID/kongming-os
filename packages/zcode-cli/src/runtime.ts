@@ -496,6 +496,7 @@ export class ZcodeCli extends Service {
     requestCwd?: string,
     catalog: readonly ModelEntry[] = [],
     record?: RequestRecord,
+    stopGate: Promise<void> = Promise.resolve(),
   ): Promise<T> {
     const paths = await this.paths(
       signal,
@@ -584,6 +585,11 @@ export class ZcodeCli extends Service {
       return await run(rpc);
     } catch (error) {
       this.state.connection = "failed";
+      // 用户停止期间在途请求的任何落定都按取消归类，首因不被通道错误覆盖。
+      if (record !== undefined && record.termination?.cause === "user-stop") {
+        this.state.error = "ZCODE_REQUEST_CANCELLED";
+        throw new Error(this.state.error);
+      }
       if (signal.aborted) {
         // 首因为总超时的中止沿用独立错误码，不再与用户取消混用。
         this.state.error =
@@ -627,6 +633,15 @@ export class ZcodeCli extends Service {
         : "ZCODE_MODEL_REGISTRATION_FAILED";
       throw new Error(this.state.error);
     } finally {
+      // 停止链路先等官方取消回执落地（有界），再拆传输，避免回执被拆除吞掉。
+      if (record?.stop !== undefined) {
+        await Promise.race([
+          stopGate,
+          new Promise<void>((resolve) =>
+            setTimeout(resolve, this.config.cancelReceiptTimeoutMs + 100),
+          ),
+        ]);
+      }
       // 本机回收结果独立于终止原因记录；子进程句柄失败即清理失败。
       let cleanupOk = true;
       let cleanupDetail: string | undefined;
@@ -638,6 +653,13 @@ export class ZcodeCli extends Service {
         cleanupDetail = error instanceof Error ? error.message : String(error);
       });
       record?.cleanup(cleanupOk, cleanupDetail);
+      // 用户停止以受管范围清空确认收尾；超时未清空保留待确认状态。
+      if (record?.stop !== undefined) {
+        const confirmed = await child.waitForExit(
+          AbortSignal.timeout(this.config.cleanupTimeoutMs),
+        );
+        record.noteExitConfirmed(confirmed);
+      }
     }
   }
   /**
@@ -696,10 +718,53 @@ export class ZcodeCli extends Service {
     // 请求总预算从接收请求开始计时，覆盖准备、启动、模型等待与通道内部重试。
     const merged = new AbortController();
     const disarm: (() => void)[] = [];
+    // 用户停止先经官方取消通道：run 闭包注入在途 rpc，回执落地前不拆传输。
+    let liveRpc: JsonRpcLineTransport | undefined;
+    let dispatchStarted = false;
+    let settleStop: () => void = () => undefined;
+    const stopSettled = new Promise<void>((resolve) => {
+      settleStop = resolve;
+    });
+    const issueCancel = async (): Promise<void> => {
+      try {
+        if (liveRpc !== undefined && dispatchStarted) {
+          const receipt = await Promise.race([
+            liveRpc
+              .request(
+                "workspace/cancelGenerateText",
+                { operationId: record.requestId },
+                AbortSignal.timeout(this.config.cancelReceiptTimeoutMs),
+              )
+              .then(
+                (value: unknown) =>
+                  typeof value === "object" &&
+                  value !== null &&
+                  (value as { cancelled?: unknown }).cancelled === true,
+                () => false,
+              ),
+            new Promise<boolean>((resolve) =>
+              setTimeout(
+                () => resolve(false),
+                this.config.cancelReceiptTimeoutMs,
+              ),
+            ),
+          ]);
+          record.noteReceipt(receipt);
+        }
+      } finally {
+        merged.abort(new Error("ZCODE_REQUEST_CANCELLED"));
+        settleStop();
+      }
+    };
     const arm = (source: AbortSignal | undefined, cause: TerminationCause) => {
       if (source === undefined) return;
       const trip = () => {
         record.terminate(cause);
+        if (cause === "user-stop") {
+          record.noteStop();
+          issueCancel().catch(() => undefined);
+          return;
+        }
         merged.abort(new Error("ZCODE_REQUEST_CANCELLED"));
       };
       if (source.aborted) {
@@ -730,6 +795,8 @@ export class ZcodeCli extends Service {
       );
       const result = await this.raw(
         (rpc) => {
+          liveRpc = rpc;
+          dispatchStarted = true;
           record.note({ stage: "waiting" });
           return rpc.request(
             "workspace/generateText",
@@ -760,6 +827,7 @@ export class ZcodeCli extends Service {
         requestCwd,
         catalog,
         record,
+        stopSettled,
       );
       const validated = GenerationResult.parse(result);
       record.succeed();

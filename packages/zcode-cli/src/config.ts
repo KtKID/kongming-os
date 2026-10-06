@@ -42,6 +42,9 @@ export const Config = schema.object({
   requestTimeoutMs: schema.natural().min(1).max(2147483647).default(360000),
   // 模型等待超过该时长在请求状态中标记慢请求，默认 30 秒。
   slowRequestMs: schema.natural().min(1).max(2147483647).default(30000),
+  // 用户停止先走官方取消通道：取消回执时限与受管范围清空确认时限。
+  cancelReceiptTimeoutMs: schema.natural().min(1).max(2147483647).default(1000),
+  cleanupTimeoutMs: schema.natural().min(1).max(2147483647).default(5000),
   probeTimeoutMs: schema.natural().min(1).max(2147483647).default(15000),
   probeMaxTokens: schema.natural().min(1).default(1),
   loginTimeoutMs: schema.natural().min(1).max(2147483647).default(1200000),
