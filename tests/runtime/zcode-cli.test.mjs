@@ -1417,7 +1417,7 @@ test("client registers the request status dock and renders every visible stage",
       termination: { cause: "user-stop", at: 1 },
       stop: { requestedAt: 1, receipt: true, exitConfirmed: true },
     }),
-    /本机任务已停止/,
+    /zcode cli 任务已停止/,
   );
   assert.match(
     stopping({
