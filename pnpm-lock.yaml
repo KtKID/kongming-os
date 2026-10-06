@@ -31,6 +31,8 @@ importers:
 
   bundles/mini: {}
 
+  packages/kmh-dev-preset: {}
+
   packages/kmh-echo:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -69,6 +71,9 @@ importers:
       '@deepseek-ai/dsh-client-locale':
         specifier: link:../../third_party/dsh/packages/client/locale
         version: link:../../third_party/dsh/packages/client/locale
+      '@deepseek-ai/dsh-client-ui-conversation':
+        specifier: link:../../third_party/dsh/packages/client/ui-conversation
+        version: link:../../third_party/dsh/packages/client/ui-conversation
       '@deepseek-ai/dsh-client-ui-plugin-manager':
         specifier: link:../../third_party/dsh/packages/client/ui-plugin-manager
         version: link:../../third_party/dsh/packages/client/ui-plugin-manager

@@ -14,7 +14,7 @@ const cancelBody = z.object({ attemptId: z.string().uuid() }).strict();
  */
 export async function accountResponse(
   runtime: ZcodeCli,
-  action: "status" | "login" | "cancel" | "logout" | "check",
+  action: "status" | "login" | "cancel" | "logout" | "check" | "requests",
   request: Request,
 ): Promise<Response> {
   try {
@@ -33,6 +33,12 @@ export async function accountResponse(
       case "check":
         await runtime.check();
         break;
+      case "requests":
+        // 按请求的状态快照：含阶段、尝试次数与慢请求位，供会话视图轮询。
+        return Response.json(
+          { requests: runtime.requests() },
+          { headers: { "Cache-Control": "no-store" } },
+        );
     }
     return Response.json(await runtime.status(), {
       headers: { "Cache-Control": "no-store" },
@@ -56,6 +62,7 @@ export function mountWeb(ctx: Context, runtime: ZcodeCli): void {
     "cancel",
     "logout",
     "check",
+    "requests",
   ] as const) {
     ctx.connection.fetch.register({
       path: `/api/zcode-cli/${action}`,

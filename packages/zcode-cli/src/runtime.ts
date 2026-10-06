@@ -26,7 +26,12 @@ import {
 } from "./models.ts";
 import { ReasoningEffortId, type GenerateOptions } from "@deepseek-ai/dsh-llm";
 
-import type { PublicStatus } from "./status.ts";
+import { RequestSupervisor, type RequestRecord } from "./supervisor.ts";
+import type {
+  PublicStatus,
+  RequestStatus,
+  TerminationCause,
+} from "./status.ts";
 export { PublicStatus } from "./status.ts";
 declare module "@deepseek-ai/cordis" {
   interface Context {
@@ -61,6 +66,35 @@ interface Paths {
   builtin: string;
   env: NodeJS.ProcessEnv;
 }
+/** 启动阶段失败码：统一归入 startup-timeout，具体码进 detail。 */
+const startupCodes = new Set([
+  "ZCODE_CLI_MISSING",
+  "ZCODE_CONFIG_PATH_INVALID",
+  "ZCODE_STDIO_MISSING",
+  "ZCODE_LOGIN_REQUIRED",
+  "ZCODE_PROBE_TIMEOUT",
+]);
+/** 逻辑请求指纹：模型、系统提示、消息与工具声明的哈希，重试续接共用。 */
+function requestFingerprint(options: GenerateOptions): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        model: options.model ?? null,
+        system: options.system ?? null,
+        messages: options.messages,
+        tools: options.tools ?? [],
+      }),
+    )
+    .digest("hex");
+}
+/** 归类通道层未覆盖的 generate 阶段失败；已有终止或尝试失败时不重复记录。 */
+function classifyFailure(record: RequestRecord, error: unknown): void {
+  if (record.termination !== undefined || record.outcome !== "running") return;
+  const message = error instanceof Error ? error.message : undefined;
+  if (message !== undefined && startupCodes.has(message))
+    record.terminate("startup-timeout", message);
+  else record.failAttempt("provider-error", message);
+}
 interface Attempt {
   id: string;
   controller: AbortController;
@@ -71,6 +105,7 @@ interface Attempt {
 export class ZcodeCli extends Service {
   private readonly processes = new Set<SubprocessHandle>();
   private readonly lifetime = new AbortController();
+  private readonly supervision = new RequestSupervisor();
   private attempt: Attempt | undefined;
   private catalog: Promise<ModelEntry[]> | undefined;
   private state: PublicStatus;
@@ -460,6 +495,7 @@ export class ZcodeCli extends Service {
     signal: AbortSignal,
     requestCwd?: string,
     catalog: readonly ModelEntry[] = [],
+    record?: RequestRecord,
   ): Promise<T> {
     const paths = await this.paths(
       signal,
@@ -549,7 +585,11 @@ export class ZcodeCli extends Service {
     } catch (error) {
       this.state.connection = "failed";
       if (signal.aborted) {
-        this.state.error = "ZCODE_REQUEST_CANCELLED";
+        // 首因为总超时的中止沿用独立错误码，不再与用户取消混用。
+        this.state.error =
+          record !== undefined && record.termination?.cause === "total-timeout"
+            ? "ZCODE_REQUEST_TIMEOUT"
+            : "ZCODE_REQUEST_CANCELLED";
         throw new Error(this.state.error);
       }
       if (error instanceof JsonRpcResponseError) {
@@ -557,6 +597,7 @@ export class ZcodeCli extends Service {
         const code = data.success
           ? (data.data.providerCode ?? data.data.code)
           : undefined;
+        record?.failAttempt("provider-error", String(code ?? error.code));
         this.state.diagnostic = {
           code: code ?? error.code ?? "ZCODE_NATIVE_ERROR",
           message: (data.success
@@ -572,16 +613,31 @@ export class ZcodeCli extends Service {
             )
             .slice(0, 1000),
         };
+      } else if (error instanceof Error && startupCodes.has(error.message)) {
+        record?.terminate("startup-timeout", error.message);
+      } else {
+        // 传输层失败且无错误响应：按模型通道提前退出终止整条请求。
+        record?.terminate(
+          "channel-exit",
+          error instanceof Error ? error.message : undefined,
+        );
       }
       this.state.error = registered
         ? "ZCODE_MODEL_CONNECTION_FAILED"
         : "ZCODE_MODEL_REGISTRATION_FAILED";
       throw new Error(this.state.error);
     } finally {
+      // 本机回收结果独立于终止原因记录；子进程句柄失败即清理失败。
+      let cleanupOk = true;
+      let cleanupDetail: string | undefined;
       rpc.close();
       bridge.destroy();
       child.terminate();
-      await child.done.catch(() => undefined);
+      await child.done.catch((error: unknown) => {
+        cleanupOk = false;
+        cleanupDetail = error instanceof Error ? error.message : String(error);
+      });
+      record?.cleanup(cleanupOk, cleanupDetail);
     }
   }
   /**
@@ -627,58 +683,108 @@ export class ZcodeCli extends Service {
   }
   /**
    * Dispatch KMH's complete request to the raw endpoint and own cancellation.
+   * 每个终止信号源单独监听并写入监督记录：首个生效原因保持不变，
+   * 总超时以 ZCODE_REQUEST_TIMEOUT 报出，不再与用户取消混用同一错误码。
    * @param options - Logged model request with current tool declarations.
    * @returns Validated by the adapter before emitting KMH events.
    */
   async generate(options: GenerateOptions): Promise<unknown> {
-    const catalog = await this.resolveCatalog(options.signal);
-    const entry =
-      options.model === undefined
-        ? catalog[0]
-        : catalog.find((item) => item.id === options.model?.toLowerCase());
-    if (entry === undefined) throw new Error("ZCODE_MODEL_UNAVAILABLE");
-    const request = projectRequest(options);
-    const signal = AbortSignal.any([
-      this.lifetime.signal,
-      AbortSignal.timeout(this.config.requestTimeoutMs),
-      ...(options.signal ? [options.signal] : []),
-    ]);
-    const operationId = randomUUID();
-    const requestCwd = await this.resolveRequestCwd(options.sessionId, signal);
-    const result = await this.raw(
-      (rpc) =>
-        rpc.request(
-          "workspace/generateText",
-          {
-            workspace: {
-              workspacePath: requestCwd ?? this.config.cwd,
-              workspaceKey: requestCwd ?? this.config.cwd,
-            },
-            selection: {
-              providerId: this.config.providerId,
-              modelId: entry.nativeId,
-              options: {
-                reasoningLevel:
-                  options.reasoningEffort ?? this.config.reasoningLevel,
-              },
-            },
-            ...request,
-            querySource: "kmh",
-            operationId,
-            // CLI 0.16.9 将 maxOutputTokens 当必填校验，缺省即拒绝整个请求。
-            maxOutputTokens: options.maxTokens ?? this.config.defaultMaxTokens,
-          },
-          signal,
-        ),
-      signal,
-      requestCwd,
-      catalog,
+    const record = this.supervision.open(
+      options.sessionId,
+      requestFingerprint(options),
     );
-    const validated = GenerationResult.parse(result);
-    this.state.connection = "ready";
-    delete this.state.error;
-    delete this.state.diagnostic;
-    return validated;
+    // 请求总预算从接收请求开始计时，覆盖准备、启动、模型等待与通道内部重试。
+    const merged = new AbortController();
+    const disarm: (() => void)[] = [];
+    const arm = (source: AbortSignal | undefined, cause: TerminationCause) => {
+      if (source === undefined) return;
+      const trip = () => {
+        record.terminate(cause);
+        merged.abort(new Error("ZCODE_REQUEST_CANCELLED"));
+      };
+      if (source.aborted) {
+        trip();
+        return;
+      }
+      source.addEventListener("abort", trip, { once: true });
+      disarm.push(() => source.removeEventListener("abort", trip));
+    };
+    arm(options.signal, "user-stop");
+    arm(this.lifetime.signal, "host-unload");
+    const budget = setTimeout(() => {
+      record.terminate("total-timeout", `${this.config.requestTimeoutMs}ms`);
+      merged.abort(new Error("ZCODE_REQUEST_TIMEOUT"));
+    }, this.config.requestTimeoutMs);
+    const signal = merged.signal;
+    try {
+      const catalog = await this.resolveCatalog(signal);
+      const entry =
+        options.model === undefined
+          ? catalog[0]
+          : catalog.find((item) => item.id === options.model?.toLowerCase());
+      if (entry === undefined) throw new Error("ZCODE_MODEL_UNAVAILABLE");
+      const request = projectRequest(options);
+      const requestCwd = await this.resolveRequestCwd(
+        options.sessionId,
+        signal,
+      );
+      const result = await this.raw(
+        (rpc) => {
+          record.note({ stage: "waiting" });
+          return rpc.request(
+            "workspace/generateText",
+            {
+              workspace: {
+                workspacePath: requestCwd ?? this.config.cwd,
+                workspaceKey: requestCwd ?? this.config.cwd,
+              },
+              selection: {
+                providerId: this.config.providerId,
+                modelId: entry.nativeId,
+                options: {
+                  reasoningLevel:
+                    options.reasoningEffort ?? this.config.reasoningLevel,
+                },
+              },
+              ...request,
+              querySource: "kmh",
+              operationId: record.requestId,
+              // CLI 0.16.9 将 maxOutputTokens 当必填校验，缺省即拒绝整个请求。
+              maxOutputTokens:
+                options.maxTokens ?? this.config.defaultMaxTokens,
+            },
+            signal,
+          );
+        },
+        signal,
+        requestCwd,
+        catalog,
+        record,
+      );
+      const validated = GenerationResult.parse(result);
+      record.succeed();
+      this.state.connection = "ready";
+      delete this.state.error;
+      delete this.state.diagnostic;
+      return validated;
+    } catch (error) {
+      classifyFailure(record, error);
+      // 首因为总超时时，把底层沿用旧分类的中止错误改回超时语义。
+      if (
+        record.termination?.cause === "total-timeout" &&
+        error instanceof Error &&
+        error.message === "ZCODE_REQUEST_CANCELLED"
+      )
+        throw new Error("ZCODE_REQUEST_TIMEOUT");
+      throw error;
+    } finally {
+      clearTimeout(budget);
+      for (const off of disarm) off();
+    }
+  }
+  /** 以慢请求阈值返回全部请求状态快照，供 Web 与诊断入口读取。 */
+  requests(): RequestStatus[] {
+    return this.supervision.snapshot(this.config.slowRequestMs);
   }
   /** Terminate every owned range and await login settlement during unload. */
   async dispose(): Promise<void> {

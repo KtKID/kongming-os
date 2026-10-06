@@ -48,6 +48,7 @@
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-alpha.1",
     "react": "^18.2.0"
   },
   "dependencies": {
@@ -68,6 +69,7 @@
     "@types/node": "^22.20.0",
     "@deepseek-ai/dsh-client-locale": "link:../../third_party/dsh/packages/client/locale",
     "@deepseek-ai/dsh-client-ui-plugin-manager": "link:../../third_party/dsh/packages/client/ui-plugin-manager",
+    "@deepseek-ai/dsh-client-ui-conversation": "link:../../third_party/dsh/packages/client/ui-conversation",
     "@deepseek-ai/dsh-client-ui-renderer": "link:../../third_party/dsh/packages/client/ui-renderer",
     "@deepseek-ai/dsh-client-ui-slots": "link:../../third_party/dsh/packages/client/ui-slots",
     "@deepseek-ai/dsh-client-ui-primitives": "link:../../third_party/dsh/packages/client/ui-primitives",

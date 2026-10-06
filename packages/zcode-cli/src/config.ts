@@ -40,6 +40,8 @@ export const Config = schema.object({
   reasoningLevel: schema.const("high").default("high"),
   defaultMaxTokens: schema.natural().min(1).max(2147483647).default(1000000),
   requestTimeoutMs: schema.natural().min(1).max(2147483647).default(360000),
+  // 模型等待超过该时长在请求状态中标记慢请求，默认 30 秒。
+  slowRequestMs: schema.natural().min(1).max(2147483647).default(30000),
   probeTimeoutMs: schema.natural().min(1).max(2147483647).default(15000),
   probeMaxTokens: schema.natural().min(1).default(1),
   loginTimeoutMs: schema.natural().min(1).max(2147483647).default(1200000),

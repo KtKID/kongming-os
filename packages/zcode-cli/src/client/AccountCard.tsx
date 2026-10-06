@@ -40,6 +40,8 @@ function errorKey(code: string): LocaleKey {
       return "timeout";
     case "ZCODE_PROBE_TIMEOUT":
       return "probeTimeout";
+    case "ZCODE_REQUEST_TIMEOUT":
+      return "requestTimeout";
     case "ZCODE_LOGIN_FAILED":
       return "loginFailed";
     case "ZCODE_CREDENTIAL_INVALID":

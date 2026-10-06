@@ -2,9 +2,13 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-plugin-manager/client";
+import type {} from "@deepseek-ai/dsh-client-ui-conversation/client";
 import type {} from "@deepseek-ai/dsh-client-ui-renderer/client";
 import { AccountCard } from "./AccountCard.tsx";
+import { RequestDock } from "./RequestDock.tsx";
 import { zh, en, type LocaleKey } from "./locales.ts";
+
+export { RequestStatusLine } from "./RequestDock.tsx";
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
@@ -41,5 +45,21 @@ export function apply(ctx: Context): void {
         ),
       ),
     "zcode-cli: account card",
+  );
+  ctx.effect(
+    () =>
+      ctx.slots.inject("conversation.composer.dock", () =>
+        ctx.slots.register(
+          {
+            name: "conversation.composer.dock",
+            id: "zcode-cli-request-status",
+            order: 20,
+            label: () => t("requestTitle"),
+            locale: namespace,
+          },
+          RequestDock,
+        ),
+      ),
+    "zcode-cli: request status dock",
   );
 }

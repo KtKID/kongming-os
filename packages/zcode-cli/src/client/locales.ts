@@ -34,6 +34,7 @@ export const zh = {
   check: "测试连接",
   checking: "测试中…",
   probeTimeout: "连接测试超时，请重试。",
+  requestTimeout: "模型请求总超时，本轮已停止。",
   open: "打开官方授权页",
   qr: "用手机扫描二维码，或打开官方授权页完成登录。",
   back: "返回 KMH",
@@ -55,6 +56,11 @@ export const zh = {
   errorCode: "错误码",
   nativeCode: "CLI 错误码",
   nativeMessage: "CLI 提示",
+  requestTitle: "模型请求状态",
+  requestStarting: "启动模型通道",
+  requestWaiting: "等待模型回复",
+  requestAttempt: "第 {n} 次尝试",
+  requestSlow: "响应较慢，仍在等待",
 };
 /** Keys accepted by the Plugins account locale reader. */
 export type LocaleKey = keyof typeof zh;
@@ -95,6 +101,7 @@ export const en: Copy = {
   check: "Test connection",
   checking: "Testing…",
   probeTimeout: "Connection test timed out. Please retry.",
+  requestTimeout: "The model request timed out and this turn was stopped.",
   open: "Open official authorization page",
   qr: "Scan with your phone or open the official page to sign in.",
   back: "Back to KMH",
@@ -119,4 +126,9 @@ export const en: Copy = {
   errorCode: "Error code",
   nativeCode: "CLI error code",
   nativeMessage: "CLI message",
+  requestTitle: "Model request status",
+  requestStarting: "Starting model channel",
+  requestWaiting: "Waiting for model reply",
+  requestAttempt: "Attempt {n}",
+  requestSlow: "Slow response, still waiting",
 };
