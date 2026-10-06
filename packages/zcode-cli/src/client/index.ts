@@ -8,7 +8,7 @@ import { AccountCard } from "./AccountCard.tsx";
 import { RequestDock } from "./RequestDock.tsx";
 import { zh, en, type LocaleKey } from "./locales.ts";
 
-export { RequestStatusLine } from "./RequestDock.tsx";
+export { RequestStatusLine, pickNotable } from "./RequestDock.tsx";
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
