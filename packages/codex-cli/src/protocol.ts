@@ -33,6 +33,24 @@ export function createFrameBridge(
   });
 }
 
+/** 从 unknown 对象安全取一个字段；无该字段或非对象时返回 undefined。 */
+export function fieldOf(value: unknown, key: string): unknown {
+  if (value === null || typeof value !== "object") return undefined;
+  for (const [name, item] of Object.entries(value))
+    if (name === key) return item;
+  return undefined;
+}
+/** 浅拷贝 unknown 对象为可写字段表；非对象时抛错。 */
+export function shallowCopy(
+  value: unknown,
+  code: string,
+): Record<string, unknown> {
+  if (value === null || typeof value !== "object") throw new Error(code);
+  const copy: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) copy[key] = item;
+  return copy;
+}
+
 /** 方法名常量：集中一处，避免字符串散落。 */
 export const Method = {
   initialize: "initialize",
@@ -89,6 +107,7 @@ export const ModelEntry = z
     displayName: z.string().optional(),
     // 推理等级为模型声明的可选值列表；缺失表示该模型不支持调节。
     reasoningEfforts: z.array(z.string()).optional(),
+    defaultReasoningEffort: z.string().optional(),
     supportsReasoningSummaries: z.boolean().optional(),
   })
   .passthrough();
@@ -115,11 +134,9 @@ export const ThreadStartParams = z.object({
   dynamicTools: z.array(DynamicToolSpec).optional(),
 });
 /** thread/start 与 thread/resume 的响应。 */
-export const ThreadResult = z
-  .object({
-    id: z.string().min(1),
-  })
-  .passthrough();
+export const ThreadResult: z.ZodType<{ thread: { id: string } }> = z.object({
+  thread: z.object({ id: z.string().min(1) }).passthrough(),
+});
 
 /** turn/start 的用户输入。 */
 export const UserTextInput = z.object({
@@ -132,11 +149,9 @@ export const TurnStartParams = z.object({
   input: z.array(UserTextInput).min(1),
 });
 /** turn/start 响应。 */
-export const TurnResult = z
-  .object({
-    id: z.string().min(1),
-  })
-  .passthrough();
+export const TurnResult: z.ZodType<{ turn: { id: string } }> = z.object({
+  turn: z.object({ id: z.string().min(1) }).passthrough(),
+});
 /** turn/interrupt 请求参数。 */
 export const TurnInterruptParams = z.object({
   threadId: z.string().min(1),

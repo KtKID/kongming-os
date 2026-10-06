@@ -12,13 +12,13 @@ KMH 的官方 Codex CLI 模型提供方插件。通过 `codex app-server --stdio
 
 ## 配置
 
-| 配置 | 默认 | 说明 |
-| --- | --- | --- |
-| `command` | `codex` | 官方 CLI 可执行文件，可指定绝对路径 |
-| `cwd` | 必填 | 无会话身份时子进程的工作目录 |
-| `dataDir` | 必填 | 插件数据目录（绑定记录等） |
-| `nativeToolsEnabled` | `false` | 原生 Codex 工具与技能开关 |
-| `startupTimeoutMs` 等 | 见 `src/config.ts` | 启动、请求、取消回执与清理时限 |
+| 配置                  | 默认               | 说明                                |
+| --------------------- | ------------------ | ----------------------------------- |
+| `command`             | `codex`            | 官方 CLI 可执行文件，可指定绝对路径 |
+| `cwd`                 | 必填               | 无会话身份时子进程的工作目录        |
+| `dataDir`             | 必填               | 插件数据目录（绑定记录等）          |
+| `nativeToolsEnabled`  | `false`            | 原生 Codex 工具与技能开关           |
+| `startupTimeoutMs` 等 | 见 `src/config.ts` | 启动、请求、取消回执与清理时限      |
 
 ## 开发
 

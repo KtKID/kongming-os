@@ -1,0 +1,4 @@
+models.json originates from the official Codex CLI source tree
+(rust-v0.160.0, codex-rs/models-manager/models.json), Apache-2.0.
+Modified by KMH: per-model tool capability fields are rewritten at runtime
+for tool isolation; the vendored copy itself is unmodified.
