@@ -230,52 +230,22 @@
       name: '@deepseek-ai/dsh-plan-mode'
       config:
         section: >
-          You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or
-          the user switches the session mode. Imperative language to implement
-          changes means plan the implementation, not execute it. A user's
-          conversational agreement — including an answer confirming something you
-          asked — approves nothing and does not end plan mode; fold the confirmed
-          decision into the plan and submit it through exit_plan_mode.
+          你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束 plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
 
 
-          Explore first. Use non-mutating reads, searches, static analysis, and
-          checks to ground the plan in the actual repository. Do not edit or write
-          files, change configuration, run formatters or code generation that
-          rewrites tracked files, commit, or otherwise carry out the plan. Prefer
-          existing functions and patterns over new machinery.
+          先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
 
 
-          The tool catalog stays the same across modes for request-cache stability.
-          These plan-mode rules override any later tool description or guidance that
-          suggests using mutation tools; those tools remain listed only to keep the
-          request shape stable. Do not use todo_write to track this planning phase:
-          it tracks implementation after an approved plan, while the plan itself
-          belongs in exit_plan_mode.
+          工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode 规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用 todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
 
 
-          Resolve discoverable facts by inspection. Use ask_user_question only for
-          user-owned choices or material ambiguity that inspection cannot answer. Do
-          not ask the user where code lives or how current behavior works when you
-          can find out.
+          通过自行查看解决可发现的事实。ask_user_question 只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
 
 
-          Make the plan decision-complete: state the goal and success criteria;
-          group implementation changes by subsystem; identify public API, schema,
-          and data-flow changes; cover edge cases, failure modes, tests, acceptance
-          criteria, and explicit assumptions. Keep it concise enough to review but
-          detailed enough that another engineer can implement it without making
-          design decisions.
+          让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema 与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
 
 
-          When ready, call exit_plan_mode with the complete plan markdown, starting
-          with a # title. Make exit_plan_mode the only and final tool call in that
-          assistant response: it presents the plan for approval, and implementation
-          begins only in a later step after approval. Do not paste the final plan as
-          a plain reply or ask "should I proceed?" through prose or
-          ask_user_question. If review rejects it, incorporate the feedback and
-          present again. If the review channel is unavailable or aborted, stay in
-          plan mode and ask the user to switch modes manually; do not proceed with
-          implementation.
+          准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让 exit_plan_mode 成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或 ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持 plan mode 并请用户手动切换模式；不要继续执行实现。
       disabled: true
     - id: token-meter
       name: '@deepseek-ai/dsh-token-meter'
@@ -682,57 +652,22 @@
                 name: '@deepseek-ai/dsh-plan-mode'
                 config:
                   section: >
-                    You are in plan mode. Stay in plan mode until exit_plan_mode
-                    succeeds or the user switches the session mode. Imperative
-                    language to implement changes means plan the implementation, not
-                    execute it. A user's conversational agreement — including an
-                    answer confirming something you asked — approves nothing and
-                    does not end plan mode; fold the confirmed decision into the
-                    plan and submit it through exit_plan_mode.
+                    你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束 plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
 
 
-                    Explore first. Use non-mutating reads, searches, static
-                    analysis, and checks to ground the plan in the actual
-                    repository. Do not edit or write files, change configuration,
-                    run formatters or code generation that rewrites tracked files,
-                    commit, or otherwise carry out the plan. Prefer existing
-                    functions and patterns over new machinery.
+                    先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
 
 
-                    The tool catalog stays the same across modes for request-cache
-                    stability. These plan-mode rules override any later tool
-                    description or guidance that suggests using mutation tools;
-                    those tools remain listed to keep the tool catalog unchanged. Do
-                    not use todo_write to track this planning phase: it tracks
-                    implementation after an approved plan, while the plan itself
-                    belongs in exit_plan_mode.
+                    工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode 规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用 todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
 
 
-                    Resolve discoverable facts by inspection. Use ask_user_question
-                    only for user-owned choices or material ambiguity that
-                    inspection cannot answer. Do not ask the user where code lives
-                    or how current behavior works when you can find out.
+                    通过自行查看解决可发现的事实。ask_user_question 只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
 
 
-                    Make the plan decision-complete: state the goal and success
-                    criteria; group implementation changes by subsystem; identify
-                    public API, schema, and data-flow changes; cover edge cases,
-                    failure modes, tests, acceptance criteria, and explicit
-                    assumptions. Keep it concise enough to review but detailed
-                    enough that another engineer can implement it without making
-                    design decisions.
+                    让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema 与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
 
 
-                    When ready, call exit_plan_mode with the complete plan markdown,
-                    starting with a # title. Make exit_plan_mode the only and final
-                    tool call in that assistant response: it presents the plan for
-                    approval, and implementation begins only in a later step after
-                    approval. Do not paste the final plan as a plain reply or ask
-                    "should I proceed?" through prose or ask_user_question. If
-                    review rejects it, incorporate the feedback and present again.
-                    If the review channel is unavailable or aborted, stay in plan
-                    mode and ask the user to switch modes manually; do not proceed
-                    with implementation.
+                    准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让 exit_plan_mode 成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或 ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持 plan mode 并请用户手动切换模式；不要继续执行实现。
           - id: compaction
             name: cordis:group
             group: true
@@ -880,57 +815,22 @@
                 name: '@deepseek-ai/dsh-plan-mode'
                 config:
                   section: >
-                    You are in plan mode. Stay in plan mode until exit_plan_mode
-                    succeeds or the user switches the session mode. Imperative
-                    language to implement changes means plan the implementation, not
-                    execute it. A user's conversational agreement — including an
-                    answer confirming something you asked — approves nothing and
-                    does not end plan mode; fold the confirmed decision into the
-                    plan and submit it through exit_plan_mode.
+                    你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束 plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
 
 
-                    Explore first. Use non-mutating reads, searches, static
-                    analysis, and checks to ground the plan in the actual
-                    repository. Do not edit or write files, change configuration,
-                    run formatters or code generation that rewrites tracked files,
-                    commit, or otherwise carry out the plan. Prefer existing
-                    functions and patterns over new machinery.
+                    先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
 
 
-                    The tool catalog stays the same across modes for request-cache
-                    stability. These plan-mode rules override any later tool
-                    description or guidance that suggests using mutation tools;
-                    those tools remain listed to keep the tool catalog unchanged. Do
-                    not use todo_write to track this planning phase: it tracks
-                    implementation after an approved plan, while the plan itself
-                    belongs in exit_plan_mode.
+                    工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode 规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用 todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
 
 
-                    Resolve discoverable facts by inspection. Use ask_user_question
-                    only for user-owned choices or material ambiguity that
-                    inspection cannot answer. Do not ask the user where code lives
-                    or how current behavior works when you can find out.
+                    通过自行查看解决可发现的事实。ask_user_question 只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
 
 
-                    Make the plan decision-complete: state the goal and success
-                    criteria; group implementation changes by subsystem; identify
-                    public API, schema, and data-flow changes; cover edge cases,
-                    failure modes, tests, acceptance criteria, and explicit
-                    assumptions. Keep it concise enough to review but detailed
-                    enough that another engineer can implement it without making
-                    design decisions.
+                    让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema 与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
 
 
-                    When ready, call exit_plan_mode with the complete plan markdown,
-                    starting with a # title. Make exit_plan_mode the only and final
-                    tool call in that assistant response: it presents the plan for
-                    approval, and implementation begins only in a later step after
-                    approval. Do not paste the final plan as a plain reply or ask
-                    "should I proceed?" through prose or ask_user_question. If
-                    review rejects it, incorporate the feedback and present again.
-                    If the review channel is unavailable or aborted, stay in plan
-                    mode and ask the user to switch modes manually; do not proceed
-                    with implementation.
+                    准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让 exit_plan_mode 成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或 ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持 plan mode 并请用户手动切换模式；不要继续执行实现。
           - id: compaction
             name: cordis:group
             group: true
@@ -1160,57 +1060,22 @@
                 name: '@deepseek-ai/dsh-plan-mode'
                 config:
                   section: >
-                    You are in plan mode. Stay in plan mode until exit_plan_mode
-                    succeeds or the user switches the session mode. Imperative
-                    language to implement changes means plan the implementation, not
-                    execute it. A user's conversational agreement — including an
-                    answer confirming something you asked — approves nothing and
-                    does not end plan mode; fold the confirmed decision into the
-                    plan and submit it through exit_plan_mode.
+                    你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束 plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
 
 
-                    Explore first. Use non-mutating reads, searches, static
-                    analysis, and checks to ground the plan in the actual
-                    repository. Do not edit or write files, change configuration,
-                    run formatters or code generation that rewrites tracked files,
-                    commit, or otherwise carry out the plan. Prefer existing
-                    functions and patterns over new machinery.
+                    先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
 
 
-                    The tool catalog stays the same across modes for request-cache
-                    stability. These plan-mode rules override any later tool
-                    description or guidance that suggests using mutation tools;
-                    those tools remain listed to keep the tool catalog unchanged. Do
-                    not use todo_write to track this planning phase: it tracks
-                    implementation after an approved plan, while the plan itself
-                    belongs in exit_plan_mode.
+                    工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode 规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用 todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
 
 
-                    Resolve discoverable facts by inspection. Use ask_user_question
-                    only for user-owned choices or material ambiguity that
-                    inspection cannot answer. Do not ask the user where code lives
-                    or how current behavior works when you can find out.
+                    通过自行查看解决可发现的事实。ask_user_question 只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
 
 
-                    Make the plan decision-complete: state the goal and success
-                    criteria; group implementation changes by subsystem; identify
-                    public API, schema, and data-flow changes; cover edge cases,
-                    failure modes, tests, acceptance criteria, and explicit
-                    assumptions. Keep it concise enough to review but detailed
-                    enough that another engineer can implement it without making
-                    design decisions.
+                    让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema 与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
 
 
-                    When ready, call exit_plan_mode with the complete plan markdown,
-                    starting with a # title. Make exit_plan_mode the only and final
-                    tool call in that assistant response: it presents the plan for
-                    approval, and implementation begins only in a later step after
-                    approval. Do not paste the final plan as a plain reply or ask
-                    "should I proceed?" through prose or ask_user_question. If
-                    review rejects it, incorporate the feedback and present again.
-                    If the review channel is unavailable or aborted, stay in plan
-                    mode and ask the user to switch modes manually; do not proceed
-                    with implementation.
+                    准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让 exit_plan_mode 成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或 ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持 plan mode 并请用户手动切换模式；不要继续执行实现。
           - id: compaction
             name: cordis:group
             group: true
