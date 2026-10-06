@@ -66,7 +66,8 @@ export function mountWeb(ctx: Context, runtime: ZcodeCli): void {
   ] as const) {
     ctx.connection.fetch.register({
       path: `/api/zcode-cli/${action}`,
-      methods: [action === "status" ? "GET" : "POST"],
+      // status 与 requests 均为无副作用查询，走 GET；动作类走 POST。
+      methods: [action === "status" || action === "requests" ? "GET" : "POST"],
       requestBody: "buffered",
       fetch: (request) => accountResponse(runtime, action, request),
     });

@@ -725,6 +725,11 @@ export class ZcodeCli extends Service {
     const stopSettled = new Promise<void>((resolve) => {
       settleStop = resolve;
     });
+    // 在途 generateText 的落定门：回执后先等它落定再中止，避免竞态吞掉结果。
+    let markRunSettled: () => void = () => undefined;
+    const runSettled = new Promise<void>((resolve) => {
+      markRunSettled = resolve;
+    });
     const issueCancel = async (): Promise<void> => {
       try {
         if (liveRpc !== undefined && dispatchStarted) {
@@ -752,6 +757,12 @@ export class ZcodeCli extends Service {
           record.noteReceipt(receipt);
         }
       } finally {
+        await Promise.race([
+          runSettled,
+          new Promise<void>((resolve) =>
+            setTimeout(resolve, this.config.cancelReceiptTimeoutMs),
+          ),
+        ]);
         merged.abort(new Error("ZCODE_REQUEST_CANCELLED"));
         settleStop();
       }
@@ -794,34 +805,38 @@ export class ZcodeCli extends Service {
         signal,
       );
       const result = await this.raw(
-        (rpc) => {
+        async (rpc) => {
           liveRpc = rpc;
           dispatchStarted = true;
           record.note({ stage: "waiting" });
-          return rpc.request(
-            "workspace/generateText",
-            {
-              workspace: {
-                workspacePath: requestCwd ?? this.config.cwd,
-                workspaceKey: requestCwd ?? this.config.cwd,
-              },
-              selection: {
-                providerId: this.config.providerId,
-                modelId: entry.nativeId,
-                options: {
-                  reasoningLevel:
-                    options.reasoningEffort ?? this.config.reasoningLevel,
+          try {
+            return await rpc.request(
+              "workspace/generateText",
+              {
+                workspace: {
+                  workspacePath: requestCwd ?? this.config.cwd,
+                  workspaceKey: requestCwd ?? this.config.cwd,
                 },
+                selection: {
+                  providerId: this.config.providerId,
+                  modelId: entry.nativeId,
+                  options: {
+                    reasoningLevel:
+                      options.reasoningEffort ?? this.config.reasoningLevel,
+                  },
+                },
+                ...request,
+                querySource: "kmh",
+                operationId: record.requestId,
+                // CLI 0.16.9 将 maxOutputTokens 当必填校验，缺省即拒绝整个请求。
+                maxOutputTokens:
+                  options.maxTokens ?? this.config.defaultMaxTokens,
               },
-              ...request,
-              querySource: "kmh",
-              operationId: record.requestId,
-              // CLI 0.16.9 将 maxOutputTokens 当必填校验，缺省即拒绝整个请求。
-              maxOutputTokens:
-                options.maxTokens ?? this.config.defaultMaxTokens,
-            },
-            signal,
-          );
+              signal,
+            );
+          } finally {
+            markRunSettled();
+          }
         },
         signal,
         requestCwd,

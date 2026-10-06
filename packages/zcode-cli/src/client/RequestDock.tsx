@@ -14,7 +14,19 @@ export function RequestStatusLine({
   row: z.infer<typeof RequestStatus>;
   t: (key: LocaleKey) => string;
 }) {
-  if (row.outcome !== "running") return null;
+  if (row.outcome !== "running") {
+    // 用户停止的两段式展示：正在停止 → 已停止 / 待确认（feat02 场景1/3）。
+    if (row.termination?.cause === "user-stop" && row.stop !== undefined) {
+      const label =
+        row.stop.exitConfirmed === undefined
+          ? t("requestStopping")
+          : row.stop.exitConfirmed
+            ? t("requestStopped")
+            : t("stopUnconfirmed");
+      return <p role="status">{label}</p>;
+    }
+    return null;
+  }
   const parts = [
     row.stage === "starting" ? t("requestStarting") : t("requestWaiting"),
   ];
@@ -25,7 +37,8 @@ export function RequestStatusLine({
 }
 
 /**
- * 轮询本机请求状态并渲染最近一条进行中的请求。
+ * 轮询本机请求状态并渲染最值得展示的一条：进行中的请求优先；
+ * 无进行中时保留最近一次用户停止的记录，展示正在停止 → 已停止/待确认。
  * 输入、输出：GET /api/zcode-cli/requests 的快照；取数失败保持上次内容。
  */
 export function RequestDock({ t }: PropsLocale<"settings.zcode-cli">) {
@@ -38,10 +51,11 @@ export function RequestDock({ t }: PropsLocale<"settings.zcode-cli">) {
         .then((response) => (response.ok ? response.json() : undefined))
         .then((value: unknown) => {
           if (value === undefined || !live) return;
-          const running = snapshot
-            .parse(value)
-            .requests.find((item) => item.outcome === "running");
-          setRow(running);
+          const requests = snapshot.parse(value).requests;
+          const notable =
+            requests.find((item) => item.outcome === "running") ??
+            requests.find((item) => item.termination?.cause === "user-stop");
+          setRow(notable);
         })
         .catch(() => undefined);
     };
