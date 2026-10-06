@@ -62,7 +62,7 @@ export const zh = {
   requestAttempt: "第 {n} 次尝试",
   requestSlow: "响应较慢，仍在等待",
   requestStopping: "正在停止",
-  requestStopped: "本机任务已停止",
+  requestStopped: "zcode cli 任务已停止",
   stopUnconfirmed: "停止状态待确认",
 };
 /** Keys accepted by the Plugins account locale reader. */
@@ -135,6 +135,6 @@ export const en: Copy = {
   requestAttempt: "Attempt {n}",
   requestSlow: "Slow response, still waiting",
   requestStopping: "Stopping",
-  requestStopped: "Local task stopped",
+  requestStopped: "ZCode CLI task stopped",
   stopUnconfirmed: "Stop status pending confirmation",
 };

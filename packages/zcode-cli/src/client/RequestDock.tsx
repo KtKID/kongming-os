@@ -13,6 +13,14 @@ import type { LocaleKey } from "./locales.ts";
 const snapshot = z.object({ requests: z.array(RequestStatus) });
 type Row = z.infer<typeof RequestStatus>;
 
+// 与输入区统计药丸（ContextMeter）同款排版：12px 主题次要文本色。
+const hintStyle = {
+  fontSize: "12px",
+  lineHeight: "20px",
+  color: "var(--dsw-alias-label-tertiary)",
+  margin: 0,
+} as const;
+
 /**
  * 选取当前会话最值得展示的一条请求：进行中优先，其次最近一次用户停止。
  * 状态行属于 zcode-cli 插件且只描述本会话经 zcode-cli 的请求——其他会话
@@ -49,7 +57,11 @@ export function RequestStatusLine({
           : row.stop.exitConfirmed
             ? t("requestStopped")
             : t("stopUnconfirmed");
-      return <p role="status">{label}</p>;
+      return (
+        <p role="status" style={hintStyle}>
+          {label}
+        </p>
+      );
     }
     return null;
   }
@@ -59,7 +71,11 @@ export function RequestStatusLine({
   if (row.attempt >= 2)
     parts.push(t("requestAttempt").replace("{n}", String(row.attempt)));
   if (row.slow) parts.push(t("requestSlow"));
-  return <p role="status">{parts.join(" · ")}</p>;
+  return (
+    <p role="status" style={hintStyle}>
+      {parts.join(" · ")}
+    </p>
+  );
 }
 
 /**
