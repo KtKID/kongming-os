@@ -1429,6 +1429,28 @@ test("client registers the request status dock and renders every visible stage",
     }),
     /停止状态待确认/,
   );
+  // 会话过滤：状态行只描述当前会话经 zcode-cli 的请求。
+  {
+    const mk = (id, sessionId, outcome, cause) => ({
+      requestId: id, sessionId, stage: "waiting", attempt: 1,
+      startedAt: 0, updatedAt: 0, waitingSince: 1, slow: false,
+      outcome, attemptFailures: [],
+      ...(cause ? { termination: { cause, at: 1 }, stop: { requestedAt: 1 } } : {}),
+    });
+    const requests = [
+      mk("a", "sess-a", "running"),
+      mk("b", null, "running"),
+      mk("c", "sess-b", "failed", "user-stop"),
+    ];
+    // 会话 A 只看到自己的 running，不看到 B 的停止态与无会话探测。
+    assert.equal(client.pickNotable(requests, "sess-a").requestId, "a");
+    // 会话 B 看到自己的停止记录，不看到 A 的运行中。
+    assert.equal(client.pickNotable(requests, "sess-b").requestId, "c");
+    // 会话 C（无 zcode-cli 请求）不渲染任何内容。
+    assert.equal(client.pickNotable(requests, "sess-c"), undefined);
+    // null 会话身份（探测）在任何会话视图都不显示。
+    assert.equal(client.pickNotable(requests, "sess-a").sessionId, "sess-a");
+  }
   // 已结束的请求不占用会话状态位。
   assert.equal(
     line({
