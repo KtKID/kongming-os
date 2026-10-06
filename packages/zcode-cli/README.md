@@ -19,6 +19,8 @@ pnpm web
 
 官方 CLI 使用自身代理传输。插件为该子进程固定设置 `NODE_USE_ENV_PROXY=0`，保留宿主提供的 HTTP、HTTPS 代理地址和绕过列表。
 
+每次模型请求在会话输入区下方显示当前阶段（「启动模型通道」「等待模型回复」），等待超过 `slowRequestMs` 追加慢请求提示，KMH 侧重试续接同一请求并显示「第 N 次尝试」。请求的终止原因至少区分用户停止、启动超时、模型请求总超时（`ZCODE_REQUEST_TIMEOUT`）、提供方错误、模型通道提前退出、宿主卸载与清理失败；首个生效原因保持不变，本机进程回收结果独立记录。认证后的 `GET /api/zcode-cli/requests` 返回全部请求的状态快照（阶段、尝试次数、等待起点与终止信息），客户端据此轮询展示。
+
 ## 配置
 
 ```yaml
@@ -35,19 +37,20 @@ pnpm web
 
 官方 CLI 0.16.9 将 `workspace/generateText` 的 `maxOutputTokens` 当必填项校验，缺省或超过合并后上限都会拒绝请求。因此插件对每条模型请求恒定携带输出上限：会话未指定时使用 `defaultMaxTokens`（默认 1000000），连接测试使用 `probeMaxTokens`。若调用方显式传入大于 `defaultMaxTokens` 的上限，需同步调高该配置值。
 
-| 配置                            | 默认值                                      | 用途                                                              |
-| ------------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
-| model                           | （空）                                      | 空=登录后按动态目录自动选择；填 ID 固定该模型（如 glm-5.3-flash） |
-| providerId                      | account:bigmodel-individual-coding-plan     | 官方 Coding Plan 账号；支持 account:zai-individual-coding-plan    |
-| apiBaseUrl                      | https://open.bigmodel.cn/api/coding/paas/v4 | 传给官方 CLI 的模型地址；Z.ai 账号需配置自己的 Coding Plan 地址   |
-| reasoningLevel                  | high                                        | 官方模型思考等级                                                  |
-| defaultMaxTokens                | 1000000                                     | 会话默认输出上限；个人配置同步抬高官方 CLI 的校验上限             |
-| requestTimeoutMs                | 360000                                      | 模型请求超时                                                      |
-| probeTimeoutMs / probeMaxTokens | 15000 / 1                                   | 连通测试时限和传递的输出上限                                      |
-| loginTimeoutMs                  | 1200000                                     | 等待人工授权的时限                                                |
-| graceMs                         | 1500                                        | 进程结束宽限时间                                                  |
-| maxLoginOutputBytes             | 32768                                       | 登录输出总上限                                                    |
-| env                             | {}                                          | 官方 CLI 的显式环境设置                                           |
+| 配置                            | 默认值                                      | 用途                                                               |
+| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| model                           | （空）                                      | 空=登录后按动态目录自动选择；填 ID 固定该模型（如 glm-5.3-flash）  |
+| providerId                      | account:bigmodel-individual-coding-plan     | 官方 Coding Plan 账号；支持 account:zai-individual-coding-plan     |
+| apiBaseUrl                      | https://open.bigmodel.cn/api/coding/paas/v4 | 传给官方 CLI 的模型地址；Z.ai 账号需配置自己的 Coding Plan 地址    |
+| reasoningLevel                  | high                                        | 官方模型思考等级                                                   |
+| defaultMaxTokens                | 1000000                                     | 会话默认输出上限；个人配置同步抬高官方 CLI 的校验上限              |
+| requestTimeoutMs                | 360000                                      | 模型请求总时限；从接收请求起算，到期停止并报 ZCODE_REQUEST_TIMEOUT |
+| slowRequestMs                   | 30000                                       | 等待超过该时长在请求状态中标记慢请求                               |
+| probeTimeoutMs / probeMaxTokens | 15000 / 1                                   | 连通测试时限和传递的输出上限                                       |
+| loginTimeoutMs                  | 1200000                                     | 等待人工授权的时限                                                 |
+| graceMs                         | 1500                                        | 进程结束宽限时间                                                   |
+| maxLoginOutputBytes             | 32768                                       | 登录输出总上限                                                     |
+| env                             | {}                                          | 官方 CLI 的显式环境设置                                            |
 
 本机 CLI 0.16.9 的 `login` 命令使用 Z.ai 授权。BigModel 登录调用官方 OAuth 初始化、轮询和 Coding Plan 密钥解析服务，协议来源为固定版本的 [CLI OAuth](https://github.com/zai-org/ZCode/blob/29628c9acdb81b703bbd4080c207a0e7ce5e276e/apps/zcode-cli/packages/adapters/src/auth/cli-oauth.ts) 和 [账号密钥解析](https://github.com/zai-org/ZCode/blob/29628c9acdb81b703bbd4080c207a0e7ce5e276e/apps/zcode-cli/packages/adapters/src/auth/coding-plan-api-key.ts)。账号接口使用宿主网络，模型请求由本机官方 app-server 完成。
 
