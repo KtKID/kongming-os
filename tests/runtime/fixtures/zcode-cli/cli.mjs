@@ -179,6 +179,8 @@ if (process.argv[2] === "login") {
         JSON.stringify(frame.params) + "\n",
       );
       if (mode === "hang") continue;
+      // 模拟模型通道提前退出：请求在途时进程直接结束。
+      if (mode === "exit") process.exit(3);
       waiting = frame.id;
       currentRequest = frame.params;
       send({

@@ -229,13 +229,158 @@ test("native failures and corrupt credentials expose controlled errors while pre
   assert.equal((await response.json()).error, "ZCODE_CREDENTIAL_INVALID");
   assert.equal(readFileSync(file, "utf8"), "corrupt");
 });
-test("model cancellation terminates native generation within its configured deadline", async (t) => {
+test("model timeout keeps its own cause, error code and independent cleanup record", async (t) => {
   const { runtime } = await fixture(t, "hang", { requestTimeoutMs: 150 });
   await runtime.login();
   await until(runtime, "signed-in");
   await assert.rejects(
     runtime.generate({ messages: [] }),
-    /ZCODE_REQUEST_CANCELLED/,
+    /ZCODE_REQUEST_TIMEOUT/,
+  );
+  // 总超时不再伪装成用户取消；清理结果独立于终止原因存在。
+  assert.equal((await runtime.status()).error, "ZCODE_REQUEST_TIMEOUT");
+  const record = runtime.requests().find((row) => row.outcome === "failed");
+  assert.equal(record.termination.cause, "total-timeout");
+  assert.equal(record.cleanupResult.ok, true);
+});
+test("caller abort classifies as user stop and keeps the cancel code", async (t) => {
+  const { runtime, dir } = await fixture(t, "hang");
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const controller = new AbortController();
+  const pending = runtime.generate({
+    provider: "zcode-cli",
+    messages: [{ role: "user", content: [{ type: "text", text: "stop me" }] }],
+    signal: controller.signal,
+  });
+  for (let n = 0; n < 100 && !existsSync(join(dir, "requests.jsonl")); n++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  controller.abort();
+  await assert.rejects(pending, /ZCODE_REQUEST_CANCELLED/);
+  const record = runtime.requests().find((row) => row.outcome === "failed");
+  assert.equal(record.termination.cause, "user-stop");
+});
+test("CLI exiting mid-request classifies as channel exit", async (t) => {
+  const { runtime } = await fixture(t, "exit");
+  await runtime.login();
+  await until(runtime, "signed-in");
+  await assert.rejects(
+    runtime.generate({
+      messages: [{ role: "user", content: [{ type: "text", text: "bye" }] }],
+    }),
+    /ZCODE_MODEL_CONNECTION_FAILED/,
+  );
+  const record = runtime.requests().find((row) => row.outcome === "failed");
+  assert.equal(record.termination.cause, "channel-exit");
+});
+test("request stages progress to waiting with wait duration and slow notice", async (t) => {
+  const { runtime } = await fixture(t, "hang", { slowRequestMs: 1 });
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const controller = new AbortController();
+  const pending = runtime.generate({
+    provider: "zcode-cli",
+    messages: [{ role: "user", content: [{ type: "text", text: "stage" }] }],
+    signal: controller.signal,
+  });
+  // 未知细分阶段一律停留 waiting；等待起点与慢请求位随快照暴露。
+  let row;
+  for (let n = 0; n < 100; n++) {
+    row = runtime.requests().find((r) => r.outcome === "running");
+    if (row?.stage === "waiting" && row.slow) break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(row.stage, "waiting");
+  assert.equal(typeof row.waitingSince, "number");
+  assert.equal(row.slow, true);
+  controller.abort();
+  await assert.rejects(pending, /ZCODE_REQUEST_CANCELLED/);
+});
+test("per-request status is exposed over the authenticated account API", async (t) => {
+  const { runtime, dir } = await fixture(t, "hang");
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const controller = new AbortController();
+  const pending = runtime.generate({
+    provider: "zcode-cli",
+    messages: [{ role: "user", content: [{ type: "text", text: "api" }] }],
+    signal: controller.signal,
+  });
+  for (let n = 0; n < 100 && !existsSync(join(dir, "requests.jsonl")); n++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  const response = await accountResponse(
+    runtime,
+    "requests",
+    new Request("http://localhost/api/zcode-cli/requests"),
+  );
+  const body = await response.json();
+  assert.equal(
+    response.headers.get("Cache-Control"),
+    "no-store",
+  );
+  const running = body.requests.find((row) => row.outcome === "running");
+  assert.equal(running.stage, "waiting");
+  assert.equal(typeof running.requestId, "string");
+  controller.abort();
+  await assert.rejects(pending, /ZCODE_REQUEST_CANCELLED/);
+});
+test("concurrent requests in two sessions keep separate supervision records", async (t) => {
+  const { runtime } = await fixture(t, "hang", { requestTimeoutMs: 200 });
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const first = runtime.generate({
+    provider: "zcode-cli",
+    sessionId: "sess-1",
+    messages: [{ role: "user", content: [{ type: "text", text: "one" }] }],
+  }).catch((error) => error.message);
+  const second = runtime.generate({
+    provider: "zcode-cli",
+    sessionId: "sess-2",
+    messages: [{ role: "user", content: [{ type: "text", text: "two" }] }],
+  }).catch((error) => error.message);
+  let rows;
+  for (let n = 0; n < 100; n++) {
+    rows = runtime.requests().filter((row) => row.outcome === "running");
+    if (rows.length === 2 && rows.every((row) => row.stage === "waiting"))
+      break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(rows.length, 2);
+  assert.deepEqual(
+    new Set(rows.map((row) => row.sessionId)),
+    new Set(["sess-1", "sess-2"]),
+  );
+  assert.notEqual(rows[0].requestId, rows[1].requestId);
+  assert.deepEqual(await Promise.all([first, second]), [
+    "ZCODE_REQUEST_TIMEOUT",
+    "ZCODE_REQUEST_TIMEOUT",
+  ]);
+  // 各自的终止记录互不覆盖。
+  const settled = runtime.requests().filter((row) => row.outcome === "failed");
+  assert.equal(settled.length, 2);
+  assert.ok(settled.every((row) => row.termination.cause === "total-timeout"));
+});
+test("same-fingerprint retry continues the record as the next attempt", async (t) => {
+  const { runtime } = await fixture(t, "registration-fail");
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const options = {
+    messages: [{ role: "user", content: [{ type: "text", text: "retry me" }] }],
+  };
+  await assert.rejects(runtime.generate(options), /ZCODE_MODEL_REGISTRATION_FAILED/);
+  const first = runtime.requests()[0];
+  assert.equal(first.attempt, 1);
+  assert.equal(first.outcome, "failed");
+  assert.equal(first.attemptFailures.length, 1);
+  assert.equal(first.attemptFailures[0].cause, "provider-error");
+  // 同一逻辑请求的再次派发计为第 2 次尝试，首次失败原因保留在尝试历史。
+  await assert.rejects(runtime.generate(options), /ZCODE_MODEL_REGISTRATION_FAILED/);
+  const second = runtime.requests()[0];
+  assert.equal(second.attempt, 2);
+  assert.equal(second.attemptFailures.length, 2);
+  assert.deepEqual(
+    second.attemptFailures.map((failure) => failure.attempt),
+    [1, 2],
   );
 });
 test("login timeout clears the authorization URL and HTTP cancel rejects malformed/stale attempts", async (t) => {
@@ -1135,6 +1280,137 @@ test("generation selects any catalog model by request and rejects unknown ids", 
 });
 
 import { runInNewContext } from "node:vm";
+test("client registers the request status dock and renders every visible stage", () => {
+  let handoff;
+  runInNewContext(readFileSync("packages/zcode-cli/lib/client.js", "utf8"), {
+    window: {
+      __ModuleLoader__: {
+        load: (value) => {
+          handoff = value;
+        },
+      },
+    },
+  });
+  assert.equal(handoff.id, "@kmh/zcode-cli");
+  const require = createRequire(
+    resolve("third_party/dsh/packages/client/ui-renderer/package.json"),
+  );
+  const react = require("react");
+  const renderer = require("react-dom/server");
+  const client = handoff.factory((name) => {
+    if (name === "@deepseek-ai/dsh-client-ui-primitives")
+      return {
+        Button: ({ children }) => react.createElement("button", {}, children),
+      };
+    assert.ok(
+      ["react", "react/jsx-runtime"].includes(name),
+      name,
+    );
+    return require(name);
+  });
+  const injected = [];
+  let dockEntry;
+  let dockComponent;
+  let copy;
+  client.apply({
+    effect: (setup) => setup(),
+    locale: {
+      bind: () => (key) => copy.zh[key],
+      register: (_namespace, dictionaries) => {
+        copy = dictionaries;
+        return () => {};
+      },
+    },
+    slots: {
+      inject: (name, setup) => {
+        injected.push(name);
+        return setup();
+      },
+      register: (entry, component) => {
+        if (entry.name === "conversation.composer.dock") {
+          dockEntry = entry;
+          dockComponent = component;
+        }
+        return () => {};
+      },
+    },
+  });
+  assert.deepEqual(injected, [
+    "plugins.item",
+    "conversation.composer.dock",
+  ]);
+  assert.equal(dockEntry.id, "zcode-cli-request-status");
+  assert.equal(typeof dockComponent, "function");
+  const t = (key) => copy.zh[key];
+  const line = (row) =>
+    renderer.renderToStaticMarkup(
+      react.createElement(client.RequestStatusLine, { row, t }),
+    );
+  assert.match(
+    line({
+      requestId: "r1",
+      sessionId: null,
+      stage: "starting",
+      attempt: 1,
+      startedAt: 0,
+      updatedAt: 0,
+      waitingSince: null,
+      slow: false,
+      outcome: "running",
+      attemptFailures: [],
+    }),
+    /启动模型通道/,
+  );
+  assert.match(
+    line({
+      requestId: "r2",
+      sessionId: null,
+      stage: "waiting",
+      attempt: 2,
+      startedAt: 0,
+      updatedAt: 0,
+      waitingSince: 1,
+      slow: true,
+      outcome: "running",
+      attemptFailures: [
+        { attempt: 1, cause: "provider-error", detail: "first" },
+      ],
+    }),
+    /等待模型回复/,
+  );
+  const retrySlow = line({
+    requestId: "r2",
+    sessionId: null,
+    stage: "waiting",
+    attempt: 2,
+    startedAt: 0,
+    updatedAt: 0,
+    waitingSince: 1,
+    slow: true,
+    outcome: "running",
+    attemptFailures: [
+      { attempt: 1, cause: "provider-error", detail: "first" },
+    ],
+  });
+  assert.match(retrySlow, /第 2 次尝试/);
+  assert.match(retrySlow, /响应较慢/);
+  // 已结束的请求不占用会话状态位。
+  assert.equal(
+    line({
+      requestId: "r3",
+      sessionId: null,
+      stage: "waiting",
+      attempt: 1,
+      startedAt: 0,
+      updatedAt: 0,
+      waitingSince: 1,
+      slow: false,
+      outcome: "succeeded",
+      attemptFailures: [],
+    }),
+    "",
+  );
+});
 test("published Client factory registers in Plugins and renders with the shared React runtime", () => {
   let handoff;
   runInNewContext(readFileSync("packages/zcode-cli/lib/client.js", "utf8"), {
@@ -1157,9 +1433,13 @@ test("published Client factory registers in Plugins and renders with the shared 
       return {
         Button: ({ children }) => react.createElement("button", {}, children),
       };
-    assert.ok(["react", "react/jsx-runtime"].includes(name), name);
+    assert.ok(
+      ["react", "react/jsx-runtime"].includes(name),
+      name,
+    );
     return require(name);
   });
+  const injectedNames = [];
   let Component;
   let copy;
   client.apply({
@@ -1173,17 +1453,22 @@ test("published Client factory registers in Plugins and renders with the shared 
     },
     slots: {
       inject: (name, setup) => {
-        assert.equal(name, "plugins.item");
+        injectedNames.push(name);
         return setup();
       },
       register: (entry, component) => {
-        assert.equal(entry.name, "plugins.item");
-        assert.equal(entry.id, "zcode-cli");
-        Component = component;
+        if (entry.name === "plugins.item") {
+          assert.equal(entry.id, "zcode-cli");
+          Component = component;
+        }
         return () => {};
       },
     },
   });
+  assert.deepEqual(injectedNames, [
+    "plugins.item",
+    "conversation.composer.dock",
+  ]);
   const t = (key) => copy.zh[key];
   assert.match(Component({ view: "summary", t }), /ZCode CLI/);
   assert.equal(
@@ -1213,4 +1498,58 @@ test("normal KMH Web keeps the ZCode insertion and four preset definitions prese
     readFileSync("packages/zcode-cli/package.json", "utf8"),
   );
   assert.equal(pkg.exports["./read-only"], undefined);
+});
+
+test("request supervisor keeps concurrent records isolated, continues retries by fingerprint and preserves the first termination cause", async () => {
+  const { RequestSupervisor } = await import(
+    "../../packages/zcode-cli/lib/src/supervisor.js"
+  );
+  const supervisor = new RequestSupervisor();
+  const first = supervisor.open("sess-a", "fp-a");
+  const second = supervisor.open("sess-b", "fp-b");
+  assert.equal(first.attempt, 1);
+  assert.equal(second.attempt, 1);
+  assert.notEqual(first.requestId, second.requestId);
+  first.note({ stage: "waiting" });
+  assert.equal(second.stage, "starting");
+  // 同会话同指纹的失败请求续接为下一次尝试，首次失败原因保留在尝试历史里。
+  first.failAttempt("provider-error", "first try failed");
+  assert.equal(first.outcome, "failed");
+  const retried = supervisor.open("sess-a", "fp-a");
+  assert.equal(retried.requestId, first.requestId);
+  assert.equal(retried.attempt, 2);
+  assert.equal(retried.outcome, "running");
+  assert.deepEqual(retried.attemptFailures, [
+    { attempt: 1, cause: "provider-error", detail: "first try failed" },
+  ]);
+  // 不同指纹开启全新请求，不影响在途记录。
+  const fresh = supervisor.open("sess-a", "fp-other");
+  assert.equal(fresh.attempt, 1);
+  assert.notEqual(fresh.requestId, first.requestId);
+  assert.equal(retried.outcome, "running");
+  // 首个终止原因保持不变，随后到达的终止与清理错误作为独立信息。
+  retried.terminate("total-timeout", "360s budget");
+  retried.terminate("user-stop", "late click");
+  assert.equal(retried.termination.cause, "total-timeout");
+  retried.cleanup(false, "term ignored");
+  assert.equal(retried.termination.cause, "total-timeout");
+  assert.deepEqual(retried.cleanupResult, {
+    ok: false,
+    detail: "term ignored",
+  });
+  assert.equal(retried.outcome, "failed");
+  // 终止后的请求不再续接重试。
+  const afterStop = supervisor.open("sess-a", "fp-a");
+  assert.equal(afterStop.requestId === retried.requestId, false);
+  assert.equal(afterStop.attempt, 1);
+  // 快照包含全部记录且慢请求按等待时长计算。
+  second.note({ stage: "waiting" });
+  const snapshot = supervisor.snapshot(0, Date.now() + 1);
+  const slow = snapshot.find((row) => row.requestId === second.requestId);
+  assert.equal(slow.slow, true);
+  const notSlow = supervisor.snapshot(60_000, Date.now() + 1);
+  assert.equal(
+    notSlow.find((row) => row.requestId === second.requestId).slow,
+    false,
+  );
 });
