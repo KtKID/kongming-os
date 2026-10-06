@@ -1394,6 +1394,41 @@ test("client registers the request status dock and renders every visible stage",
   });
   assert.match(retrySlow, /第 2 次尝试/);
   assert.match(retrySlow, /响应较慢/);
+  // 用户停止的两段式展示：正在停止 / 已停止 / 待确认；其他终态不渲染。
+  const stopping = (row) =>
+    renderer.renderToStaticMarkup(
+      react.createElement(client.RequestStatusLine, { row, t }),
+    );
+  assert.match(
+    stopping({
+      requestId: "s1", sessionId: null, stage: "waiting", attempt: 1,
+      startedAt: 0, updatedAt: 0, waitingSince: 1, slow: false,
+      outcome: "failed", attemptFailures: [],
+      termination: { cause: "user-stop", at: 1 },
+      stop: { requestedAt: 1 },
+    }),
+    /正在停止/,
+  );
+  assert.match(
+    stopping({
+      requestId: "s2", sessionId: null, stage: "waiting", attempt: 1,
+      startedAt: 0, updatedAt: 0, waitingSince: 1, slow: false,
+      outcome: "failed", attemptFailures: [],
+      termination: { cause: "user-stop", at: 1 },
+      stop: { requestedAt: 1, receipt: true, exitConfirmed: true },
+    }),
+    /本机任务已停止/,
+  );
+  assert.match(
+    stopping({
+      requestId: "s3", sessionId: null, stage: "waiting", attempt: 1,
+      startedAt: 0, updatedAt: 0, waitingSince: 1, slow: false,
+      outcome: "failed", attemptFailures: [],
+      termination: { cause: "user-stop", at: 1 },
+      stop: { requestedAt: 1, receipt: false, exitConfirmed: false },
+    }),
+    /停止状态待确认/,
+  );
   // 已结束的请求不占用会话状态位。
   assert.equal(
     line({
@@ -1538,6 +1573,11 @@ test("request supervisor keeps concurrent records isolated, continues retries by
     detail: "term ignored",
   });
   assert.equal(retried.outcome, "failed");
+  // 退出确认超时保留待确认状态且不覆盖首因。
+  retried.noteStop();
+  retried.noteExitConfirmed(false);
+  assert.equal(retried.stop.exitConfirmed, false);
+  assert.equal(retried.termination.cause, "total-timeout");
   // 终止后的请求不再续接重试。
   const afterStop = supervisor.open("sess-a", "fp-a");
   assert.equal(afterStop.requestId === retried.requestId, false);
@@ -1576,4 +1616,67 @@ test("user stop routes through the official cancel channel before teardown", asy
   assert.equal(row.termination.cause, "user-stop");
   assert.equal(row.stop.receipt, true);
   assert.equal(row.stop.exitConfirmed, true);
+});
+
+test("cancel racing a completed request classifies as completed and keeps the result", async (t) => {
+  const { runtime, dir } = await fixture(t, "race", { requestTimeoutMs: 60000 });
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const controller = new AbortController();
+  const pending = runtime.generate({
+    provider: "zcode-cli",
+    sessionId: "sess-race",
+    messages: [{ role: "user", content: [{ type: "text", text: "race me" }] }],
+    signal: controller.signal,
+  });
+  for (let n = 0; n < 100 && !existsSync(join(dir, "requests.jsonl")); n++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  controller.abort();
+  // 停止与完成竞态：结果照常返回，不视为停止失败，回执 false 留证。
+  assert.equal(await pending.then((value) => value.text), "completed before stop");
+  const row = runtime.requests()[0];
+  assert.equal(row.outcome, "succeeded");
+  assert.equal(row.stop.receipt, false);
+  assert.equal(row.stop.exitConfirmed, true);
+});
+
+test("stopping one session leaves the other session running to its own end", async (t) => {
+  const { runtime } = await fixture(t, "hang", { requestTimeoutMs: 400 });
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const first = new AbortController();
+  const second = new AbortController();
+  const one = runtime
+    .generate({
+      provider: "zcode-cli",
+      sessionId: "sess-one",
+      messages: [{ role: "user", content: [{ type: "text", text: "one" }] }],
+      signal: first.signal,
+    })
+    .catch((error) => error.message);
+  const two = runtime
+    .generate({
+      provider: "zcode-cli",
+      sessionId: "sess-two",
+      messages: [{ role: "user", content: [{ type: "text", text: "two" }] }],
+      signal: second.signal,
+    })
+    .catch((error) => error.message);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  first.abort();
+  assert.equal(await one, "ZCODE_REQUEST_CANCELLED");
+  // 只停其一：另一会话继续运行至自己的总时限。
+  const running = runtime.requests().find((row) => row.outcome === "running");
+  assert.equal(running.sessionId, "sess-two");
+  assert.equal(await two, "ZCODE_REQUEST_TIMEOUT");
+  const stopped = runtime
+    .requests()
+    .find((row) => row.sessionId === "sess-one");
+  assert.equal(stopped.termination.cause, "user-stop");
+  assert.equal(stopped.stop.receipt, true);
+  assert.equal(stopped.stop.exitConfirmed, true);
+  const timedOut = runtime
+    .requests()
+    .find((row) => row.sessionId === "sess-two");
+  assert.equal(timedOut.termination.cause, "total-timeout");
 });

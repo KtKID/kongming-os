@@ -97,6 +97,23 @@ if (process.argv[2] === "login") {
       // 未知编号回 cancelled:false（请求已落定或从未注册）。
       const operationId = frame.params?.operationId;
       if (
+        mode === "race" &&
+        waiting !== undefined &&
+        currentRequest?.operationId === operationId
+      ) {
+        // 竞态：取消到达时请求已在 CLI 侧完成——回 cancelled:false 并补发结果。
+        const pendingId = waiting;
+        waiting = undefined;
+        send({ id: frame.id, result: { operationId, cancelled: false } });
+        send({
+          id: pendingId,
+          result: {
+            text: "completed before stop",
+            usage: { inputTokens: 4, outputTokens: 2, totalTokens: 6 },
+            finishReason: "stop",
+          },
+        });
+      } else if (
         mode === "hang" &&
         waiting !== undefined &&
         currentRequest?.operationId === operationId
@@ -222,6 +239,7 @@ if (process.argv[2] === "login") {
     } else if (frame.id === "headers") {
       if (frame.result?.requestAuth?.apiKey !== "fixture-secret")
         throw new Error("missing native auth");
+      if (mode === "race") continue;
       send({
         id: waiting,
         result: {
