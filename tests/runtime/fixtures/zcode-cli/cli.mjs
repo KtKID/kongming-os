@@ -87,7 +87,31 @@ if (process.argv[2] === "login") {
       });
       continue;
     }
-    if (frame.method === "provider/updateAccountConfig") {
+    if (frame.method === "workspace/cancelGenerateText") {
+      // 记录收到的取消请求供测试断言官方通道确实被使用。
+      appendFileSync(
+        join(home, "cancels.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      // 镜像官方 CLI：按 operationId 查在途请求表——命中即中止并回 cancelled:true，
+      // 未知编号回 cancelled:false（请求已落定或从未注册）。
+      const operationId = frame.params?.operationId;
+      if (
+        mode === "hang" &&
+        waiting !== undefined &&
+        currentRequest?.operationId === operationId
+      ) {
+        const pendingId = waiting;
+        waiting = undefined;
+        send({
+          id: pendingId,
+          error: { code: -32603, message: "Workspace model request cancelled" },
+        });
+        send({ id: frame.id, result: { operationId, cancelled: true } });
+      } else {
+        send({ id: frame.id, result: { operationId, cancelled: false } });
+      }
+    } else if (frame.method === "provider/updateAccountConfig") {
       const registration = frame.params.providers[provider];
       if (
         Object.keys(registration).some(
@@ -178,11 +202,12 @@ if (process.argv[2] === "login") {
         join(home, "requests.jsonl"),
         JSON.stringify(frame.params) + "\n",
       );
-      if (mode === "hang") continue;
-      // 模拟模型通道提前退出：请求在途时进程直接结束。
-      if (mode === "exit") process.exit(3);
+      // hang/exit 也登记在途请求，供取消处理器按 operationId 查表。
       waiting = frame.id;
       currentRequest = frame.params;
+      // 模拟模型通道提前退出：请求在途时进程直接结束。
+      if (mode === "exit") process.exit(3);
+      if (mode === "hang") continue;
       send({
         id: "headers",
         method: "interaction/requestProviderRuntimeHeaders",

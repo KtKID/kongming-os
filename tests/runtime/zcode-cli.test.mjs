@@ -1553,3 +1553,27 @@ test("request supervisor keeps concurrent records isolated, continues retries by
     false,
   );
 });
+
+test("user stop routes through the official cancel channel before teardown", async (t) => {
+  const { runtime, dir } = await fixture(t, "hang", { requestTimeoutMs: 60000 });
+  await runtime.login();
+  await until(runtime, "signed-in");
+  const controller = new AbortController();
+  const pending = runtime.generate({
+    provider: "zcode-cli",
+    sessionId: "sess-stop",
+    messages: [{ role: "user", content: [{ type: "text", text: "stop me" }] }],
+    signal: controller.signal,
+  });
+  for (let n = 0; n < 100 && !existsSync(join(dir, "requests.jsonl")); n++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  controller.abort();
+  await assert.rejects(pending, /ZCODE_REQUEST_CANCELLED/);
+  // 官方取消通道确实被调用并收到回执。
+  const cancel = JSON.parse(readFileSync(join(dir, "cancels.jsonl"), "utf8"));
+  assert.equal(typeof cancel.operationId, "string");
+  const row = runtime.requests().find((r) => r.outcome === "failed");
+  assert.equal(row.termination.cause, "user-stop");
+  assert.equal(row.stop.receipt, true);
+  assert.equal(row.stop.exitConfirmed, true);
+});
