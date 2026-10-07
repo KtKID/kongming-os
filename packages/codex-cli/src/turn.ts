@@ -23,6 +23,12 @@ import {
 } from "./protocol.ts";
 import { prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { blockDigest, emptySnapshot, type CursorSnapshot } from "./cursor.ts";
+import {
+  imageFailureNote,
+  imageSizeNote,
+  imageSizeRequirementOf,
+  pngSizeOf,
+} from "./image-delivery.ts";
 import { fieldOf } from "./protocol.ts";
 
 /** turn 启动所需请求侧信息。 */
@@ -84,6 +90,8 @@ export class CodexTurn {
   pendingDigests: string[] = [];
   /** 回合终止状态；completed 或 interrupted 后进程可回收。 */
   terminalStatus: string | undefined;
+  /** 最近一次投递的用户输入文本：生图尺寸要求识别来源（feat10）。 */
+  private lastUserText = "";
 
   constructor(
     private readonly ctx: Context,
@@ -110,6 +118,7 @@ export class CodexTurn {
     this.blockTypes.clear();
     this.blockText.clear();
     this.endedBlocks.clear();
+    this.lastUserText = "";
   }
 
   /** 等待结果回传的挂起工具调用标识。 */
@@ -134,6 +143,7 @@ export class CodexTurn {
     signal: AbortSignal,
   ): Promise<string> {
     this.reopen();
+    this.lastUserText = input.text;
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
@@ -207,6 +217,7 @@ export class CodexTurn {
     signal: AbortSignal,
   ): Promise<string> {
     this.reopen();
+    this.lastUserText = rebuildText;
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
@@ -471,8 +482,9 @@ export class CodexTurn {
   }
   /**
    * 把 Codex 原生生图结果投影为会话图片块：读取落盘产物、经宿主附件服务
-   * 落成 ImageAttachmentRef 后以 image 块送回 KMH 展示。展示失败不打断
-   * 生成（跳过并告警）：投影是展示增强，生成与续推链路不依赖它。
+   * 落成 ImageAttachmentRef 后以 image 块送回 KMH 展示，并随图报告实际
+   * 像素尺寸（feat10）。投影失败不打断生成（跳过并告警）：投影是展示
+   * 增强，生成与续推链路不依赖它；失败时改为推送双态报告文本块。
    * @param item - item/completed 携带的 ThreadItem::ImageGeneration。
    */
   private async projectImage(item: unknown): Promise<void> {
@@ -506,11 +518,38 @@ export class CodexTurn {
           block: { type: "image", attachment: first },
         },
       });
+      this.pushNote(
+        `${projection.id}:size`,
+        imageSizeNote(
+          pngSizeOf(data),
+          imageSizeRequirementOf(this.lastUserText),
+        ),
+      );
     } catch (error) {
-      this.ctx.logger.warn(
-        `codex-cli image projection skipped: ${error instanceof Error ? error.message : String(error)}`,
+      const reason = error instanceof Error ? error.message : String(error);
+      this.ctx.logger.warn(`codex-cli image projection failed: ${reason}`);
+      // 双态报告：Codex 侧已生成（原生产物路径即恢复入口），KMH 侧接入失败。
+      this.pushNote(
+        `${projection.id}:failure`,
+        imageFailureNote(projection.path, reason),
       );
     }
+  }
+  /** 推送一个自成一体的文本块（尺寸/失败等投影附注）。 */
+  private pushNote(itemId: string, text: string): void {
+    const index = this.allocate(itemId);
+    this.push({
+      kind: "chunk",
+      chunk: { type: "block-start", index, blockType: "text" },
+    });
+    this.push({
+      kind: "chunk",
+      chunk: { type: "text-delta", index, text },
+    });
+    this.push({
+      kind: "chunk",
+      chunk: { type: "block-end", index, block: { type: "text", text } },
+    });
   }
   /** 为流块分配序号；同一 itemId 复用。 */
   private allocate(itemId: string): number {
