@@ -7,6 +7,10 @@
     "outDir": "lib/browser-types",
     "jsx": "react-jsx"
   },
-  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/status.ts"],
+  "include": [
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx",
+    "src/account-status.ts"
+  ],
   "exclude": []
 }
