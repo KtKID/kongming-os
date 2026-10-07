@@ -147,6 +147,18 @@ T1 两路核对结论：采用**公开服务直连**，否决内部工具投影�
 - 一次性语义结构性保证：每个服务端请求 id 恰有一次回执（transport 每 id 写一帧）；停止/中断经回合级 AbortController 使 `approval.request` 归结 cancelled、`userQuestions.ask` 抛 ASK_ABORTED，映射 cancel。
 - wire 形态依据 0.160.0 生成 schema（`app-server-protocol/src/protocol/v2/{item,permissions,mcp}.rs`）：command 决定值 accept/acceptForSession/acceptWithExecpolicyAmendment/applyNetworkPolicyAmendment/decline/cancel（桥只发 accept/decline/cancel）；fileChange 同形；permissions 回 `{permissions, scope: turn|session}`；userInput 回 `{answers: Record<id,{answers:string[]}>}`；elicitation 回 `{action: accept|decline|cancel, content?}`。
 
+### D19 原生进度 v1 形态与宿主缺口（2026-10-07 实施期拍板）
+
+T1 扩展点调查结论：完整形态（独立持久观察记录 + 对话卡片 + 结构化刷新恢复）依赖宿主新增公开扩展点，当前基线没有：
+
+- `Session.append` 无法写 `ignorable` 标记（签名不含该字段，事件构造也不注入）；插件自定义会话事件类型会被持久化读取路径按"未知必需事件"拒绝重载（surface 兼容门），旧宿主会话被破坏。
+- `uiConversation.events.register` 的对话 Definition 按会话事件类型路由——写不进事件就无从挂卡片。
+- 流块类型封闭（text/reasoning/tool-call/image），无插件扩展块。
+
+v1 落地（既有公开通道，与生图附注同形态）：原生活动叙述为助手消息内**独立文本块**——`item/started` 开块（来源+操作摘要+执行中）、`item/commandExecution/outputDelta`/`item/mcpToolCall/progress` 增量追加（单条上限 8000 字符、超限截断标注）、`turn/diff/updated` 摘要行（+−行数、20 次封顶）、`item/completed` 收尾（状态/退出码/耗时）、回合终局未收尾补"待确认"。差分账目（blockDigest）自动识别叙述块为 Codex 自产内容，刷新/重开随会话历史可查；block-end 携带累积全文（差分与消息组装的权威内容）。
+
+宿主版本要求（后续升级到卡片形态）：公开可 ignorable 的插件会话事件写入通道，或对话视图的扩展块/插件事件路由。webSearch 在 0.160.0 v2 ThreadItem 无独立变体，暂无叙述来源。
+
 ### 推荐实施顺序与验收
 
 1. 核对当前生图产物接入和尺寸错误，补上真实产物尺寸、交付图与回复的一致性验收；保留已有生图实现。
