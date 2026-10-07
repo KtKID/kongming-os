@@ -635,6 +635,52 @@ const tool = (id, text, isError) => ({
   content: [{ type: "text", text }],
 });
 
+test("cursor accepts trailing context injections after the real input", () => {
+  // 新会话首轮实测形态：系统提示 + 真实输入 + 运行时上下文/技能清单/时间
+  // 注入（source.kind 非 user）排在真实输入之后，2026-10-08 修复前误判
+  // baseline-lost 导致首轮全走重建注入。
+  const injected = (text) => ({
+    role: "user",
+    content: [{ type: "text", text }],
+    source: { kind: "context" },
+  });
+  const history = [
+    { role: "system", content: [{ type: "text", text: "sys" }] },
+    { ...user("你好"), source: { kind: "user" } },
+    injected("runtime ctx"),
+    injected("skills"),
+    injected("time"),
+  ];
+  const increment = diffIncrement(history, emptySnapshot());
+  assert.equal(increment.kind, "new-input");
+  assert.equal(increment.text, "你好\n\nruntime ctx\n\nskills\n\ntime");
+  assert.equal(increment.consumed, 5);
+  // 注入在前同样透明（后续轮次）：Codex 自产回复按摘要核对后吞掉。
+  const later = [
+    ...history,
+    {
+      role: "assistant",
+      content: [{ type: "text", text: "reply" }],
+    },
+    injected("ctx2"),
+    { ...user("第二轮"), source: { kind: "user" } },
+  ];
+  const replyDigest = blockDigest({ type: "text", text: "reply" });
+  const second = diffIncrement(
+    later,
+    snapshotAt(history, history.length, [replyDigest]),
+  );
+  assert.equal(second.kind, "new-input");
+  assert.ok(second.text.startsWith("第二轮"));
+  // 尾随注入后再出现真实用户输入以外的人物（assistant/外来回复）仍断基线。
+  const foreign = [
+    ...history,
+    { role: "assistant", content: [{ type: "text", text: "foreign" }] },
+  ];
+  const lost = diffIncrement(foreign, snapshotAt(history, history.length));
+  assert.equal(lost.kind, "baseline-lost");
+});
+
 test("cursor diffs fresh history into one new user input", () => {
   const history = [user("读取文件")];
   const increment = diffIncrement(history, emptySnapshot());
@@ -935,6 +981,28 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
       .join("");
     assert.equal(text, "BRIDGE_OK");
     assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
+    // 用量样本（token usage）：每个 step 恰一条 usage chunk，且两步之和
+    // 等于回合真实总量（工具步样本晚到时首步为零、终局合并剩余，之和不变）。
+    const usageOf = (chunks) => {
+      const samples = chunks.filter((chunk) => chunk.type === "usage");
+      assert.equal(samples.length, 1);
+      return samples[0].usage;
+    };
+    const firstUsage = usageOf(first);
+    const finalUsage = usageOf(second);
+    assert.equal(
+      firstUsage.totalTokens + finalUsage.totalTokens,
+      1030 + 1240,
+    );
+    // 拆分口径与官方总数一致性（normalizeUsage 规则）。
+    const merged = finalUsage;
+    assert.equal(
+      merged.totalTokens,
+      merged.outputTokens +
+        merged.inputTokens +
+        (merged.cacheReadTokens ?? 0) +
+        (merged.cacheWriteTokens ?? 0),
+    );
     // 隔离验证：CODEX_HOME 沿用用户默认（共享登录，已拍板），用户配置的
     // MCP 设备随之可见（已接受）；其余原生能力（shell、code mode、
     // tool_search、原生技能）必须已消灭，KMH 工具以 kmh- 前缀声明在列（D13）。
@@ -1771,4 +1839,95 @@ test("binding records round-trip tool declaration fields and keep legacy entries
   const bad = await store2.get("bad");
   assert.equal(bad.threadId, "t");
   assert.equal(bad.toolMap, undefined);
+});
+
+// ---- 会话底部状态小球（client dock 注册与渲染） ----
+import { runInNewContext } from "node:vm";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
+import { readFileSync as readFileSyncForClient } from "node:fs";
+
+test("client registers the live ball dock and renders the three states", () => {
+  let handoff;
+  runInNewContext(
+    readFileSyncForClient("packages/codex-cli/lib/client.js", "utf8"),
+    {
+      window: {
+        __ModuleLoader__: {
+          load: (value) => {
+            handoff = value;
+          },
+        },
+      },
+    },
+  );
+  assert.equal(handoff.id, "@kmh/codex-cli");
+  const require = createRequire(
+    resolve("third_party/dsh/packages/client/ui-renderer/package.json"),
+  );
+  const react = require("react");
+  const renderer = require("react-dom/server");
+  const client = handoff.factory((name) => {
+    if (name === "@deepseek-ai/dsh-client-ui-primitives")
+      return {
+        Button: ({ children }) => react.createElement("button", {}, children),
+      };
+    assert.ok(
+      ["react", "react/jsx-runtime"].includes(name),
+      name,
+    );
+    return require(name);
+  });
+  let copy;
+  let dockEntry;
+  let dockComponent;
+  const injected = [];
+  client.apply({
+    effect: (setup) => setup(),
+    locale: {
+      bind: () => (key) => copy.zh[key],
+      register: (_namespace, dictionaries) => {
+        copy = dictionaries;
+        return () => {};
+      },
+    },
+    slots: {
+      inject: (name, setup) => {
+        injected.push(name);
+        return setup();
+      },
+      register: (entry, component) => {
+        if (entry.name === "conversation.composer.dock") {
+          dockEntry = entry;
+          dockComponent = component;
+        }
+        return () => {};
+      },
+    },
+  });
+  assert.deepEqual(injected, ["plugins.item", "conversation.composer.dock"]);
+  assert.equal(dockEntry.id, "codex-cli-live");
+  // 排在活动/用量药丸之后（第 n 轮第 n 步行最右）。
+  assert.ok(dockEntry.order > 1);
+  assert.equal(typeof dockComponent, "function");
+  const t = (key) => copy.zh[key];
+  const ball = (color) =>
+    renderer.renderToStaticMarkup(
+      react.createElement(client.LiveBallView, {
+        entry: {
+          sessionId: "s",
+          color,
+          streaming: color === "green",
+          detail: "d",
+          updatedAt: 0,
+        },
+        t,
+      }),
+    );
+  assert.match(ball("green"), /state-success-primary/);
+  assert.match(ball("green"), /通信正常/);
+  assert.match(ball("gray"), /state-idle-primary/);
+  assert.match(ball("gray"), /已停止/);
+  assert.match(ball("red"), /state-error-primary/);
+  assert.match(ball("red"), /状态异常/);
 });

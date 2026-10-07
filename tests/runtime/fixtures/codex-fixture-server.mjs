@@ -1,6 +1,22 @@
 /** 桥接冒烟用的 OpenAI Responses fixture 服务：首个回合回工具调用，回传后回最终文本。 */
 import { createServer } from "node:http";
 
+// 逐响应用量（Responses usage 口径）：Codex 转成 thread/tokenUsage/updated。
+const RESPONSE_ONE_USAGE = {
+  input_tokens: 1000,
+  input_tokens_details: { cached_tokens: 400 },
+  output_tokens: 30,
+  output_tokens_details: { reasoning_tokens: 10 },
+  total_tokens: 1030,
+};
+const RESPONSE_TWO_USAGE = {
+  input_tokens: 1200,
+  input_tokens_details: { cached_tokens: 800 },
+  output_tokens: 40,
+  output_tokens_details: { reasoning_tokens: 5 },
+  total_tokens: 1240,
+};
+
 /**
  * 启动 fixture 模型服务。
  * @param options.script - 首回合脚本："single"（默认）单工具挂起；
@@ -55,6 +71,7 @@ export function startFixtureServer(options = {}) {
         id: "resp_bridge_parallel",
         status: "completed",
         output: items,
+        usage: RESPONSE_ONE_USAGE,
       };
       send({ type: "response.created", response: { ...response, status: "in_progress", output: [] } });
       items.forEach((item, index) => {
@@ -77,6 +94,7 @@ export function startFixtureServer(options = {}) {
         id: "resp_bridge",
         status: "completed",
         output: [item],
+        usage: RESPONSE_ONE_USAGE,
       };
       send({ type: "response.created", response: { ...response, status: "in_progress", output: [] } });
       send({ type: "response.output_item.added", output_index: 0, item: { ...item, arguments: "", status: "in_progress" } });
@@ -87,7 +105,12 @@ export function startFixtureServer(options = {}) {
     } else {
       const text = "BRIDGE_OK";
       const item = { id: "msg_final", type: "message", role: "assistant", content: [{ type: "output_text", text }] };
-      const response = { id: "resp_final", status: "completed", output: [item] };
+      const response = {
+        id: "resp_final",
+        status: "completed",
+        output: [item],
+        usage: RESPONSE_TWO_USAGE,
+      };
       send({ type: "response.created", response: { ...response, status: "in_progress", output: [] } });
       send({ type: "response.output_item.added", output_index: 0, item });
       send({ type: "response.output_text.delta", item_id: item.id, output_index: 0, delta: text });
