@@ -122,7 +122,7 @@ export class CodexConnection {
  * 拉起官方 CLI、完成 initialize 握手并返回可用连接。
  * @param ctx - 宿主上下文，提供受管 subprocess 服务。
  * @param options - 可执行文件、工作目录、-c 覆盖与超时设置。
- * @param signal - 中止信号：启动阶段中止即终止进程并抛出 CODEX_STARTUP_CANCELLED。
+ * @param signal - 中止信号：启动阶段中止即终止进程并抛 CODEX_STARTUP_CANCELLED。
  * @throws CODEX_CLI_MISSING 可执行文件不存在；CODEX_STDIO_MISSING 管道缺失；
  *   CODEX_STARTUP_TIMEOUT 握手超时；CODEX_STARTUP_FAILED 握手被拒或进程提前退出。
  */
@@ -146,66 +146,83 @@ export async function connectCodex(
       throw new Error("CODEX_CLI_MISSING");
     throw error;
   }
-  const argv = [executable, "app-server", "--stdio"];
-  for (const override of options.configOverrides) argv.push("-c", override);
-  const env: NodeJS.ProcessEnv = {};
-  for (const [key, value] of Object.entries(options.env ?? {}))
-    if (value !== undefined) env[key] = value;
-  const child = ctx.subprocess.spawn({
-    argv,
-    cwd: options.cwd,
-    env,
-    graceMs: options.graceMs,
-    stdio: { stdin: "pipe", stdout: "pipe", stderr: "pipe" },
-  });
-  const stderrTail = { value: "" };
-  child.stderr?.on("data", (chunk: Buffer) => {
-    stderrTail.value = (stderrTail.value + chunk.toString("utf8")).slice(-2000);
-  });
-  const input = child.stdout;
-  const output = child.stdin;
-  if (!input || !output) {
-    child.terminate();
-    await child.done.catch(() => undefined);
-    throw new Error("CODEX_STDIO_MISSING");
-  }
-  const bridge = createFrameBridge(output);
-  const connection = new CodexConnection(input, child, bridge, stderrTail);
-  const startup = AbortSignal.any([
-    signal,
-    AbortSignal.timeout(options.startupTimeoutMs),
-  ]);
   try {
-    const params = InitializeParams.parse({
-      clientInfo: {
-        name: "kmh_codex_cli",
-        title: "KMH Codex CLI",
-        version: "0.1.0",
-      },
-      capabilities: { experimentalApi: true },
-    });
-    connection.start();
-    const raw: unknown = await connection.request(
-      "initialize",
-      params,
-      startup,
-    );
-    InitializeResult.parse(raw);
-    connection.notify("initialized", {});
-    return connection;
+    // 会话来源标注为 CLI（Product 归类与默认 vscode 同为 Codex，agent
+    // 身份标识为 codex-cli）。较旧的本机二进制可能尚不支持该参数：识别
+    // 拒收特征后去参重试一次，标注随二进制升级自动生效。
+    return await launch(executable, ["--session-source", "cli"]);
   } catch (error) {
-    connection.close();
-    child.terminate();
-    await child.done.catch(() => undefined);
-    if (signal.aborted) throw new Error("CODEX_STARTUP_CANCELLED");
-    if (startup.aborted) throw new Error("CODEX_STARTUP_TIMEOUT");
-    if (error instanceof JsonRpcResponseError)
-      throw new Error("CODEX_STARTUP_FAILED");
-    if (error instanceof Error && error.message === "CODEX_STDIO_MISSING")
-      throw error;
-    // 进程提前退出等传输层失败：带 stderr 尾部辅助定位。
-    throw new Error(
-      `CODEX_STARTUP_FAILED: ${error instanceof Error ? error.message : String(error)}${stderrTail.value ? `; stderr: ${stderrTail.value.slice(-300)}` : ""}`,
-    );
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("unexpected argument '--session-source'")) throw error;
+    return await launch(executable, []);
+  }
+
+  /** 以给定服务端参数拉起进程并完成握手。 */
+  async function launch(
+    executable: string,
+    serverArgs: string[],
+  ): Promise<CodexConnection> {
+    const argv = [executable, "app-server", "--stdio", ...serverArgs];
+    for (const override of options.configOverrides) argv.push("-c", override);
+    const env: NodeJS.ProcessEnv = {};
+    for (const [key, value] of Object.entries(options.env ?? {}))
+      if (value !== undefined) env[key] = value;
+    const child = ctx.subprocess.spawn({
+      argv,
+      cwd: options.cwd,
+      env,
+      graceMs: options.graceMs,
+      stdio: { stdin: "pipe", stdout: "pipe", stderr: "pipe" },
+    });
+    const stderrTail = { value: "" };
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderrTail.value = (stderrTail.value + chunk.toString("utf8")).slice(-2000);
+    });
+    const input = child.stdout;
+    const output = child.stdin;
+    if (!input || !output) {
+      child.terminate();
+      await child.done.catch(() => undefined);
+      throw new Error("CODEX_STDIO_MISSING");
+    }
+    const bridge = createFrameBridge(output);
+    const connection = new CodexConnection(input, child, bridge, stderrTail);
+    const startup = AbortSignal.any([
+      signal,
+      AbortSignal.timeout(options.startupTimeoutMs),
+    ]);
+    try {
+      const params = InitializeParams.parse({
+        clientInfo: {
+          name: "kmh_codex_cli",
+          title: "KMH Codex CLI",
+          version: "0.1.0",
+        },
+        capabilities: { experimentalApi: true },
+      });
+      connection.start();
+      const raw: unknown = await connection.request(
+        "initialize",
+        params,
+        startup,
+      );
+      InitializeResult.parse(raw);
+      connection.notify("initialized", {});
+      return connection;
+    } catch (error) {
+      connection.close();
+      child.terminate();
+      await child.done.catch(() => undefined);
+      if (signal.aborted) throw new Error("CODEX_STARTUP_CANCELLED");
+      if (startup.aborted) throw new Error("CODEX_STARTUP_TIMEOUT");
+      if (error instanceof JsonRpcResponseError)
+        throw new Error("CODEX_STARTUP_FAILED");
+      if (error instanceof Error && error.message === "CODEX_STDIO_MISSING")
+        throw error;
+      // 进程提前退出等传输层失败：带 stderr 尾部辅助定位。
+      throw new Error(
+        `CODEX_STARTUP_FAILED: ${error instanceof Error ? error.message : String(error)}${stderrTail.value ? `; stderr: ${stderrTail.value.slice(-300)}` : ""}`,
+      );
+    }
   }
 }
