@@ -384,7 +384,14 @@ export class CodexTurn {
       );
       switch (method) {
         case Incoming.itemCommandExecutionRequestApproval:
-          return await bridge.handleCommandApproval(params);
+          try {
+            return await bridge.handleCommandApproval(params);
+          } catch (error) {
+            this.ctx.logger.warn(
+              `codex-cli command approval failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            throw error;
+          }
         case Incoming.itemFileChangeRequestApproval:
           return await bridge.handleFileChangeApproval(params);
         case Incoming.itemPermissionsRequestApproval:
@@ -397,8 +404,12 @@ export class CodexTurn {
       if (
         method !== Incoming.itemToolCall &&
         method !== Incoming.itemDynamicToolCall
-      )
+      ) {
+        this.ctx.logger.warn(
+          `codex-cli unexpected server request: ${method}; params=${JSON.stringify(params).slice(0, 400)}`,
+        );
         throw new Error(`CODEX_SERVER_REQUEST_UNEXPECTED: ${method}`);
+      }
       const call = DynamicToolCallParams.parse(params);
       if (this.threadId !== undefined && call.threadId !== this.threadId)
         throw new Error("CODEX_TOOL_CALL_THREAD_MISMATCH");

@@ -321,6 +321,15 @@ export async function prepareIsolation(
         input.permission.approval === "ask" ? "on-request" : "never",
       )}`,
     );
+  if (
+    input.permission !== undefined &&
+    input.permission.approval === "ask" &&
+    (selection.commandExecution || selection.fileChange)
+  )
+    // 请求审批档显式把提权审查路由给用户（D15：实测 0.162 运行时默认
+    // approvals_reviewer=auto_review，内部审查会直接放行提权命令而不发
+    // 客户端审批请求；spec feat09 要求由 KMH 用户决定）。
+    overrides.push(`approvals_reviewer=${tomlString("user")}`);
   return { configOverrides: overrides, catalogPath, disabledSkills };
 }
 

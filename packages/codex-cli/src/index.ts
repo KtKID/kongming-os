@@ -39,8 +39,14 @@ export * from "./protocol.ts";
 
 /** Cordis plugin identity. */
 export const name = "kmh/codex-cli";
-/** Required model and process services. */
-export const inject = ["llm", "subprocess"];
+/** Required model, process and user-interaction services（审批桥经 agents/approval/userQuestions）。 */
+export const inject = [
+  "llm",
+  "subprocess",
+  "agents",
+  "approval",
+  "userQuestions",
+];
 declare module "@deepseek-ai/cordis" {
   interface Context {
     codexCli: CodexCli;
