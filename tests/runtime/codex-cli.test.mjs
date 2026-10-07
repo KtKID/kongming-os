@@ -7,6 +7,7 @@ import {
   DynamicToolCallResponse,
   TurnCompletedParams,
   AgentMessageDeltaParams,
+  imageProjectionOf,
 } from "../../packages/codex-cli/lib/src/protocol.js";
 
 /** 收集写入行的内存输出流。 */
@@ -81,6 +82,43 @@ test("turn completion and stream delta notifications parse verified shapes", () 
     delta: "部分正文",
   });
   assert.equal(delta.delta, "部分正文");
+});
+
+test("image projection extracts only completed saved generations", () => {
+  // wire 形态取自官方 ts-rs 生成类型 ThreadItem/ImageGenerationItem。
+  const done = imageProjectionOf({
+    type: "imageGeneration",
+    id: "call_5a12",
+    status: "completed",
+    revisedPrompt: "绚丽的银河，方形构图",
+    result: "success",
+    failure: null,
+    savedPath:
+      "/Users/x/.codex/generated_images/01a1/call_5a12.png",
+  });
+  assert.equal(done.id, "call_5a12");
+  assert.equal(done.path, "/Users/x/.codex/generated_images/01a1/call_5a12.png");
+  assert.equal(done.name, "绚丽的银河，方形构图");
+  // 无 revisedPrompt 时展示名缺省（不注入路径类信息）。
+  const unnamed = imageProjectionOf({
+    type: "imageGeneration",
+    id: "call_b",
+    status: "completed",
+    revisedPrompt: null,
+    result: "success",
+    savedPath: "/tmp/b.png",
+  });
+  assert.equal(unnamed.name, undefined);
+  // 未完成、未落盘、非生图项均不投影。
+  assert.equal(
+    imageProjectionOf({ type: "imageGeneration", id: "c", status: "failed", result: "" }),
+    undefined,
+  );
+  assert.equal(
+    imageProjectionOf({ type: "imageGeneration", id: "c", status: "completed", result: "success" }),
+    undefined,
+  );
+  assert.equal(imageProjectionOf({ type: "agentMessage", id: "m", text: "hi" }), undefined);
 });
 
 // ---- 差分游标（cursor） ----
