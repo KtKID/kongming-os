@@ -68,6 +68,11 @@ export const Method = {
 export const Incoming = {
   itemToolCall: "item/tool/call",
   itemDynamicToolCall: "item/dynamicTool/call",
+  itemCommandExecutionRequestApproval: "item/commandExecution/requestApproval",
+  itemFileChangeRequestApproval: "item/fileChange/requestApproval",
+  itemPermissionsRequestApproval: "item/permissions/requestApproval",
+  itemToolRequestUserInput: "item/tool/requestUserInput",
+  mcpServerElicitationRequest: "mcpServer/elicitation/request",
   turnStarted: "turn/started",
   turnCompleted: "turn/completed",
   itemStarted: "item/started",
@@ -257,6 +262,105 @@ export const ItemEventParams = z
     item: z.unknown(),
   })
   .passthrough();
+
+/** 审批类服务端请求的公共定位字段。 */
+const approvalLocator = {
+  threadId: z.string().min(1),
+  turnId: z.string().min(1),
+  itemId: z.string().min(1),
+} as const;
+/** item/commandExecution/requestApproval 请求参数（0.160.0 生成 schema 收敛）。 */
+export const CommandExecutionRequestApprovalParams = z
+  .object({
+    ...approvalLocator,
+    startedAtMs: z.number(),
+    kind: z.string().optional(),
+    approvalId: z.string().nullable().optional(),
+    reason: z.string().nullable().optional(),
+    command: z.string().nullable().optional(),
+    cwd: z.string().nullable().optional(),
+  })
+  .passthrough();
+/** 桥发出的命令审批决定值（枚举全集见 decisions D18，桥只发三种）。 */
+export const CommandExecutionRequestApprovalResponse = z.object({
+  decision: z.enum(["accept", "acceptForSession", "decline", "cancel"]),
+});
+/** item/fileChange/requestApproval 请求参数。 */
+export const FileChangeRequestApprovalParams = z
+  .object({
+    ...approvalLocator,
+    startedAtMs: z.number(),
+    reason: z.string().nullable().optional(),
+    grantRoot: z.string().nullable().optional(),
+  })
+  .passthrough();
+export const FileChangeRequestApprovalResponse = z.object({
+  decision: z.enum(["accept", "acceptForSession", "decline", "cancel"]),
+});
+/** item/permissions/requestApproval 请求参数（授权范围原样透传给用户审阅）。 */
+export const PermissionsRequestApprovalParams = z
+  .object({
+    ...approvalLocator,
+    startedAtMs: z.number(),
+    cwd: z.string(),
+    reason: z.string().nullable().optional(),
+    permissions: z.unknown(),
+  })
+  .passthrough();
+/** 权限审批回执：批准=请求声明的范围、scope 取 turn；拒绝=空授权。 */
+export const PermissionsRequestApprovalResponse = z.object({
+  permissions: z.record(z.string(), z.unknown()),
+  scope: z.enum(["turn", "session"]),
+});
+/** item/tool/requestUserInput 请求参数（EXPERIMENTAL）。 */
+export const ToolRequestUserInputParams = z
+  .object({
+    ...approvalLocator,
+    isBlocking: z.boolean().optional(),
+    questions: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          header: z.string(),
+          question: z.string(),
+          isOther: z.boolean().optional(),
+          isSecret: z.boolean().optional(),
+          options: z
+            .array(
+              z.object({
+                label: z.string(),
+                description: z.string().optional(),
+              }),
+            )
+            .nullable()
+            .optional(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+/** 用户输入回执：问题 id → 答案串数组。 */
+export const ToolRequestUserInputResponse = z.object({
+  answers: z.record(z.string(), z.object({ answers: z.array(z.string()) })),
+});
+/** mcpServer/elicitation/request 请求参数（request 扁平字段按 mode 判别）。 */
+export const McpServerElicitationRequestParams = z
+  .object({
+    threadId: z.string().min(1),
+    turnId: z.string().nullable().optional(),
+    serverName: z.string().min(1),
+    mode: z.string().optional(),
+    message: z.string().optional(),
+    url: z.string().optional(),
+    requestedSchema: z.unknown().optional(),
+  })
+  .passthrough();
+/** elicitation 回执。 */
+export const McpServerElicitationRequestResponse = z.object({
+  action: z.enum(["accept", "decline", "cancel"]),
+  content: z.unknown().optional(),
+});
+
 /** thread/compacted 通知参数：压缩后上下文全量回传的载体。 */
 export const ThreadCompactedParams = z
   .object({

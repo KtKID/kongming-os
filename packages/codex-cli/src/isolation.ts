@@ -17,12 +17,22 @@ export interface IsolationPlan {
   disabledSkills: string[];
 }
 
+/** 会话生效权限档旋钮（D17）：sandbox 直接映射，approval 映射审批策略。 */
+export interface PermissionKnobs {
+  /** 官方沙箱档：read-only / workspace-write / danger-full-access。 */
+  sandbox: string;
+  /** KMH 审批策略：ask（产生用户审批请求）/ never（不询问）。 */
+  approval: "ask" | "never";
+}
+
 /** 隔离输入。 */
 export interface IsolationInput {
   cwd: string;
   signal: AbortSignal;
   /** 逐项选择覆盖；缺省按部署旧开关迁移。 */
   selection?: NativeSelection | undefined;
+  /** 权限档（D17）：选中执行类原生工具时映射为 -c 沙箱/审批参数。 */
+  permission?: PermissionKnobs | undefined;
 }
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -297,6 +307,19 @@ export async function prepareIsolation(
       `hooks.state={${discovered.hookKeys
         .map((key) => `${tomlString(key)}={enabled=false}`)
         .join(",")}}`,
+    );
+  if (
+    input.permission !== undefined &&
+    (selection.commandExecution || selection.fileChange)
+  )
+    // D17 权限档映射：仅选中执行类原生工具时注入沙箱/审批参数
+    // （避免影响未开放执行工具时的默认行为，如生图产物落盘）。
+    // ask → on-request（审批请求经桥转 KMH 用户），never → 不询问。
+    overrides.push(
+      `sandbox_mode=${tomlString(input.permission.sandbox)}`,
+      `approval_policy=${tomlString(
+        input.permission.approval === "ask" ? "on-request" : "never",
+      )}`,
     );
   return { configOverrides: overrides, catalogPath, disabledSkills };
 }

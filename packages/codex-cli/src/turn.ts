@@ -9,6 +9,7 @@ import {
 } from "@deepseek-ai/dsh-llm";
 import type { Config } from "./config.ts";
 import type { NativeSelection } from "./capabilities.ts";
+import type { SessionId } from "@deepseek-ai/dsh-session";
 import { connectCodex, type CodexConnection } from "./connection.ts";
 import {
   AgentMessageDeltaParams,
@@ -23,13 +24,18 @@ import {
   TurnResult,
   imageProjectionOf,
 } from "./protocol.ts";
-import { prepareIsolation, verifyIsolation } from "./isolation.ts";
+import {
+  prepareIsolation,
+  verifyIsolation,
+  type PermissionKnobs,
+} from "./isolation.ts";
 import { blockDigest, emptySnapshot, type CursorSnapshot } from "./cursor.ts";
 import {
   buildToolRegistry,
   resolveKmhToolName,
   type ToolRegistry,
 } from "./tool-registry.ts";
+import { CodexApprovalBridge } from "./approval.ts";
 import {
   imageFailureNote,
   imageSizeNote,
@@ -48,6 +54,10 @@ export interface TurnStartInput {
   tools: { name: string; description: string; inputSchema: unknown }[];
   /** 逐项选择覆盖；缺省用部署配置迁移。 */
   selection?: NativeSelection | undefined;
+  /** 会话标识：审批桥据此取活跃 Agent（feat09）。 */
+  sessionId?: SessionId | undefined;
+  /** 会话生效权限档（D17）；选中执行类原生工具时映射为 -c 沙箱/审批参数。 */
+  permission?: PermissionKnobs | undefined;
 }
 /** 队列事件。 */
 type Queued =
@@ -99,6 +109,10 @@ export class CodexTurn {
   terminalStatus: string | undefined;
   /** 最近一次投递的用户输入文本：生图尺寸要求识别来源（feat10）。 */
   private lastUserText = "";
+  /** 会话标识：审批桥取活跃 Agent 用。 */
+  private sessionId: SessionId | undefined;
+  /** 回合级审批中止：dispose/interrupt 时待审批决定随回合取消（feat06 场景1）。 */
+  private approvalAbort: AbortController | undefined;
   /**
    * 本回合的工具声明表（D13）：声明名 kmh-<原名> 与目录指纹。
    * start/rebuild 时建立；临时会话（adopt）保持 undefined，仅兼容裸名。
@@ -132,6 +146,7 @@ export class CodexTurn {
     this.endedBlocks.clear();
     this.lastUserText = "";
     this.toolRegistry = undefined;
+    this.approvalAbort = undefined;
   }
 
   /** 等待结果回传的挂起工具调用标识。 */
@@ -157,10 +172,13 @@ export class CodexTurn {
   ): Promise<string> {
     this.reopen();
     this.lastUserText = input.text;
+    this.sessionId = input.sessionId;
+    this.approvalAbort = new AbortController();
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
       selection: input.selection,
+      permission: input.permission,
     });
     const connection = await connectCodex(
       this.ctx,
@@ -235,10 +253,13 @@ export class CodexTurn {
   ): Promise<string> {
     this.reopen();
     this.lastUserText = rebuildText;
+    this.sessionId = input.sessionId;
+    this.approvalAbort = new AbortController();
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
       selection: input.selection,
+      permission: input.permission,
     });
     const connection = await connectCodex(
       this.ctx,
@@ -331,11 +352,29 @@ export class CodexTurn {
       }
     });
     connection.onServerRequest(async (method, params) => {
+      // 审批类服务端请求：交审批桥转 KMH 用户决定（feat09，D18）。
+      const bridge = new CodexApprovalBridge(
+        this.ctx,
+        this.sessionId,
+        this.approvalAbort?.signal,
+      );
+      switch (method) {
+        case Incoming.itemCommandExecutionRequestApproval:
+          return await bridge.handleCommandApproval(params);
+        case Incoming.itemFileChangeRequestApproval:
+          return await bridge.handleFileChangeApproval(params);
+        case Incoming.itemPermissionsRequestApproval:
+          return await bridge.handlePermissionsApproval(params);
+        case Incoming.itemToolRequestUserInput:
+          return await bridge.handleUserInput(params);
+        case Incoming.mcpServerElicitationRequest:
+          return await bridge.handleElicitation(params);
+      }
       if (
         method !== Incoming.itemToolCall &&
         method !== Incoming.itemDynamicToolCall
       )
-        throw new Error("CODEX_SERVER_REQUEST_UNEXPECTED");
+        throw new Error(`CODEX_SERVER_REQUEST_UNEXPECTED: ${method}`);
       const call = DynamicToolCallParams.parse(params);
       if (this.threadId !== undefined && call.threadId !== this.threadId)
         throw new Error("CODEX_TOOL_CALL_THREAD_MISMATCH");
@@ -757,6 +796,9 @@ export class CodexTurn {
     this.closed = true;
     this.wakeup?.();
     this.failPending(new Error("CODEX_TURN_DISPOSED"));
+    // 待审批决定随本回合取消：中止使 approval/request 归结 cancelled、
+    // userQuestions.ask 抛 ASK_ABORTED，迟到的用户答复按过期处理。
+    this.approvalAbort?.abort(new Error("CODEX_TURN_DISPOSED"));
     const connection = this.connection;
     this.connection = undefined;
     if (connection !== undefined && !connection.exited)

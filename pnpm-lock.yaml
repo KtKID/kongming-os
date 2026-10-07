@@ -40,6 +40,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: link:../../third_party/dsh/packages/core/agent
+        version: link:../../third_party/dsh/packages/core/agent
       '@deepseek-ai/dsh-attachment':
         specifier: link:../../third_party/dsh/packages/attachment/attachment
         version: link:../../third_party/dsh/packages/attachment/attachment
@@ -70,15 +73,27 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: link:../../third_party/dsh/packages/llm/llm
         version: link:../../third_party/dsh/packages/llm/llm
+      '@deepseek-ai/dsh-permission-presets':
+        specifier: link:../../third_party/dsh/packages/interaction/permission-presets
+        version: link:../../third_party/dsh/packages/interaction/permission-presets
       '@deepseek-ai/dsh-sdk-protocol':
         specifier: link:../../third_party/dsh/packages/sdk/protocol
         version: link:../../third_party/dsh/packages/sdk/protocol
       '@deepseek-ai/dsh-session':
         specifier: link:../../third_party/dsh/packages/core/session
         version: link:../../third_party/dsh/packages/core/session
+      '@deepseek-ai/dsh-session-projection':
+        specifier: link:../../third_party/dsh/packages/session/session-projection
+        version: link:../../third_party/dsh/packages/session/session-projection
       '@deepseek-ai/dsh-subprocess':
         specifier: link:../../third_party/dsh/packages/subprocess/subprocess
         version: link:../../third_party/dsh/packages/subprocess/subprocess
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../third_party/dsh/packages/interaction/user-approval
+        version: link:../../third_party/dsh/packages/interaction/user-approval
+      '@deepseek-ai/dsh-user-questions':
+        specifier: link:../../third_party/dsh/packages/interaction/user-questions
+        version: link:../../third_party/dsh/packages/interaction/user-questions
       '@deepseek-ai/schemastery':
         specifier: link:../../third_party/dsh/vendor/schemastery
         version: link:../../third_party/dsh/vendor/schemastery

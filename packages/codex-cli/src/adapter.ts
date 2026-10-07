@@ -101,6 +101,9 @@ export class CodexAdapter extends LlmAdapter {
       // 逐项选择按当前值传入：进行中的回合沿用其启动时的进程参数，
       // 下一回合开始时重新读取（feat02 场景4/场景8 语义）。
       selection: this.runtime.settings.selection,
+      // 会话身份与权限档（D17/feat09）：审批桥取活跃 Agent、-c 映射档位。
+      sessionId: options.sessionId,
+      permission: this.runtime.resolvePermission(options.sessionId),
       reasoningEffort: options.reasoningEffort,
       baseInstructions: systemPromptOf(options),
       // D13：不改写提示正文（整词替换会改普通词义），以一段声明约定说明

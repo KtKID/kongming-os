@@ -23,7 +23,13 @@ import {
   recordToCursor,
   type BindingRecord,
 } from "./session-store.ts";
-import { prepareIsolation, verifyIsolation } from "./isolation.ts";
+import {
+  prepareIsolation,
+  verifyIsolation,
+  type PermissionKnobs,
+} from "./isolation.ts";
+import type {} from "@deepseek-ai/dsh-session-projection";
+import type {} from "@deepseek-ai/dsh-permission-presets";
 import { CodexTurn } from "./turn.ts";
 import { ThreadResult, TurnResult } from "./protocol.ts";
 export { Config } from "./config.ts";
@@ -121,6 +127,34 @@ export class CodexCli extends Service {
     const sessions = this.ctx.get("sessions");
     const cwd = sessions?.get(sessionId)?.header?.cwd;
     return cwd === undefined ? this.config.cwd : cwd;
+  }
+  /** 权限档回落：与 kmh-web 组合默认（workspace-write + ask）一致。 */
+  private static readonly DEFAULT_PERMISSION: PermissionKnobs = {
+    sandbox: "workspace-write",
+    approval: "ask",
+  };
+  /**
+   * 会话生效权限档（D17）：读 permissions 投影的 sandbox/approval 旋钮；
+   * 无投影、无覆盖或读取失败时回落部署组合默认。进行中回合按其开始时
+   * 的档位完成（每次 start 重新读取）。
+   */
+  resolvePermission(sessionId: GenerateOptions["sessionId"]): PermissionKnobs {
+    const fallback = CodexCli.DEFAULT_PERMISSION;
+    if (sessionId === undefined) return fallback;
+    const sessions = this.ctx.get("sessions");
+    const projections = this.ctx.get("sessionProjections");
+    const session = sessions?.get(sessionId);
+    if (projections === undefined || session === undefined) return fallback;
+    try {
+      const state = projections.stateOf(session, "permissions");
+      if (state === undefined) return fallback;
+      return {
+        sandbox: state.sandbox ?? fallback.sandbox,
+        approval: state.approval ?? fallback.approval,
+      };
+    } catch {
+      return fallback;
+    }
   }
   /** 模型目录缓存；每次调用复用在途请求。 */
   catalog(): Promise<CodexModelEntry[]> {
