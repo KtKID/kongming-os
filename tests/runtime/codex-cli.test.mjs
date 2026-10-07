@@ -354,11 +354,8 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
       .join("");
     assert.equal(text, "BRIDGE_OK");
     assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
-    // 隔离验证：KMH 工具在列、工具搜索与原生能力已消灭；
-    // 已知缺口——用户 ~/.codex 配置了 MCP server 时，内置 MCP 工具
-    // （list_mcp_resources 等与 mcp__*）仍会出现在模型可见集，
-    // 根治需 CODEX_HOME 隔离，语义待用户拍板（spec 待验证项）。
-    const residual = new Set();
+    // 隔离验证：CODEX_HOME 位于 KMH 数据目录且 config.toml 由插件写入，
+    // 用户 ~/.codex 的 MCP 设备不进配置，模型只看到 KMH 工具。
     for (const request of fixture.requests) {
       const tools = [
         ...(request.body.tools ?? []),
@@ -366,16 +363,8 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
           .filter((item) => item.type === "additional_tools")
           .flatMap((item) => item.tools ?? []),
       ].map((tool) => tool.name ?? tool.type);
-      assert.ok(tools.includes("kmh_echo"));
-      for (const tool of tools)
-        if (tool !== "kmh_echo") residual.add(tool);
+      assert.deepEqual(tools, ["kmh_echo"]);
     }
-    for (const tool of residual)
-      assert.match(
-        tool,
-        /^(list_mcp_resources|list_mcp_resource_templates|read_mcp_resource|mcp__)/,
-        `unexpected non-MCP residual tool: ${tool}`,
-      );
     // 工具结果确实进入第二请求。
     const resultSeen = (fixture.requests[1]?.body.input ?? []).some(
       (item) => item.type === "function_call_output",
