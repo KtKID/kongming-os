@@ -98,7 +98,9 @@ export class CodexAdapter extends LlmAdapter {
     const signal = options.signal ?? new AbortController().signal;
     const startInput: Omit<TurnStartInput, "text"> = {
       model: options.model,
-      nativeToolsEnabled: this.runtime.settings.nativeToolsEnabled,
+      // 逐项选择按当前值传入：进行中的回合沿用其启动时的进程参数，
+      // 下一回合开始时重新读取（feat02 场景4/场景8 语义）。
+      selection: this.runtime.settings.selection,
       reasoningEffort: options.reasoningEffort,
       baseInstructions: systemPromptOf(options),
       // D13：不改写提示正文（整词替换会改普通词义），以一段声明约定说明

@@ -20,8 +20,9 @@ export type LocaleKey =
   | "probeNever"
   | "probePass"
   | "probeFail"
-  | "nativeTools"
-  | "nativeToolsHint"
+  | "capabilitiesLabel"
+  | "capabilityUnavailable"
+  | "capabilityNextTurn"
   | "openAuthorize"
   | "signIn"
   | "cancelLogin"
@@ -50,9 +51,10 @@ export const zh: Record<LocaleKey, string> = {
   probeNever: "未测试",
   probePass: "通过",
   probeFail: "失败",
-  nativeTools: "使用原生 Codex 工具与技能",
-  nativeToolsHint:
-    "默认关闭，仅用 KMH 的工具与技能；进行中的回合不受影响，下一回合生效。",
+  capabilitiesLabel: "原生能力",
+  capabilityUnavailable: "不可用",
+  capabilityNextTurn:
+    "调整立即保存并下一回合生效；进行中的回合保持原选择。原生技能独立选择，默认由 KMH 技能体系接管。",
   openAuthorize: "打开官方授权页",
   signIn: "登录",
   cancelLogin: "取消登录",
@@ -63,7 +65,8 @@ export const zh: Record<LocaleKey, string> = {
 
 export const en: Record<LocaleKey, string> = {
   title: "Codex CLI",
-  summary: "Official Codex CLI transport: account, version check, connection test",
+  summary:
+    "Official Codex CLI transport: account, version check, connection test",
   loading: "Loading status…",
   versionLabel: "CLI version",
   versionSupported: "Supported",
@@ -82,9 +85,10 @@ export const en: Record<LocaleKey, string> = {
   probeNever: "Never tested",
   probePass: "Passed",
   probeFail: "Failed",
-  nativeTools: "Use native Codex tools and skills",
-  nativeToolsHint:
-    "Off by default; only KMH tools and skills run. Turns in flight keep their state; the next turn follows the new one.",
+  capabilitiesLabel: "Native capabilities",
+  capabilityUnavailable: "Unavailable",
+  capabilityNextTurn:
+    "Changes save immediately and apply from the next turn; turns in flight keep their selections. Native skills are selected separately and default to KMH skills.",
   openAuthorize: "Open authorization page",
   signIn: "Sign in",
   cancelLogin: "Cancel sign-in",

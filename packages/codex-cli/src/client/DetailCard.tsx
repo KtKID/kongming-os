@@ -1,7 +1,7 @@
 /**
- * Codex 详情卡片：账号、版本、开关与测试连接，贡献到插件管理区的
- * `plugins.item` 槽位。`view: summary` 只出一句话简介（列表卡片与详情页
- * 标题下共用）；`view: page` 才渲染完整内容，因此详情页只出现一份。
+ * Codex 详情卡片：账号、版本、原生能力逐项选择与测试连接，贡献到插件
+ * 管理区的 `plugins.item` 槽位。`view: summary` 只出一句话简介（列表卡片
+ * 与详情页标题下共用）；`view: page` 才渲染完整内容，因此详情页只出现一份。
  */
 import {
   useCallback,
@@ -24,6 +24,14 @@ import type {
 } from "@deepseek-ai/dsh-client-ui-slots";
 import type {} from "@deepseek-ai/dsh-client-ui-plugin-manager/client";
 
+/** 原生能力条目（Host 侧 status 路由给出，客户端只渲染）。 */
+interface CapabilityView {
+  id: string;
+  label: string;
+  description: string;
+  available: boolean;
+  reason?: string;
+}
 /** 状态接口形态（与 Host 侧 status 路由一致）。 */
 interface StatusResponse {
   account: {
@@ -33,7 +41,8 @@ interface StatusResponse {
     error?: string;
   };
   version: { version?: string; ok: boolean; reason?: string };
-  nativeToolsEnabled: boolean;
+  selection: Record<string, boolean>;
+  capabilities: CapabilityView[];
   defaultModel?: string;
   lastProbe?: { at: string; ok: boolean; error?: string };
 }
@@ -82,10 +91,14 @@ function isStatus(value: unknown): value is StatusResponse {
   if (value === null || typeof value !== "object") return false;
   const account = fieldOf(value, "account");
   const version = fieldOf(value, "version");
+  const selection = fieldOf(value, "selection");
+  const capabilities = fieldOf(value, "capabilities");
   return (
     isRecordWith(account, "login", "string") &&
     isRecordWith(version, "ok", "boolean") &&
-    typeof fieldOf(value, "nativeToolsEnabled") === "boolean"
+    selection !== null &&
+    typeof selection === "object" &&
+    Array.isArray(capabilities)
   );
 }
 function fieldOf(value: object, key: string): unknown {
@@ -104,12 +117,17 @@ function isRecordWith(
 }
 
 /** 登录枚举到文案与标签色。 */
-function accountView(t: CodexCardProps["t"], login: string): {
+function accountView(
+  t: CodexCardProps["t"],
+  login: string,
+): {
   text: string;
   tone: TagTone;
 } {
-  if (login === "signed-in") return { text: t("accountSignedIn"), tone: "success" };
-  if (login === "waiting") return { text: t("accountWaiting"), tone: "warning" };
+  if (login === "signed-in")
+    return { text: t("accountSignedIn"), tone: "success" };
+  if (login === "waiting")
+    return { text: t("accountWaiting"), tone: "warning" };
   if (login === "starting") return { text: t("accountStarting"), tone: "info" };
   if (login === "failed") return { text: t("accountFailed"), tone: "danger" };
   return { text: t("accountSignedOut"), tone: "neutral" };
@@ -230,27 +248,47 @@ export function CodexCard(props: CodexCardProps): JSX.Element {
           </>
         )}
       </Row>
-      <Row label={t("nativeTools")}>
-        <Switch
-          checked={status.nativeToolsEnabled}
-          onChange={(next) => {
-            act("config", { nativeToolsEnabled: next }).catch(() => undefined);
-          }}
-          label={t("nativeTools")}
-        />
+      <Row label={t("capabilitiesLabel")}>
+        <span style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {status.capabilities.map((capability) => (
+            <span
+              key={capability.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <Switch
+                checked={status.selection[capability.id] === true}
+                onChange={(next) => {
+                  act("config", {
+                    selection: { ...status.selection, [capability.id]: next },
+                  }).catch(() => undefined);
+                }}
+                label={capability.label}
+              />
+              {!capability.available && (
+                <>
+                  <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
+                  {capability.reason !== undefined && (
+                    <span style={detailStyle}>{capability.reason}</span>
+                  )}
+                </>
+              )}
+            </span>
+          ))}
+        </span>
       </Row>
-      <p style={noteStyle}>{t("nativeToolsHint")}</p>
+      <p style={noteStyle}>{t("capabilityNextTurn")}</p>
       {status.account.authorizeUrl !== undefined && (
         <div style={actionsStyle}>
           <Button
             variant="outline"
             icon={<IconRightUpOutlineRegular size={16} />}
             onClick={() => {
-              window.open(
-                status.account.authorizeUrl,
-                "_blank",
-                "noreferrer",
-              );
+              window.open(status.account.authorizeUrl, "_blank", "noreferrer");
             }}
           >
             {t("openAuthorize")}

@@ -1,6 +1,7 @@
 /** 详情页测试连接：独立临时会话内对当前模型发短请求并回收。 */
 import type { Context } from "@deepseek-ai/cordis";
 import type { Config } from "./config.ts";
+import type { NativeSelection } from "./capabilities.ts";
 import { connectCodex } from "./connection.ts";
 import { prepareIsolation } from "./isolation.ts";
 import { CodexTurn } from "./turn.ts";
@@ -15,19 +16,19 @@ export interface ProbeResult {
  * @param ctx - 宿主上下文。
  * @param config - 插件配置。
  * @param model - 详情页当前选择的模型。
- * @param nativeToolsEnabled - 原生工具开关（临时会话同样遵守隔离语义）。
+ * @param selection - 原生能力逐项选择（临时会话同样遵守隔离语义）。
  */
 export async function probeConnection(
   ctx: Context,
   config: Config,
   model: string,
-  nativeToolsEnabled: boolean,
+  selection: NativeSelection,
 ): Promise<ProbeResult> {
   const signal = AbortSignal.timeout(config.probeTimeoutMs);
   const plan = await prepareIsolation(ctx, config, {
     cwd: config.cwd,
     signal,
-    nativeToolsEnabled,
+    selection,
   });
   const connection = await connectCodex(
     ctx,

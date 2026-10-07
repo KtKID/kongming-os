@@ -1,9 +1,18 @@
 /** Independently distributable KMH provider for the official Codex CLI app-server. */
 import { Service, type Context } from "@deepseek-ai/cordis";
+import { mkdir, rename, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { CodexAccount } from "./account.ts";
 import { mountWeb } from "./web.ts";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
 import type { Config } from "./config.ts";
+import {
+  selectionFromLegacy,
+  selectionOf,
+  type NativeSelection,
+} from "./capabilities.ts";
+import { fieldOf } from "./protocol.ts";
 import { CodexAdapter } from "./adapter.ts";
 import { connectCodex } from "./connection.ts";
 import { emptySnapshot } from "./cursor.ts";
@@ -42,11 +51,31 @@ interface SessionState {
  * Own shared runtime state for the Codex CLI provider.
  * 目录缓存、会话串行与 thread 绑定挂在此服务上，adapter 与 Web 共用。
  */
-/** 详情页可变设置：开关与最近测试结果。 */
+/** 详情页可变设置：逐项选择与最近测试结果。 */
 export interface RuntimeSettings {
-  nativeToolsEnabled: boolean;
+  selection: NativeSelection;
   defaultModel?: string;
   lastProbe?: { at: string; ok: boolean; error?: string };
+}
+/** 设置文件形态（dataDir/codex-settings.json）。 */
+interface SettingsFile {
+  selection: NativeSelection;
+}
+/** 读取持久化设置；缺失或损坏时按旧开关迁移（feat02 场景7）。 */
+function loadSettings(config: Config): RuntimeSettings {
+  try {
+    const text: unknown = readFileSync(
+      join(config.dataDir, "codex-settings.json"),
+      "utf8",
+    );
+    const parsed: unknown = JSON.parse(typeof text === "string" ? text : "");
+    const record =
+      parsed === null || typeof parsed !== "object" ? undefined : parsed;
+    const selection = selectionOf(fieldOf(record, "selection"));
+    return { selection };
+  } catch {
+    return { selection: selectionFromLegacy(config.nativeToolsEnabled) };
+  }
 }
 
 export class CodexCli extends Service {
@@ -55,7 +84,7 @@ export class CodexCli extends Service {
   private readonly store: CodexSessionStore;
   /** 账号操作（状态/登录/取消/退出）。 */
   readonly account: CodexAccount;
-  /** 详情页可变设置；开关下一回合生效。 */
+  /** 详情页可变设置；逐项选择立即保存、下一回合生效。 */
   readonly settings: RuntimeSettings;
 
   constructor(
@@ -65,7 +94,7 @@ export class CodexCli extends Service {
     super(ctx, "codexCli");
     this.store = new CodexSessionStore(config.dataDir);
     this.account = new CodexAccount(ctx, config);
-    this.settings = { nativeToolsEnabled: config.nativeToolsEnabled };
+    this.settings = loadSettings(config);
     ctx.effect(
       () => () => {
         for (const state of this.sessions.values())
@@ -74,6 +103,16 @@ export class CodexCli extends Service {
       },
       "codex-cli: sessions",
     );
+  }
+  /** 保存逐项选择：原子落盘后立即生效于下一回合（进行中回合不受影响）。 */
+  async saveSelection(selection: NativeSelection): Promise<void> {
+    this.settings.selection = selectionOf(selection);
+    await mkdir(this.config.dataDir, { recursive: true, mode: 0o700 });
+    const file = join(this.config.dataDir, "codex-settings.json");
+    const temp = `${file}.tmp`;
+    const body: SettingsFile = { selection: this.settings.selection };
+    await writeFile(temp, JSON.stringify(body));
+    await rename(temp, file);
   }
 
   /** 解析请求会话的工作目录；查不到时回落插件配置 cwd。 */
@@ -228,7 +267,7 @@ export class CodexCli extends Service {
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.config.cwd,
       signal,
-      nativeToolsEnabled: this.settings.nativeToolsEnabled,
+      selection: this.settings.selection,
     });
     const connection = await connectCodex(
       this.ctx,

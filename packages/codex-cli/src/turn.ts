@@ -8,6 +8,7 @@ import {
   type TokenUsage,
 } from "@deepseek-ai/dsh-llm";
 import type { Config } from "./config.ts";
+import type { NativeSelection } from "./capabilities.ts";
 import { connectCodex, type CodexConnection } from "./connection.ts";
 import {
   AgentMessageDeltaParams,
@@ -45,8 +46,8 @@ export interface TurnStartInput {
   baseInstructions?: string | undefined;
   developerInstructions?: string | undefined;
   tools: { name: string; description: string; inputSchema: unknown }[];
-  /** 原生工具开关覆盖；缺省用部署配置。 */
-  nativeToolsEnabled?: boolean | undefined;
+  /** 逐项选择覆盖；缺省用部署配置迁移。 */
+  selection?: NativeSelection | undefined;
 }
 /** 队列事件。 */
 type Queued =
@@ -159,7 +160,7 @@ export class CodexTurn {
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
-      nativeToolsEnabled: input.nativeToolsEnabled,
+      selection: input.selection,
     });
     const connection = await connectCodex(
       this.ctx,
@@ -237,7 +238,7 @@ export class CodexTurn {
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
-      nativeToolsEnabled: input.nativeToolsEnabled,
+      selection: input.selection,
     });
     const connection = await connectCodex(
       this.ctx,
