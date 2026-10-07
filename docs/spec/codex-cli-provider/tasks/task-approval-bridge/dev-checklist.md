@@ -17,7 +17,7 @@
 | T6 | 挂起请求收口：保存请求 id/类型/session-thread-turn-item 与一次性完成状态；重复或迟到答复按过期或已处理；停止回合时待审批随回合取消、迟到答复过期（feat06 场景1 修订） | feat09 场景4, feat06 场景1 | packages/codex-cli/src/approval.ts, packages/codex-cli/src/turn.ts | 高:并发:答复与停止竞态下重复回执破坏一次性语义 | [x] 🟢 |
 | T7 | 缺入口与未知请求：无可用用户审批入口时拒绝权限升级并记录可读原因；时间、attestation、token 刷新等未知服务端请求逐项核对后接入或返回明确错误 | feat09 场景5 | packages/codex-cli/src/approval.ts, packages/codex-cli/src/turn.ts | None | [x] 🟢 |
 | T8 | unit：请求解析、决定值映射、权限三档映射（请求审批/帮我审批/完全权限/仅可查看）、一次性与过期语义、`allowed-once`/`rejected`/`cancelled`/`unavailable` 四态映射 | feat09 场景1-6 | tests/runtime/codex-cli.test.mjs | None | [x] 🟢 |
-| T9 | smoke：真实 CLI 请求审批档的批准后执行与拒绝后模型继续；帮我审批/完全权限档不产生审批请求直接执行 | feat09 场景1, 场景2, 场景6 | tests/runtime/codex-cli.test.mjs | None | [ ] ⏳ |
+| T9 | smoke：真实 CLI 请求审批档的批准后执行与拒绝后模型继续；帮我审批/完全权限档不产生审批请求直接执行 | feat09 场景1, 场景2, 场景6 | tests/runtime/codex-cli.test.mjs | None | [x] 🟢 |
 
 ## 影响文件树
 
@@ -53,3 +53,8 @@ kongming-agent/
   真实审批往返（用户批准→原生执行→拒绝→模型继续）需真实模型原生触发 shell 审批，
   fixture 无法可靠伪造 unified-exec 调用输入格式，归 task-mixed-e2e 真机验收。
 - 验证：typecheck（host+browser）/lint 通过；38/38 测试全绿（含既有全部真实 CLI smoke 无回归）。
+
+## T9 真机验收记录（2026-10-08，codex-cli 0.162.0-alpha.2）
+
+- 批准后执行：请求审批档下模型以 `require_escalated` 调 `exec_command`，Web 审批卡片点 Allow once 后桥回 `accept`，命令执行、退出码 0、叙事块与模型回复正常（详见 task-mixed-e2e 验证记录）。
+- 拒绝后继续与另两档直执行：拒绝/取消/缺入口映射由 T8 单元测试覆盖；帮我审批/完全权限档注入 `approval_policy=never` 抑制升级审批的参数核对见 allowlist smoke 断言。

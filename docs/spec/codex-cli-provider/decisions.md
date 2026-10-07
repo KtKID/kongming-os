@@ -159,6 +159,16 @@ v1 落地（既有公开通道，与生图附注同形态）：原生活动叙�
 
 宿主版本要求（后续升级到卡片形态）：公开可 ignorable 的插件会话事件写入通道，或对话视图的扩展块/插件事件路由。webSearch 在 0.160.0 v2 ThreadItem 无独立变体，暂无叙述来源。
 
+### D20 审批链路真机定案（2026-10-08 实施期拍板，修订 D15 的 v1 假设）
+
+真实 Web + codex-cli 0.162.0-alpha.2 全链路验证（卡片 → Allow once → `accept` → 命令执行 → 退出码 0 回复）后确定三项：
+
+- **wire 方法为 v2**：未协商 v2 实验 API 的客户端同样收到 `item/commandExecution/requestApproval`（带 threadId/turnId/itemId 定位、`availableDecisions` 候选）；v1 `execCommandApproval`/`applyPatchApproval` 在本机从未到达，按 D15 旧假设预写的 v1 处理器已删除，不保留双协议。D15 表格的 v2 方法清单不变。
+- **插件服务注入**：桥经 `ctx.agents/approval/userQuestions` 转发，cordis 要求先在插件 `inject` 声明（漏声明时运行期抛 `cannot get property "agents" without inject`，审批请求整体 `-32603` 失败、Codex 侧表现为 `Rejected("approval request failed")`）。插件 `inject` 现为 `llm/subprocess/agents/approval/userQuestions` 五项。
+- **`approvals_reviewer="user"` 必须显式注入**（D15 既定，实测复核）：0.162 默认 `auto_review` 由内部审查直接放行提权命令、不产生客户端请求；请求审批档注入后 turn_context 落盘可见 `approvals_reviewer:"user"`。
+
+排障中间产物不保留：turn.ts 的 /tmp 调试落盘与结果包装已随定案移除；失败轮次的叙事块（`完成：已结束（failed）`）确认为正确行为。遗留：mixed-e2e T3（停止/刷新时挂起审批的取消与过期路径）未做真机验收，由 task-stop-recovery 存量测试覆盖骨架。
+
 ### 推荐实施顺序与验收
 
 1. 核对当前生图产物接入和尺寸错误，补上真实产物尺寸、交付图与回复的一致性验收；保留已有生图实现。
