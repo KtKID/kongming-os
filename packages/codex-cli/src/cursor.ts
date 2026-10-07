@@ -182,8 +182,11 @@ export function diffIncrement(
 
 /**
  * 尾部识别为新增用户输入。允许的形态：任意条「Codex 自产 assistant 消息
- * （块摘要逐一核对）+ context/system 注入（透明吞掉）」后跟恰一条真实
- * 用户消息；其余形态（连续多条真实用户消息、外来回复、未知角色）断基线。
+ * （块摘要逐一核对）+ context/system 注入（透明吞掉）」后跟最后一条真实
+ * 用户消息，且其后还可跟随任意条注入（新会话首轮的准备注入——技能清单、
+ * 时间戳、运行时上下文——排在真实输入之后，2026-10-08 实测）；注入文本
+ * 与真实输入一并作为本次投递内容。其余形态（连续多条真实用户消息、外来
+ * 回复、未知角色）断基线。
  */
 function newUserInput(
   tail: RequestMessage[],
@@ -191,10 +194,32 @@ function newUserInput(
   snapshot: CursorSnapshot,
 ): Increment {
   const rest = [...snapshot.delivered];
-  const last = tail[tail.length - 1];
-  if (last === undefined || !isRealUserMessage(last))
+  let lastReal = -1;
+  for (let index = tail.length - 1; index >= 0; index--) {
+    const message = tail[index];
+    if (message !== undefined && isRealUserMessage(message)) {
+      lastReal = index;
+      break;
+    }
+  }
+  const last = lastReal >= 0 ? tail[lastReal] : undefined;
+  if (last === undefined)
     return { kind: "baseline-lost", reason: "unexpected-tail" };
-  for (const message of tail.slice(0, -1)) {
+  /** 拼接一条消息的全部文本块；出现非文本块返回 undefined。 */
+  const textOfMessage = (
+    message: RequestMessage,
+  ): string | undefined => {
+    const parts: string[] = [];
+    for (const block of asArray(fieldOf(message, "content"))) {
+      if (!isTextBlock(block)) return undefined;
+      const text = textOf(block);
+      if (text === undefined) return undefined;
+      parts.push(text);
+    }
+    return parts.join("\n");
+  };
+  const texts: string[] = [];
+  for (const message of tail.slice(0, lastReal)) {
     if (message.role === "assistant") {
       const digests = assistantDigests(message);
       if (digests === undefined)
@@ -212,18 +237,29 @@ function newUserInput(
       return { kind: "baseline-lost", reason: "unexpected-tail" };
     }
   }
-  const texts: string[] = [];
-  for (const block of asArray(fieldOf(last, "content"))) {
-    if (!isTextBlock(block))
+  const lastText = textOfMessage(last);
+  if (lastText === undefined)
+    return { kind: "baseline-lost", reason: "unsupported-input-block" };
+  texts.push(lastText);
+  for (const message of tail.slice(lastReal + 1)) {
+    // 尾随注入只接受透明类型；文本并入本次投递（模型需要看到技能清单、
+    // 时间戳与运行时上下文），非文本块断基线。
+    if (
+      !(
+        message.role === "system" ||
+        message.role === "developer" ||
+        (message.role === "user" && !isRealUserMessage(message))
+      )
+    )
+      return { kind: "baseline-lost", reason: "unexpected-tail" };
+    const injected = textOfMessage(message);
+    if (injected === undefined)
       return { kind: "baseline-lost", reason: "unsupported-input-block" };
-    const text = textOf(block);
-    if (text === undefined)
-      return { kind: "baseline-lost", reason: "unsupported-input-block" };
-    texts.push(text);
+    texts.push(injected);
   }
   return {
     kind: "new-input",
-    text: texts.join("\n"),
+    text: texts.join("\n\n"),
     consumed: total,
     delivered: rest,
   };
