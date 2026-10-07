@@ -1,4 +1,0 @@
-interface:
-  display_name: "X LLM Eval"
-  short_description: "运行 Kongming LLM 能力评测并产出人工分析报告"
-  default_prompt: "使用 x-llm-eval 跑指定模型的 Kongming harness benchmark，检查报告、trajectory 和 session JSONL，然后按模板写评估结论。"

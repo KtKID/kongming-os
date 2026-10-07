@@ -69,14 +69,9 @@ htmlcov/
 /log/
 /whiteboard/
 /kongming-agent.code-workspace
-/web/src/modules/dashboard/config/.gitkeep
-/web/src/modules/dashboard/config/components/.gitkeep
-/web/src/modules/dashboard/config/sections/.gitkeep
 
 # 顶层 node_modules（项目根的依赖缓存，与 web/node_modules 分别管理）
 /node_modules/
-web/.npm-cache
-web/node_modules/
 .pip-cache
 
 # zcode CLI 本地会话数据（plans 等，每个 clone 各自维护，不入仓）
