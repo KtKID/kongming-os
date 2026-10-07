@@ -547,6 +547,57 @@ test("approval bridge passes the turn abort signal to the approval service", asy
   assert.equal(signals[0], controller.signal);
 });
 
+// ---- 原生执行叙述投影（feat08 v1） ----
+import {
+  NATIVE_DIFF_NOTE_ID,
+  NATIVE_NOTE_LIMIT,
+  diffBudgetAccepts,
+  diffSummaryLineOf,
+  nativeCompletionNoteOf,
+  nativeHeaderOf,
+  newDiffBudget,
+  newNoteBudget,
+} from "../../packages/codex-cli/lib/src/native-items.js";
+
+test("native headers and completion notes cover narratable item types", () => {
+  const command = nativeHeaderOf({
+    type: "commandExecution",
+    id: "cmd-1",
+    command: "git status",
+    cwd: "/repo",
+    status: "inProgress",
+  });
+  assert.equal(command.itemId, "cmd-1");
+  assert.ok(command.header.includes("[codex 原生·命令]"));
+  assert.ok(command.header.includes("git status"));
+  assert.ok(command.header.includes("/repo"));
+  assert.ok(nativeHeaderOf({ type: "mcpToolCall", id: "m-1", server: "srv", tool: "tool" }).header.includes("srv/tool"));
+  assert.ok(nativeHeaderOf({ type: "imageView", id: "v-1" }).header.includes("查看图片"));
+  assert.ok(nativeHeaderOf({ type: "imageGeneration", id: "g-1" }).header.includes("图片生成"));
+  assert.deepEqual(nativeHeaderOf({ type: "fileChange", id: "f-1", changes: [{}, {}] }).header, "▸ [codex 原生·文件修改] 2 个文件变更");
+  // 模型自产与 KMH 桥条目不叙述。
+  assert.equal(nativeHeaderOf({ type: "agentMessage", id: "a", text: "hi" }), undefined);
+  assert.equal(nativeHeaderOf({ type: "dynamicToolCall", id: "d" }), undefined);
+  // 完成状态：命令带退出码，其余带状态。
+  const done = nativeCompletionNoteOf({
+    type: "commandExecution", id: "cmd-1", status: "completed", exitCode: 0, durationMs: 1500,
+  });
+  assert.ok(done.includes("退出码 0"));
+  assert.ok(done.includes("1.5s"));
+  assert.ok(nativeCompletionNoteOf({ type: "mcpToolCall", id: "m-1", status: "completed" }).includes("完成"));
+  assert.equal(nativeCompletionNoteOf({ type: "agentMessage", id: "a" }), undefined);
+});
+
+test("diff summary counts added and removed lines, budget caps updates", () => {
+  const line = diffSummaryLineOf("+++\n---\n+a\n+b\n-c\n");
+  assert.equal(line, "▸ [codex 原生·变更] turn diff 更新：+2/−1 行");
+  const budget = newDiffBudget();
+  for (let index = 0; index < 30; index += 1) {
+    if (diffBudgetAccepts(budget)) budget.updates += 1;
+  }
+  assert.equal(budget.updates, 20);
+});
+
 // ---- 差分游标（cursor） ----
 import {
   blockDigest,
@@ -1420,9 +1471,99 @@ test("allowlist selection opens native capabilities in the spawned process", { s
   }
 });
 
-test("codex native compaction notification keeps bridge and diff stable", { skip: !findCodexBinary() }, async () => {
+test("native execution narration projects item lifecycle into the stream", { skip: !findCodexBinary() }, async () => {
   const { PassThrough } = await import("node:stream");
   const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const fixture = await startFixtureServer({ script: "delayedText" });
+  let inject;
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "narrate", {
+    wrapStdout: (stdout) => {
+      const pass = new PassThrough();
+      stdout.pipe(pass);
+      inject = pass;
+      return pass;
+    },
+  });
+  const signal = AbortSignal.timeout(120000);
+  const turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
+  try {
+    await turn.start(
+      {
+        text: "run something",
+        model: "gpt-6-sol",
+        baseInstructions: "KMH owns all tools and skills.",
+        tools: [],
+      },
+      undefined,
+      signal,
+    );
+    const threadId = turn.threadId;
+    // 模型响应延迟窗口内注入原生通知：started → 输出增量×2 → diff → completed。
+    const notify = (method, params) =>
+      inject.write(JSON.stringify({ method, params }) + "\n");
+    const startedItem = {
+      type: "commandExecution",
+      id: "cmd-narrate",
+      command: "echo kmh",
+      cwd,
+      status: "inProgress",
+    };
+    notify("item/started", { threadId, item: startedItem });
+    notify("item/commandExecution/outputDelta", {
+      threadId,
+      turnId: "turn-x",
+      itemId: "cmd-narrate",
+      delta: "第一行输出\n",
+    });
+    notify("item/commandExecution/outputDelta", {
+      threadId,
+      turnId: "turn-x",
+      itemId: "cmd-narrate",
+      delta: "第二行输出\n",
+    });
+    notify("turn/diff/updated", {
+      threadId,
+      turnId: "turn-x",
+      diff: "+a\n-b\n",
+    });
+    notify("item/completed", {
+      threadId,
+      item: { ...startedItem, status: "completed", exitCode: 0, durationMs: 1200 },
+    });
+    const chunks = [];
+    for await (const chunk of turn.pump(signal)) chunks.push(chunk);
+    const deltas = chunks
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => chunk.text)
+      .join("");
+    // 叙述完整链路：来源与命令 → 输出增量 → diff 摘要 → 完成状态（场景1/2）。
+    assert.ok(deltas.includes("[codex 原生·命令] echo kmh"));
+    assert.ok(deltas.includes("第一行输出"));
+    assert.ok(deltas.includes("第二行输出"));
+    assert.ok(deltas.includes("turn diff 更新：+1/−1 行"));
+    assert.ok(deltas.includes("退出码 0"));
+    // 模型最终文本仍在（叙述不干扰正文）。
+    assert.ok(deltas.includes("BRIDGE_OK"));
+    // 叙述块以全文收尾（block-end 权威内容，差分账目依据）。
+    const noteEnd = chunks.find(
+      (chunk) =>
+        chunk.type === "block-end" &&
+        chunk.block?.type === "text" &&
+        String(chunk.block.text).includes("[codex 原生·命令]"),
+    );
+    assert.ok(noteEnd !== undefined);
+    const noteText = String(noteEnd.block.text);
+    assert.ok(noteText.includes("第一行输出"));
+    assert.ok(noteText.includes("退出码 0"));
+    assert.ok(chunks.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
+  } finally {
+    await turn.dispose();
+    await fixture.close();
+  }
+});
+
+test("codex native compaction notification keeps bridge and diff stable", { skip: !findCodexBinary() }, async () => {
+  const { PassThrough } = await import("node:stream");  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
   const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
   const fixture = await startFixtureServer({});
   let inject;

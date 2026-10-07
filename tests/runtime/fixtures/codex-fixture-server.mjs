@@ -22,6 +22,10 @@ export function startFixtureServer(options = {}) {
       return;
     }
     sequence++;
+    // delayedText：首响应延迟返回最终文本，给测试在模型响应前注入
+    // 原生通知的窗口（feat08 叙述 smoke）。
+    if (sequence === 1 && script === "delayedText")
+      await new Promise((resolve) => setTimeout(resolve, 600));
     res.writeHead(200, { "content-type": "text/event-stream" });
     const send = (event) =>
       res.write(`data: ${JSON.stringify(event)}\n\n`);
