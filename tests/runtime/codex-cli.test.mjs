@@ -296,6 +296,257 @@ test("allowlist isolation prunes only unselected native capabilities", () => {
   assert.ok(!featureOffFor({ ...DEFAULT_SELECTION, viewImage: true }).includes("view_image"));
 });
 
+// ---- 原生审批桥（feat09，D18 公开服务直连） ----
+import { CodexApprovalBridge } from "../../packages/codex-cli/lib/src/approval.js";
+import {
+  CommandExecutionRequestApprovalParams,
+  CommandExecutionRequestApprovalResponse,
+  FileChangeRequestApprovalParams,
+  PermissionsRequestApprovalParams,
+  ToolRequestUserInputParams,
+  McpServerElicitationRequestParams,
+} from "../../packages/codex-cli/lib/src/protocol.js";
+
+/** 桥测试用的假宿主：按场景注入 agents/approval/userQuestions。 */
+function bridgeCtx({ outcome, answer, error } = {}) {
+  const asked = [];
+  const agent = { id: "sess-approval" };
+  return {
+    asked,
+    logger: { warn: () => undefined },
+    agents: { get: (id) => (id === "sess-approval" ? agent : undefined) },
+    approval:
+      outcome === undefined
+        ? undefined
+        : {
+            request: async (req) => {
+              asked.push({ kind: "approval", toolName: req.toolName, reason: req.reason });
+              if (outcome === "throw") throw new Error("approval blew up");
+              return outcome;
+            },
+          },
+    userQuestions:
+      answer === undefined && error === undefined
+        ? undefined
+        : {
+            ask: async (req) => {
+              asked.push({ kind: "questions", questions: req.questions });
+              if (error !== undefined) throw error;
+              return answer;
+            },
+          },
+  };
+}
+
+const commandApprovalParams = {
+  threadId: "th-1",
+  turnId: "turn-1",
+  itemId: "item-1",
+  startedAtMs: 1759800000000,
+  command: "rm -rf ~/important",
+  cwd: "/workspace/demo",
+  reason: "需要删除工作区外文件",
+};
+
+test("approval bridge maps KMH outcomes to codex command decisions", async () => {
+  const cases = [
+    ["allowed-once", "accept"],
+    ["rejected", "decline"],
+    ["cancelled", "cancel"],
+    ["unavailable", "decline"],
+  ];
+  for (const [outcome, decision] of cases) {
+    const ctx = bridgeCtx({ outcome });
+    const bridge = new CodexApprovalBridge(ctx, "sess-approval", undefined);
+    const response = await bridge.handleCommandApproval(commandApprovalParams);
+    assert.deepEqual(response, { decision });
+    CommandExecutionRequestApprovalResponse.parse(response);
+  }
+  // 展示信息携带命令、目录与申请原因（用户在 KMH 审批卡可见）。
+  const ctx = bridgeCtx({ outcome: "allowed-once" });
+  await new CodexApprovalBridge(ctx, "sess-approval", undefined).handleCommandApproval(
+    commandApprovalParams,
+  );
+  const asked = ctx.asked[0];
+  assert.equal(asked.toolName, "codex 命令执行审批");
+  assert.ok(asked.reason.includes("rm -rf ~/important"));
+  assert.ok(asked.reason.includes("/workspace/demo"));
+  // 请求参数形态收敛（0.160.0 生成 schema）。
+  CommandExecutionRequestApprovalParams.parse(commandApprovalParams);
+});
+
+test("approval bridge fails closed without agent or approval service", async () => {
+  // 无 approval 服务：拒绝并保持可继续。
+  const noService = new CodexApprovalBridge(bridgeCtx({}), "sess-approval", undefined);
+  assert.deepEqual(await noService.handleCommandApproval(commandApprovalParams), {
+    decision: "decline",
+  });
+  // 无会话身份（临时会话）：同样拒绝。
+  const noSession = new CodexApprovalBridge(bridgeCtx({ outcome: "allowed-once" }), undefined, undefined);
+  assert.deepEqual(await noSession.handleCommandApproval(commandApprovalParams), {
+    decision: "decline",
+  });
+  // 文件修改与权限申请同语义。
+  const fileParams = FileChangeRequestApprovalParams.parse({
+    threadId: "th-1",
+    turnId: "turn-1",
+    itemId: "item-2",
+    startedAtMs: 1759800000000,
+    reason: "越界写",
+    grantRoot: "/outside",
+  });
+  assert.deepEqual(await noSession.handleFileChangeApproval(fileParams), {
+    decision: "decline",
+  });
+  assert.deepEqual(await noSession.handlePermissionsApproval({
+    threadId: "th-1",
+    turnId: "turn-1",
+    itemId: "item-3",
+    startedAtMs: 1759800000000,
+    cwd: "/w",
+    permissions: { network: { hosts: ["*"] } },
+  }), { permissions: {}, scope: "turn" });
+});
+
+test("permissions approval grants only the requested profile for one turn", async () => {
+  const requested = { network: { hosts: ["example.com"] } };
+  const params = {
+    threadId: "th-1",
+    turnId: "turn-1",
+    itemId: "item-3",
+    startedAtMs: 1759800000000,
+    cwd: "/w",
+    reason: null,
+    permissions: requested,
+  };
+  PermissionsRequestApprovalParams.parse(params);
+  // 批准：授予请求声明的范围，scope=turn（R2 单次请求授权）。
+  const allowed = bridgeCtx({ outcome: "allowed-once" });
+  const grant = await new CodexApprovalBridge(allowed, "sess-approval", undefined)
+    .handlePermissionsApproval(params);
+  assert.deepEqual(grant, { permissions: requested, scope: "turn" });
+  // 拒绝：空授权。
+  const rejected = bridgeCtx({ outcome: "rejected" });
+  const empty = await new CodexApprovalBridge(rejected, "sess-approval", undefined)
+    .handlePermissionsApproval(params);
+  assert.deepEqual(empty, { permissions: {}, scope: "turn" });
+});
+
+test("user input bridge maps questions and merges selected with custom text", async () => {
+  const params = {
+    threadId: "th-1",
+    turnId: "turn-1",
+    itemId: "item-4",
+    isBlocking: true,
+    questions: [
+      {
+        id: "q1",
+        header: "确认",
+        question: "使用哪个环境？",
+        options: [
+          { label: "测试", description: "test env" },
+          { label: "生产", description: "prod env" },
+        ],
+      },
+      { id: "q2", header: "", question: "备注" },
+    ],
+  };
+  ToolRequestUserInputParams.parse(params);
+  const ctx = bridgeCtx({
+    answer: {
+      answers: [
+        { id: "q1", selected: ["测试"] },
+        { id: "q2", selected: [], custom: "无" },
+      ],
+    },
+  });
+  const response = await new CodexApprovalBridge(ctx, "sess-approval", undefined)
+    .handleUserInput(params);
+  assert.deepEqual(response, {
+    action: "accept",
+    answers: { q1: { answers: ["测试"] }, q2: { answers: ["无"] } },
+  });
+  // 选项透传给用户问题服务。
+  assert.deepEqual(ctx.asked[0].questions[0].options, [
+    { label: "测试", description: "test env" },
+    { label: "生产", description: "prod env" },
+  ]);
+});
+
+test("elicitation bridge builds form questions and typed content", async () => {
+  const formParams = {
+    threadId: "th-1",
+    turnId: null,
+    serverName: "demo-mcp",
+    mode: "form",
+    message: "确认外部授权",
+    requestedSchema: {
+      type: "object",
+      properties: {
+        env: { type: "string", enum: ["dev", "prod"], title: "环境" },
+        count: { type: "number" },
+        force: { type: "boolean" },
+      },
+      required: ["env"],
+    },
+  };
+  McpServerElicitationRequestParams.parse(formParams);
+  const ctx = bridgeCtx({
+    answer: {
+      answers: [
+        { id: "env", selected: ["prod"] },
+        { id: "count", selected: [], custom: "3" },
+        { id: "force", selected: [], custom: "true" },
+      ],
+    },
+  });
+  const response = await new CodexApprovalBridge(ctx, "sess-approval", undefined)
+    .handleElicitation(formParams);
+  assert.deepEqual(response, {
+    action: "accept",
+    content: { env: "prod", count: 3, force: true },
+  });
+  // 枚举属性映射为选项。
+  assert.deepEqual(ctx.asked[0].questions.find((q) => q.id === "env").options, [
+    { label: "dev" },
+    { label: "prod" },
+  ]);
+  // 用户中止 → cancel；其余失败（含无应答者）→ decline。
+  const aborted = bridgeCtx({ error: Object.assign(new Error("aborted"), { code: "ASK_ABORTED" }) });
+  assert.deepEqual(
+    await new CodexApprovalBridge(aborted, "sess-approval", undefined).handleElicitation(formParams),
+    { action: "cancel" },
+  );
+  const noProvider = bridgeCtx({ error: Object.assign(new Error("nope"), { code: "NO_PROVIDER" }) });
+  assert.deepEqual(
+    await new CodexApprovalBridge(noProvider, "sess-approval", undefined).handleElicitation(formParams),
+    { action: "decline" },
+  );
+  // 无用户问题服务：拒绝。
+  const bare = new CodexApprovalBridge(bridgeCtx({}), "sess-approval", undefined);
+  assert.deepEqual(await bare.handleElicitation(formParams), { action: "decline" });
+});
+
+test("approval bridge passes the turn abort signal to the approval service", async () => {
+  // 停止/中断路径：回合级 AbortController 的信号透传给审批/问题服务，
+  // 由服务侧归结 cancelled / ASK_ABORTED（映射已由上方用例覆盖）。
+  const controller = new AbortController();
+  const signals = [];
+  const ctx = {
+    logger: { warn: () => undefined },
+    agents: { get: () => ({ id: "sess-approval" }) },
+    approval: {
+      request: async (req) => {
+        signals.push(req.signal);
+        return "allowed-once";
+      },
+    },
+  };
+  const bridge = new CodexApprovalBridge(ctx, "sess-approval", controller.signal);
+  await bridge.handleCommandApproval(commandApprovalParams);
+  assert.equal(signals[0], controller.signal);
+});
+
 // ---- 差分游标（cursor） ----
 import {
   blockDigest,
@@ -778,6 +1029,8 @@ function makeAdapterHarness(parts) {
   };
   const runtime = {
     settings: { selection: selectionFromLegacy(false) },
+    // D17 权限档：harness 无投影服务，走回落默认即可（真实映射另有 argv smoke）。
+    resolvePermission: () => ({ sandbox: "workspace-write", approval: "ask" }),
     resolveCwd: () => parts.cwd,
     bindingRecord: async () =>
       binding.threadId === undefined ? undefined : { ...binding },
@@ -1100,7 +1353,7 @@ test("allowlist selection opens native capabilities in the spawned process", { s
   const { fakeCtx, config, cwd, fixtureOverrides, spawnArgv } =
     makeBridgeHarness(fixture, "allowlist");
   const signal = AbortSignal.timeout(120000);
-  const spawnOnce = async (selection) => {
+  const spawnOnce = async (selection, permission) => {
     const turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
     try {
       // 只需拉起进程核对 -c 允许清单参数，流不消费（dispose 即回收）。
@@ -1115,6 +1368,7 @@ test("allowlist selection opens native capabilities in the spawned process", { s
             inputSchema: entry.parameters,
           })),
           selection,
+          ...(permission === undefined ? {} : { permission }),
         },
         undefined,
         signal,
@@ -1141,6 +1395,26 @@ test("allowlist selection opens native capabilities in the spawned process", { s
     assert.ok(onArgs.includes("features.multi_agent=false"));
     assert.ok(onArgs.includes("features.code_mode=false"));
     assert.ok(onArgs.includes("tools.update_plan.enabled=false"));
+    // D17 权限档：选中执行类工具时注入沙箱/审批参数（ask→on-request）；
+    // 未选中执行类工具时不注入（不影响默认行为如生图落盘）。
+    const asked = await spawnOnce(
+      { ...selectionFromLegacy(false), commandExecution: true },
+      { sandbox: "workspace-write", approval: "ask" },
+    );
+    assert.ok(asked.includes('sandbox_mode="workspace-write"'));
+    assert.ok(asked.includes('approval_policy="on-request"'));
+    const never = await spawnOnce(selectionFromLegacy(true), {
+      sandbox: "danger-full-access",
+      approval: "never",
+    });
+    assert.ok(never.includes('sandbox_mode="danger-full-access"'));
+    assert.ok(never.includes('approval_policy="never"'));
+    const untouched = await spawnOnce(
+      { ...selectionFromLegacy(false), viewImage: true },
+      { sandbox: "workspace-write", approval: "ask" },
+    );
+    assert.ok(!untouched.includes("sandbox_mode="));
+    assert.ok(!untouched.includes("approval_policy="));
   } finally {
     await fixture.close();
   }
