@@ -46,7 +46,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 | `cwd`                    | 必填      | 无会话身份时子进程的工作目录；会话请求跟随会话自身目录    |
 | `dataDir`                | 必填      | 绑定记录与裁剪目录的数据目录                              |
 | `model`                  | `""`      | 空=模型目录首选；非空固定为该模型                         |
-| `nativeToolsEnabled`     | `false`   | 原生 Codex 工具与技能总开关（详情页可切换，下一回合生效） |
+| `nativeToolsEnabled`     | `false`   | 旧总开关：仅作逐项选择的迁移默认（true=已支持项全选），详情页保存后以 `dataDir/codex-settings.json` 为准 |
 | `startupTimeoutMs`       | `20000`   | 启动与 initialize 握手时限                                |
 | `requestTimeoutMs`       | `360000`  | 单次推理请求时限                                          |
 | `cancelReceiptTimeoutMs` | `5000`    | 停止后等待 interrupted 终止通知的时限                     |
@@ -58,7 +58,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 
 ### 详情页
 
-Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.160.0）、账号状态与凭据来源、默认模型、最近连接测试结果、原生工具开关，以及登录/取消登录/退出账号/测试连接。账号状态按 `~/.codex/auth.json` 存在性判定，打开页面不发起模型请求；退出账号作用于本机官方 Codex CLI 的登录态。
+Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.160.0）、账号状态与凭据来源、默认模型、最近连接测试结果、原生能力逐项选择（命令执行、文件修改、查看图片、网络搜索与独立的原生技能，每项显示可用状态），以及登录/取消登录/退出账号/测试连接。调整立即保存并下一回合生效，进行中的回合保持原选择；原生图片生成默认保留。账号状态按 `~/.codex/auth.json` 存在性判定，打开页面不发起模型请求；退出账号作用于本机官方 Codex CLI 的登录态。
 
 ---
 
