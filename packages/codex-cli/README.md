@@ -73,6 +73,10 @@ Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.1
 
 隔离在每次进程启动时经 `-c` 参数注入：vendored 官方模型目录按"直通"形态改写（消灭原生 shell、Code Mode、多 agent 等），功能与捆绑技能逐项关闭，会话范围发现的原生技能与用户钩子按路径/键逐个禁用；开关打开时跳过全部裁剪。压缩由 Codex 在 thread 内原生处理，KMH 侧压缩请求被明确拒绝。
 
+token 用量：`turn/completed` 的 turn 不携带用量（0.162 wire 实测），逐响应用量来自 `thread/tokenUsage/updated`（`last` 分项）。桥维护未消费样本队列，每个 step 收尾（工具挂起或回合终局）恰产出一条 usage chunk：队列空补零样本、终局合并全部剩余，保证各步样本之和恒等于回合总量且携带 `totalTokens`（KMH 折算校验必需）。
+
+会话底部状态小球：`conversation.composer.dock` 公开槽位（order 2，排在活动/用量药丸右侧）注册 `LiveBall`，2 秒轮询 `GET /api/codex-cli/live` 按当前 sessionId 过滤。绿=回合进行中或工具步间进程在线；灰=回合完成/CLI 确认中断后进程回收；红=停止未确认（interrupt 超时）或回合异常中断。宿主停止以 `AgentCancelCause` 普通对象经 `signal.reason` 抛达，按 `{kind}` 识别。
+
 图片生成结果的展示：Codex 原生 `image_gen.imagegen` 工具在默认隔离下即对模型可用（托管 API 调用，无本地执行与审批）。生成产物由 Codex 落盘到 `~/.codex/generated_images/<threadId>/`；桥在收到对应 `item/completed` 通知时读取落盘文件、经宿主附件服务（`ctx.attachments.saveImages`）落成 `ImageAttachmentRef`，并以 image 内容块送回 KMH，会话内直接展示该图片。投影是展示增强：附件服务缺失（headless 部署）、读取或入库失败时跳过并告警，生成与续推链路不受影响；同一生图项按 id 去重，一回合多张图片逐项展示。
 
 | 模块                                                | 职责                                             |
@@ -84,7 +88,7 @@ Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.1
 | `src/adapter.ts`                                    | LlmAdapter：模型映射、流投影、会话驱动           |
 | `src/session-store.ts`                              | 绑定与游标持久化                                 |
 | `src/account.ts` / `src/probe.ts` / `src/status.ts` | 账号操作、测试连接、版本基线检查                 |
-| `src/web.ts` / `src/client/`                        | 详情页路由与卡片                                 |
+| `src/web.ts` / `src/client/`                        | 详情页路由、详情卡片与状态小球                   |
 
 </details>
 

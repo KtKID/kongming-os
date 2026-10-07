@@ -178,3 +178,11 @@ v1 落地（既有公开通道，与生图附注同形态）：原生活动叙�
 5. 通过真实 KMH Web 跑混合工具回合，验证两类工具来源、单次执行、审批批准与拒绝、停止时挂起回收、工具目录变化后续聊及页面刷新后的记录。检查以当前部署 binary 的 schema 和实际调用为准；0.160.0 保留为原始支持基线，新增能力逐项声明已验证版本。
 
 自动检查覆盖映射与碰撞、声明版本更新、通知去重与记录恢复、审批有效期和一次性回执、PNG 实际尺寸与最终回复。真实会话验证覆盖“KMH 发任务 → Codex 原生调用 → KMH 决定审批 → 原生结果回传 → KMH 展示并保存”；静态检查与运行结果分别记录。
+
+### D21 首轮尾随注入、用量投影与状态小球（2026-10-08 实施期拍板）
+
+三项用户报告问题的定案（全部真机验证）：
+
+- **新会话首轮误判重建**：DSH 首轮准备注入（运行时上下文、技能清单、时间戳，`source.kind` 非 user）排在真实用户输入**之后**，差分此前要求尾部最后一条是真实用户输入 → 首轮恒 baseline-lost → 全部新会话首轮走重建注入（模型回复「已接续此前上下文」的来源）。修复：`newUserInput` 定位尾部最后一条真实用户输入，其后允许任意条透明注入且其文本随真实输入一并投递（模型需要看到这些注入）；连续多条真实用户输入、外来回复仍断基线。
+- **token 用量来源**：`turn/completed` 的 turn **无 usage 字段**（0.162 wire 实测，此前 projection 从未生效）；逐响应明细只经 `thread/tokenUsage/updated`（`tokenUsage.last`，camelCase TokenUsageBreakdown）。KMH 折算（token-meter `normalizeUsage`）要求 `totalTokens` 或双缓存桶齐全，且**每个 step 的 assistant 消息都要有样本**否则整轮不显示。实现：样本队列 + 每个 step 收尾恰一条 usage chunk（空补零、终局合并剩余）；首个样本常在本侧 yield 工具挂起之后到达，队列语义使时序无关。映射保持拆分口径（inputTokens 仅未缓存部分）并保留官方 `totalTokens`。
+- **状态小球**：`conversation.composer.dock` 为公开槽位（zcode-cli 请求状态行同款接入），order 2 排在活动/用量药丸右侧；数据经 `GET /api/codex-cli/live`（2 秒轮询、按 sessionId 过滤）。三色语义：绿=通信中（含工具步间进程在线）、灰=回合完成或 CLI 确认中断后进程回收、红=停止未确认或回合异常中断。宿主停止经 `signal.reason` 抛 `AgentCancelCause` **普通对象**（`{kind:'user'|'parent'|'hook'|'disposed'}`，dsh-session types），非 AbortError——按 kind 识别；CLI 侧确认以 turn/interrupt 回执与终止通知为准。
