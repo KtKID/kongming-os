@@ -67,6 +67,7 @@ export const Method = {
 /** 服务端请求与通知的方法名。 */
 export const Incoming = {
   itemToolCall: "item/tool/call",
+  itemDynamicToolCall: "item/dynamicTool/call",
   turnStarted: "turn/started",
   turnCompleted: "turn/completed",
   itemStarted: "item/started",
@@ -77,6 +78,7 @@ export const Incoming = {
   threadCompacted: "thread/compacted",
   tokenUsageUpdated: "thread/tokenUsage/updated",
   accountUpdated: "account/updated",
+  accountLoginCompleted: "account/login/completed",
   error: "error",
 } as const;
 
@@ -117,12 +119,21 @@ export const ModelListResult = z.object({
   nextPageCursor: z.string().optional(),
 });
 
-/** thread/start 的动态工具声明。 */
+/** thread/start 的动态工具声明（单函数形态）。 */
 export const DynamicToolSpec = z.object({
   name: z.string().min(1),
   description: z.string(),
   inputSchema: z.record(z.string(), z.unknown()),
   deferLoading: z.boolean().optional(),
+});
+/** KMH 工具的稳定挂载命名空间：thread 重建前后形态不变。 */
+export const KMH_TOOL_NAMESPACE = "kmh";
+/** namespace 形态的动态工具声明。 */
+export const DynamicNamespaceSpec = z.object({
+  type: z.literal("namespace"),
+  name: z.literal(KMH_TOOL_NAMESPACE),
+  description: z.string(),
+  tools: z.array(DynamicToolSpec),
 });
 /** thread/start 请求参数。 */
 export const ThreadStartParams = z.object({

@@ -8,9 +8,10 @@ import {
   type StreamChunk,
 } from "@deepseek-ai/dsh-llm";
 import { diffIncrement, snapshotAt } from "./cursor.ts";
+import { fieldOf } from "./protocol.ts";
 import type { CodexCli } from "./index.ts";
 import { resolveLlmModel, toLlmModels } from "./models.ts";
-import type { CodexTurn } from "./turn.ts";
+import type { CodexTurn, TurnStartInput } from "./turn.ts";
 
 /**
  * 注册为 `codex-cli` 提供方的适配器。一次 stream 调用映射为 Codex turn 的
@@ -89,44 +90,94 @@ export class CodexAdapter extends LlmAdapter {
     turn: CodexTurn,
     options: GenerateOptions,
   ): AsyncGenerator<StreamChunk> {
-    const cursor = turn.cursor;
-    const increment = diffIncrement(options.messages, cursor);
-    if (increment.kind === "baseline-lost")
-      throw new Error(`CODEX_BASELINE_LOST: ${increment.reason}`);
+    const sessionKey =
+      options.sessionId === undefined
+        ? "kmh-codex-anonymous"
+        : String(options.sessionId);
+    const signal = options.signal ?? new AbortController().signal;
+    const startInput: Omit<TurnStartInput, "text"> = {
+      model: options.model,
+      nativeToolsEnabled: this.runtime.settings.nativeToolsEnabled,
+      reasoningEffort: options.reasoningEffort,
+      baseInstructions: systemPromptOf(options),
+      developerInstructions: undefined,
+      tools: (options.tools ?? []).map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.parameters,
+      })),
+    };
+    const increment = diffIncrement(options.messages, turn.cursor);
+    if (increment.kind === "baseline-lost") {
+      // 编辑/重发/历史改写：等同从该点分叉——fork 或新建并注入重建历史。
+      const source = await this.runtime.bindingRecord(sessionKey);
+      await turn.rebuild(
+        startInput,
+        source === undefined
+          ? undefined
+          : {
+              threadId: source.threadId,
+              ...(source.lastTurnId !== undefined
+                ? { lastTurnId: source.lastTurnId }
+                : {}),
+            },
+        rebuildTextOf(options.messages),
+        signal,
+      );
+      turn.cursor = snapshotAt(options.messages, options.messages.length);
+      await this.runtime.recordBinding(sessionKey, turn);
+      yield* turn.pump(signal);
+      if (turn.terminated) await this.runtime.recordBinding(sessionKey, turn);
+      this.runtime.releaseSession(turn);
+      return;
+    }
     if (increment.kind === "new-input") {
       if (turn.pendingCallIds().length > 0)
         throw new Error("CODEX_TOOL_PENDING");
-      const sessionKey =
-        options.sessionId === undefined
-          ? "kmh-codex-anonymous"
-          : String(options.sessionId);
+      const record = await this.runtime.bindingRecord(sessionKey);
       await turn.start(
-        {
-          text: increment.text,
-          model: options.model,
-          reasoningEffort: options.reasoningEffort,
-          baseInstructions: systemPromptOf(options),
-          developerInstructions: undefined,
-          tools: (options.tools ?? []).map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.parameters,
-          })),
-        },
-        this.runtime.binding(sessionKey),
-        options.signal ?? new AbortController().signal,
+        { text: increment.text, ...startInput },
+        record?.threadId,
+        signal,
       );
-      this.runtime.recordBinding(sessionKey, turn.threadId);
-      yield* turn.pump(options.signal ?? new AbortController().signal);
+      yield* turn.pump(signal);
     } else {
-      yield* turn.resumeWithToolResults(
-        increment.results,
-        options.signal ?? new AbortController().signal,
-      );
+      yield* turn.resumeWithToolResults(increment.results, signal);
     }
     turn.cursor = snapshotAt(options.messages, increment.consumed);
+    await this.runtime.recordBinding(sessionKey, turn);
     if (turn.terminated) this.runtime.releaseSession(turn);
   }
+}
+/** 每段重建摘要的截断长度。 */
+const REBUILD_SNIPPET_LIMIT = 600;
+/**
+ * 把 KMH 对话历史序列化为一条重建输入（fork 后新 thread 的首个 turn）。
+ * 用户消息保留原文；助手与工具往返折叠为摘要，避免重建输入膨胀。
+ */
+export function rebuildTextOf(messages: GenerateOptions["messages"]): string {
+  const lines: string[] = [
+    "以下是本会话此前的对话记录重建。请把它作为上下文继续对话，不要重复回答已回答过的内容。",
+  ];
+  for (const message of messages) {
+    const content = fieldOf(message, "content");
+    const texts: string[] = [];
+    for (const block of Array.isArray(content) ? content : [])
+      if (fieldOf(block, "type") === "text") {
+        const text = fieldOf(block, "text");
+        if (typeof text === "string") texts.push(text);
+      }
+    const joined = texts.join("\n").slice(0, REBUILD_SNIPPET_LIMIT);
+    if (message.role === "user") lines.push(`用户：${joined}`);
+    else if (message.role === "assistant") {
+      const name = fieldOf(message, "toolCallId");
+      if (typeof name === "string")
+        lines.push(`助手调用了工具，结果摘要：${joined}`);
+      else lines.push(`助手：${joined}`);
+    } else if (message.role === "tool")
+      lines.push(`（工具结果已并入上文摘要）`);
+  }
+  return lines.join("\n\n");
 }
 /** 提取请求的系统提示：循环请求的系统消息或一次性调用的 system 字段。 */
 function systemPromptOf(options: GenerateOptions): string | undefined {

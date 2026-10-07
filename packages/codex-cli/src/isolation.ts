@@ -15,18 +15,13 @@ export interface IsolationPlan {
   /** 本轮发现并关闭的原生技能路径。 */
   disabledSkills: string[];
 }
-/** Codex 数据目录：位于 KMH 会话数据目录下，与 KMH 当前 home 一致。 */
-export function codexHomeDir(config: Config): string {
-  return join(config.dataDir, "codex-home");
-}
-/** 进程环境：CODEX_HOME 指向 KMH 数据目录下的 Codex home，叠加用户配置。 */
-export function codexEnv(config: Config): Record<string, string | undefined> {
-  return { CODEX_HOME: codexHomeDir(config), ...config.env };
-}
+
 /** 隔离输入。 */
 export interface IsolationInput {
   cwd: string;
   signal: AbortSignal;
+  /** 原生工具开关覆盖；缺省用部署配置。 */
+  nativeToolsEnabled?: boolean | undefined;
 }
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -87,7 +82,7 @@ async function discoverSkillPaths(
       command: config.command,
       cwd: input.cwd,
       configOverrides: [],
-      env: codexEnv(config),
+      env: config.env,
       graceMs: config.graceMs,
       startupTimeoutMs: config.startupTimeoutMs,
     },
@@ -136,10 +131,8 @@ export async function prepareIsolation(
   config: Config,
   input: IsolationInput,
 ): Promise<IsolationPlan> {
-  if (config.nativeToolsEnabled)
+  if (input.nativeToolsEnabled ?? config.nativeToolsEnabled)
     return { configOverrides: [], catalogPath: "", disabledSkills: [] };
-  // CLI 启动即校验 CODEX_HOME 存在：先建目录再起探针。
-  await mkdir(codexHomeDir(config), { recursive: true, mode: 0o700 });
   const disabledSkills = await discoverSkillPaths(ctx, config, input);
   let catalog: unknown;
   try {
@@ -165,7 +158,8 @@ export async function prepareIsolation(
   const catalogPath = join(config.dataDir, "kmh-models.json");
   await writeFile(catalogPath, JSON.stringify(pruned));
   // 禁止修改任何 Codex 配置文件：隔离全部经进程 -c 参数注入，只影响本次调用。
-  // 独立 CODEX_HOME 为空配置，用户 MCP 设备与内置 MCP 工具从源头不存在。
+  // CODEX_HOME 沿用用户默认（~/.codex）：登录共享、无需额外登录；
+  // 用户配置的 MCP 设备随之可见（已拍板接受）。
   const overrides: string[] = [
     `model_catalog_json=${tomlString(catalogPath)}`,
     `web_search=${tomlString("disabled")}`,

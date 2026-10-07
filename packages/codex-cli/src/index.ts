@@ -1,12 +1,20 @@
 /** Independently distributable KMH provider for the official Codex CLI app-server. */
 import { Service, type Context } from "@deepseek-ai/cordis";
+import { CodexAccount } from "./account.ts";
+import { mountWeb } from "./web.ts";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
 import type { Config } from "./config.ts";
 import { CodexAdapter } from "./adapter.ts";
 import { connectCodex } from "./connection.ts";
 import { emptySnapshot } from "./cursor.ts";
 import { fetchCatalog, type CodexModelEntry } from "./models.ts";
-import { codexEnv, prepareIsolation, verifyIsolation } from "./isolation.ts";
+import {
+  CodexSessionStore,
+  cursorToRecord,
+  recordToCursor,
+  type BindingRecord,
+} from "./session-store.ts";
+import { prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { CodexTurn } from "./turn.ts";
 import { ThreadResult, TurnResult } from "./protocol.ts";
 export { Config } from "./config.ts";
@@ -34,15 +42,30 @@ interface SessionState {
  * Own shared runtime state for the Codex CLI provider.
  * 目录缓存、会话串行与 thread 绑定挂在此服务上，adapter 与 Web 共用。
  */
+/** 详情页可变设置：开关与最近测试结果。 */
+export interface RuntimeSettings {
+  nativeToolsEnabled: boolean;
+  defaultModel?: string;
+  lastProbe?: { at: string; ok: boolean; error?: string };
+}
+
 export class CodexCli extends Service {
   private catalogCache: Promise<CodexModelEntry[]> | undefined;
   private readonly sessions = new Map<string, SessionState>();
+  private readonly store: CodexSessionStore;
+  /** 账号操作（状态/登录/取消/退出）。 */
+  readonly account: CodexAccount;
+  /** 详情页可变设置；开关下一回合生效。 */
+  readonly settings: RuntimeSettings;
 
   constructor(
     ctx: Context,
     readonly config: Config,
   ) {
     super(ctx, "codexCli");
+    this.store = new CodexSessionStore(config.dataDir);
+    this.account = new CodexAccount(ctx, config);
+    this.settings = { nativeToolsEnabled: config.nativeToolsEnabled };
     ctx.effect(
       () => () => {
         for (const state of this.sessions.values())
@@ -70,14 +93,17 @@ export class CodexCli extends Service {
           command: this.config.command,
           cwd: this.config.cwd,
           configOverrides: [],
-          env: codexEnv(this.config),
+          env: this.config.env,
           graceMs: this.config.graceMs,
           startupTimeoutMs: this.config.startupTimeoutMs,
         },
         signal,
       );
       try {
-        return await fetchCatalog(connection, signal);
+        const entries = await fetchCatalog(connection, signal);
+        const head = entries[0];
+        if (head !== undefined) this.settings.defaultModel = head.id;
+        return entries;
       } finally {
         await connection.stop(this.config.cleanupTimeoutMs);
       }
@@ -85,14 +111,31 @@ export class CodexCli extends Service {
     return this.catalogCache;
   }
   /** 读取会话的 thread 绑定。 */
-  binding(sessionKey: string): string | undefined {
-    return this.sessions.get(sessionKey)?.threadId;
+  /** 读取会话的持久化绑定记录。 */
+  async bindingRecord(sessionKey: string): Promise<BindingRecord | undefined> {
+    return await this.store.get(sessionKey);
   }
-  /** 记录会话的 thread 绑定（绑定持久化随会话任务落地）。 */
-  recordBinding(sessionKey: string, threadId: string | undefined): void {
+  /** 持久化会话绑定：thread、差分游标与 fork 边界一并落盘。 */
+  async recordBinding(sessionKey: string, turn: CodexTurn): Promise<void> {
+    if (turn.threadId === undefined) return;
     const state = this.sessions.get(sessionKey);
-    if (state !== undefined && threadId !== undefined)
-      state.threadId = threadId;
+    if (state !== undefined) state.threadId = turn.threadId;
+    await this.store.put(
+      sessionKey,
+      cursorToRecord(turn.threadId, turn.cursor, turn.lastCompletedTurnId),
+    );
+  }
+  /** 恢复会话 turn 的差分游标（进程重启后续聊不重复投递）。 */
+  private async restoreCursor(
+    sessionKey: string,
+    turn: CodexTurn,
+  ): Promise<void> {
+    const record = await this.store.get(sessionKey);
+    if (record === undefined) return;
+    turn.cursor = recordToCursor(record);
+    turn.lastCompletedTurnId = record.lastTurnId;
+    const state = this.sessions.get(sessionKey);
+    if (state !== undefined) state.threadId = record.threadId;
   }
   /** 会话终止后释放其 turn 归属。 */
   releaseSession(turn: CodexTurn): void {
@@ -113,6 +156,7 @@ export class CodexCli extends Service {
     run: (turn: CodexTurn) => AsyncGenerator<StreamChunk>,
   ): AsyncGenerator<StreamChunk> {
     const state = this.stateOf(sessionKey, cwd);
+    await this.restoreCursor(sessionKey, state.turn);
     const previous = state.chain;
     const tokens: StreamChunk[] = [];
     let failure: unknown;
@@ -125,6 +169,10 @@ export class CodexCli extends Service {
       for await (const chunk of run(state.turn)) tokens.push(chunk);
     } catch (error) {
       failure = error;
+      // 停止/失败链路：先发 turn/interrupt 并有界等待终止通知，再回收。
+      await state.turn
+        .interrupt(AbortSignal.timeout(this.config.cancelReceiptTimeoutMs))
+        .catch(() => undefined);
       state.turn.dispose().catch(() => undefined);
     } finally {
       done?.();
@@ -160,6 +208,7 @@ export class CodexCli extends Service {
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.config.cwd,
       signal,
+      nativeToolsEnabled: this.settings.nativeToolsEnabled,
     });
     const connection = await connectCodex(
       this.ctx,
@@ -167,7 +216,7 @@ export class CodexCli extends Service {
         command: this.config.command,
         cwd: this.config.cwd,
         configOverrides: plan.configOverrides,
-        env: codexEnv(this.config),
+        env: this.config.env,
         graceMs: this.config.graceMs,
         startupTimeoutMs: this.config.startupTimeoutMs,
       },
@@ -221,4 +270,5 @@ export function apply(ctx: Context, config: Config): void {
   const runtime = new CodexCli(ctx, config);
   ctx.codexCli = runtime;
   ctx.llm.registerAdapter(["codex-cli"], new CodexAdapter(runtime));
+  ctx.inject(["connection"], (web) => mountWeb(web, runtime));
 }

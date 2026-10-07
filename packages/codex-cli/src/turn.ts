@@ -12,12 +12,13 @@ import {
   DynamicToolCallParams,
   ErrorNotificationParams,
   Incoming,
+  KMH_TOOL_NAMESPACE,
   ReasoningDeltaParams,
   ThreadResult,
   TurnCompletedParams,
   TurnResult,
 } from "./protocol.ts";
-import { codexEnv, prepareIsolation, verifyIsolation } from "./isolation.ts";
+import { prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { emptySnapshot, type CursorSnapshot } from "./cursor.ts";
 import { fieldOf } from "./protocol.ts";
 
@@ -29,6 +30,8 @@ export interface TurnStartInput {
   baseInstructions?: string | undefined;
   developerInstructions?: string | undefined;
   tools: { name: string; description: string; inputSchema: unknown }[];
+  /** 原生工具开关覆盖；缺省用部署配置。 */
+  nativeToolsEnabled?: boolean | undefined;
 }
 /** 队列事件。 */
 type Queued =
@@ -60,6 +63,8 @@ export class CodexTurn {
   private readonly pending = new Map<string, PendingTool>();
   threadId: string | undefined;
   turnId: string | undefined;
+  /** 最近一次完成（含 interrupted）的 turn id；fork 重建的边界。 */
+  lastCompletedTurnId: string | undefined;
   /** 差分游标：已投递到 Codex thread 的对齐点。 */
   cursor: CursorSnapshot = emptySnapshot();
   /** 回合终止状态；completed 或 interrupted 后进程可回收。 */
@@ -97,6 +102,7 @@ export class CodexTurn {
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
+      nativeToolsEnabled: input.nativeToolsEnabled,
     });
     const connection = await connectCodex(
       this.ctx,
@@ -104,7 +110,7 @@ export class CodexTurn {
         command: this.config.command,
         cwd: this.cwd,
         configOverrides: [...plan.configOverrides, ...this.extraOverrides],
-        env: codexEnv(this.config),
+        env: this.config.env,
         graceMs: this.config.graceMs,
         startupTimeoutMs: this.config.startupTimeoutMs,
       },
@@ -121,6 +127,8 @@ export class CodexTurn {
           cwd: this.cwd,
           baseInstructions: input.baseInstructions,
           developerInstructions: input.developerInstructions,
+          // 平铺 legacy 声明：canonical namespace 的模型侧名称为无点拼接
+          // （kmh+name），不适合人读与防撞，沿用已验证的平铺真名形态。
           dynamicTools: input.tools.map((tool) => ({
             name: tool.name,
             description: tool.description,
@@ -145,6 +153,88 @@ export class CodexTurn {
     );
     this.turnId = TurnResult.parse(turn).turn.id;
     return this.threadId;
+  }
+
+  /**
+   * 基线失效或原生会话缺失时重建绑定：优先从既有 thread fork（含到
+   * lastTurnId 为止的历史），失败或无源时新建 thread；随后把重建文本作为
+   * 首 turn 输入投递。
+   * @param input - 模型与工具目录。
+   * @param source - 既有绑定（threadId 与 fork 边界）；缺省新建。
+   * @param rebuildText - KMH 侧历史序列化后的重建输入。
+   * @param signal - 取消信号。
+   * @returns 重建后的 threadId。
+   */
+  async rebuild(
+    input: Omit<TurnStartInput, "text">,
+    source: { threadId: string; lastTurnId?: string } | undefined,
+    rebuildText: string,
+    signal: AbortSignal,
+  ): Promise<string> {
+    const plan = await prepareIsolation(this.ctx, this.config, {
+      cwd: this.cwd,
+      signal,
+      nativeToolsEnabled: input.nativeToolsEnabled,
+    });
+    const connection = await connectCodex(
+      this.ctx,
+      {
+        command: this.config.command,
+        cwd: this.cwd,
+        configOverrides: [...plan.configOverrides, ...this.extraOverrides],
+        env: this.config.env,
+        graceMs: this.config.graceMs,
+        startupTimeoutMs: this.config.startupTimeoutMs,
+      },
+      signal,
+    );
+    this.connection = connection;
+    this.installHandlers();
+    await verifyIsolation(connection, plan, signal);
+    let forked = false;
+    if (source !== undefined) {
+      try {
+        const params: Record<string, unknown> = { threadId: source.threadId };
+        if (source.lastTurnId !== undefined)
+          params.lastTurnId = source.lastTurnId;
+        const raw: unknown = await connection.request(
+          "thread/fork",
+          params,
+          signal,
+        );
+        this.threadId = ThreadResult.parse(raw).thread.id;
+        forked = true;
+      } catch {
+        // 原生会话缺失或 fork 被拒：回落全新 thread 与全量重建。
+        forked = false;
+      }
+    }
+    if (!forked) {
+      const raw: unknown = await connection.request(
+        "thread/start",
+        {
+          model: input.model,
+          cwd: this.cwd,
+          baseInstructions: input.baseInstructions,
+          dynamicTools: input.tools.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            inputSchema: tool.inputSchema,
+          })),
+        },
+        signal,
+      );
+      this.threadId = ThreadResult.parse(raw).thread.id;
+    }
+    const threadId = this.threadId;
+    if (threadId === undefined) throw new Error("CODEX_REBUILD_THREAD_MISSING");
+    const turn: unknown = await connection.request(
+      "turn/start",
+      { threadId, input: [{ type: "text", text: rebuildText }] },
+      signal,
+    );
+    this.turnId = TurnResult.parse(turn).turn.id;
+    return threadId;
   }
 
   /** 移交外部建立的连接（临时会话路径）；此后由本对象负责回收。 */
@@ -173,11 +263,20 @@ export class CodexTurn {
       }
     });
     connection.onServerRequest(async (method, params) => {
-      if (method !== Incoming.itemToolCall)
+      if (
+        method !== Incoming.itemToolCall &&
+        method !== Incoming.itemDynamicToolCall
+      )
         throw new Error("CODEX_SERVER_REQUEST_UNEXPECTED");
       const call = DynamicToolCallParams.parse(params);
       if (this.threadId !== undefined && call.threadId !== this.threadId)
         throw new Error("CODEX_TOOL_CALL_THREAD_MISMATCH");
+      if (
+        call.namespace !== undefined &&
+        call.namespace !== null &&
+        call.namespace !== KMH_TOOL_NAMESPACE
+      )
+        throw new Error("CODEX_TOOL_CALL_NAMESPACE_UNEXPECTED");
       return await new Promise<unknown>((resolve, reject) => {
         this.pending.set(call.callId, {
           callId: call.callId,
