@@ -51,3 +51,10 @@ kongming-agent/
   （task-session-binding 落地）。
 - 待验证：多轮对话 token 用量线性增长曲线、长挂起工具（分钟级）时 Codex
   侧行为。
+
+## 实施记录补充（2026-10-07 第二轮，用户四点拍板后）
+
+- CODEX_HOME 回到用户默认 `~/.codex`：共享登录（无需额外登录）、共享配置；用户 MCP 设备可见（已接受，测试断言按 MCP 白名单容忍）。canonical namespace 注册实测被拒（模型侧名称无点拼接），回退平铺真名并保留双方法名（`item/tool/call` 与 `item/dynamicTool/call`）兼容监听。
+- 压缩由 Codex 原生处理：catalog 保留 auto_compact；KMH 侧 purpose=compaction 请求明确拒绝（LlmError）。
+- spec feat03 场景4（压缩两边同步）语义简化：压缩发生在 Codex thread 内部，KMH 差分基线不受影响；feat04 场景1 凭据判定回到 `~/.codex/auth.json`。
+- 共享 home 的连带效应（已观察）：用户 `~/.codex/hooks.json` 会在每个 turn 执行（userPromptSubmit/stop）——与桌面 Codex 行为一致，是否需要在 -c 中关闭待用户后续决定。

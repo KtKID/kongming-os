@@ -9,11 +9,11 @@
 
 | # | 任务 | 场景回指 | 涉及文件 | 风险 | 状态 |
 |---|---|---|---|---|---|
-| T1 | 发布包内容：files/exports 覆盖 Host 入口、Client 入口与类型声明，运行依赖全部为公开包名，构建产物自检 | feat07 场景1 | packages/codex-cli/package.json, packages/codex-cli/build.mjs | None | [ ] ⏳ |
-| T2 | 版本基线与路径：声明官方 CLI 支持基线（0.160.0 起），配置可指定其他受支持版本的可执行文件路径 | feat07 场景2 | packages/codex-cli/src/status.ts, packages/codex-cli/src/config.ts | None | [ ] ⏳ |
-| T3 | 独立安装验收：干净环境安装导出包后加载，模型对话、账号操作、详情页、测试连接完整工作，全程不改宿主代码 | feat07 场景4 | tests/runtime/codex-cli.test.mjs | 高:独立发布包若夹带宿主私有依赖即无法加载 | [ ] ⏳ |
-| T4 | 共存验收：与既有 Agent 预设、工具注册、其他模型提供方共存互不干扰，现有模型选择器可选 Codex | feat07 场景3 | tests/runtime/codex-cli.test.mjs | None | [ ] ⏳ |
-| T5 | 文档收尾：插件 README（安装、配置、故障处理）、plugin-index 补条目、spec 状态更新 | feat07 场景1-4 | packages/codex-cli/README.md, docs/kmh/plugin-index.md, docs/spec/codex-cli-provider/spec.md | None | [ ] ⏳ |
+| T1 | 发布包内容：files/exports 覆盖 Host 入口、Client 入口与类型声明，运行依赖全部为公开包名，构建产物自检 | feat07 场景1 | packages/codex-cli/package.json, packages/codex-cli/build.mjs | None | [x] 🟢
+| T2 | 版本基线与路径：声明官方 CLI 支持基线（0.160.0 起），配置可指定其他受支持版本的可执行文件路径 | feat07 场景2 | packages/codex-cli/src/status.ts, packages/codex-cli/src/config.ts | None | [x] 🟢
+| T3 | 独立安装验收：干净环境安装导出包后加载，模型对话、账号操作、详情页、测试连接完整工作，全程不改宿主代码 | feat07 场景4 | tests/runtime/codex-cli.test.mjs | 高:独立发布包若夹带宿主私有依赖即无法加载 | [ ] ⏳
+| T4 | 共存验收：与既有 Agent 预设、工具注册、其他模型提供方共存互不干扰，现有模型选择器可选 Codex | feat07 场景3 | tests/runtime/codex-cli.test.mjs | None | [ ] ⏳
+| T5 | 文档收尾：插件 README（安装、配置、故障处理）、plugin-index 补条目、spec 状态更新 | feat07 场景1-4 | packages/codex-cli/README.md, docs/kmh/plugin-index.md, docs/spec/codex-cli-provider/spec.md | None | [x] 🟢
 
 ## 影响文件树
 
