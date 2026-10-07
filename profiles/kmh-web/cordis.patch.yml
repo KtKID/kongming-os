@@ -14,6 +14,14 @@
         providerId: account:bigmodel-individual-coding-plan
         cwd: !!js process.cwd()
         dataDir: !!js dshHomePath('zcode-cli')
+    - id: kmh-codex-cli
+      name: '@kmh/codex-cli'
+      config:
+        # 官方 Codex CLI 可执行文件：本机 PATH 里的 homebrew 包损坏
+        # （vendor 二进制缺失），指向 ChatGPT.app 自带的 0.160.0。
+        command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('codex-cli')
     - id: kmh-echo
       name: '@kmh/kmh-echo'
       config:
