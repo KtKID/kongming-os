@@ -3,9 +3,12 @@ import { createServer } from "node:http";
 
 /**
  * 启动 fixture 模型服务。
+ * @param options.script - 首回合脚本："single"（默认）单工具挂起；
+ *   "parallel" 同一响应并行返回两个工具调用，用于复现并行挂起场景。
  * @returns 服务句柄：base URL、已记录请求与关闭函数。
  */
-export function startFixtureServer() {
+export function startFixtureServer(options = {}) {
+  const script = options.script ?? "single";
   const requests = [];
   let sequence = 0;
   const server = createServer(async (req, res) => {
@@ -22,7 +25,41 @@ export function startFixtureServer() {
     res.writeHead(200, { "content-type": "text/event-stream" });
     const send = (event) =>
       res.write(`data: ${JSON.stringify(event)}\n\n`);
-    if (sequence === 1) {
+    if (sequence === 1 && script === "parallel") {
+      // 并行双工具：同一响应返回 echo 与 glob 两个调用；桥必须逐个挂起、
+      // 分两次回执后续推（生产事故：并行挂起状态丢失后 CODEX_NO_PENDING_TOOL）。
+      const items = [
+        {
+          id: "fc_kmh",
+          type: "function_call",
+          name: "kmh_echo",
+          arguments: '{"text":"hello"}',
+          call_id: "call_kmh",
+          status: "completed",
+        },
+        {
+          id: "fc_glob",
+          type: "function_call",
+          name: "kmh_glob",
+          arguments: '{"pattern":"sun.png"}',
+          call_id: "call_glob",
+          status: "completed",
+        },
+      ];
+      const response = {
+        id: "resp_bridge_parallel",
+        status: "completed",
+        output: items,
+      };
+      send({ type: "response.created", response: { ...response, status: "in_progress", output: [] } });
+      items.forEach((item, index) => {
+        send({ type: "response.output_item.added", output_index: index, item: { ...item, arguments: "", status: "in_progress" } });
+        send({ type: "response.function_call_arguments.delta", item_id: item.id, output_index: index, delta: item.arguments });
+        send({ type: "response.function_call_arguments.done", item_id: item.id, output_index: index, arguments: item.arguments });
+        send({ type: "response.output_item.done", output_index: index, item });
+      });
+      send({ type: "response.completed", response });
+    } else if (sequence === 1) {
       const item = {
         id: "fc_kmh",
         type: "function_call",

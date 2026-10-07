@@ -384,6 +384,228 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
   }
 });
 
+// ---- 并行工具挂起与状态丢失恢复（真实 CLI + fixture） ----
+// 共享的桥接测试脚手架：与上方冒烟测试同构，供并行场景复用。
+function makeBridgeHarness(fixture, script) {
+  const root = mkdtempSync(join(tmpdir(), `kmh-codex-${script}-`));
+  const cwd = join(root, "workspace");
+  mkdirSync(cwd, { recursive: true });
+  const fakeCtx = {
+    subprocess: {
+      resolveExecutable: async (command) => command,
+      spawn: ({ argv, cwd: dir, env, stdio }) => {
+        const child = spawnRaw(argv[0], argv.slice(1), {
+          cwd: dir,
+          env: { ...process.env, ...env },
+          stdio: stdio ? ["pipe", "pipe", "pipe"] : undefined,
+        });
+        return {
+          stdin: child.stdin,
+          stdout: child.stdout,
+          stderr: child.stderr,
+          exitCode: child.exitCode,
+          done: new Promise((resolve, reject) => {
+            child.once("error", reject);
+            child.once("exit", (code) => resolve({ exitCode: code }));
+          }),
+          terminate: () => child.kill("SIGTERM"),
+          waitForExit: (signal) =>
+            new Promise((resolve) => {
+              if (child.exitCode !== null) return resolve(true);
+              const timer = signal
+                ? setTimeout(() => resolve(false), 2000)
+                : undefined;
+              child.once("exit", () => {
+                if (timer) clearTimeout(timer);
+                resolve(true);
+              });
+            }),
+        };
+      },
+    },
+  };
+  const config = {
+    command: findCodexBinary(),
+    cwd,
+    dataDir: join(root, "data"),
+    nativeToolsEnabled: false,
+    graceMs: 1500,
+    startupTimeoutMs: 30000,
+    cancelReceiptTimeoutMs: 5000,
+    cleanupTimeoutMs: 5000,
+    env: {
+      KMH_CODEX_SMOKE_KEY: "fixture-key",
+      HTTP_PROXY: "",
+      HTTPS_PROXY: "",
+      ALL_PROXY: "",
+      NO_PROXY: "127.0.0.1,localhost",
+    },
+  };
+  const fixtureOverrides = [
+    'model="gpt-6-sol"',
+    'model_provider="fixture"',
+    `model_providers.fixture={name="Bridge fixture",base_url="${fixture.base}",env_key="KMH_CODEX_SMOKE_KEY",wire_api="responses",requires_openai_auth=false,supports_websockets=false}`,
+  ];
+  return { fakeCtx, config, cwd, fixtureOverrides };
+}
+
+const parallelToolCatalog = [
+  {
+    name: "kmh_echo",
+    description: "Echo text through KMH",
+    inputSchema: {
+      type: "object",
+      properties: { text: { type: "string" } },
+      required: ["text"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "kmh_glob",
+    description: "Glob files through KMH",
+    inputSchema: {
+      type: "object",
+      properties: { pattern: { type: "string" } },
+      required: ["pattern"],
+      additionalProperties: false,
+    },
+  },
+];
+
+test("parallel tool calls suspend one at a time and resume to final text", { skip: !findCodexBinary() }, async () => {
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const fixture = await startFixtureServer({ script: "parallel" });
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "parallel");
+  const signal = AbortSignal.timeout(120000);
+  const turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
+  try {
+    await turn.start(
+      {
+        text: "Use both tools",
+        model: "gpt-6-sol",
+        baseInstructions: "KMH owns all tools and skills.",
+        tools: parallelToolCatalog,
+      },
+      undefined,
+      signal,
+    );
+    // 第一段：只交付第一个工具（echo），glob 保持挂起。
+    const first = [];
+    for await (const chunk of turn.pump(signal)) first.push(chunk);
+    const firstTools = first.filter(
+      (chunk) => chunk.type === "block-end" && chunk.block?.type === "tool-call",
+    );
+    assert.equal(firstTools.length, 1);
+    assert.equal(firstTools[0].block.name, "kmh_echo");
+    assert.ok(first.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "tool-calls"));
+    // codex 串行发送动态工具执行请求：第二个 item/tool/call 要等第一个
+    // 回执后才发出（实测验证），因此此处只挂起第一个工具。
+    assert.deepEqual(turn.pendingCallIds(), ["call_kmh"]);
+    // 第二段：回传第一个结果，续推应交付第二个工具（glob）。
+    const second = [];
+    for await (const chunk of turn.resumeWithToolResults(
+      [{ callId: "call_kmh", text: "hello from KMH", isError: false }],
+      signal,
+    ))
+      second.push(chunk);
+    const secondTools = second.filter(
+      (chunk) => chunk.type === "block-end" && chunk.block?.type === "tool-call",
+    );
+    assert.equal(secondTools.length, 1);
+    assert.equal(secondTools[0].block.name, "kmh_glob");
+    assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "tool-calls"));
+    // 第三段：回传第二个结果，续推到最终文本。
+    const third = [];
+    for await (const chunk of turn.resumeWithToolResults(
+      [{ callId: "call_glob", text: "sun.png", isError: false }],
+      signal,
+    ))
+      third.push(chunk);
+    const text = third
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => chunk.text)
+      .join("");
+    assert.equal(text, "BRIDGE_OK");
+    assert.ok(third.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
+  } finally {
+    await turn.dispose();
+    await fixture.close();
+  }
+});
+
+test("adapter recovers from lost pending tools by rebuilding the thread", { skip: !findCodexBinary() }, async () => {
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
+  const fixture = await startFixtureServer({ script: "parallel" });
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "recovery");
+  const signal = AbortSignal.timeout(180000);
+  // 鸭子类型 runtime：只实现 drive 路径触及的接口；withSession 复刻
+  // 真实语义（串行 + 从绑定恢复游标），turn 由测试显式替换以模拟事故。
+  const binding = { threadId: undefined, fingerprints: [], lastTurnId: undefined };
+  let turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
+  const runtime = {
+    settings: { nativeToolsEnabled: false },
+    resolveCwd: () => cwd,
+    bindingRecord: async () =>
+      binding.threadId === undefined
+        ? undefined
+        : { ...binding },
+    recordBinding: async (_key, t) => {
+      if (t.threadId === undefined) return;
+      binding.threadId = t.threadId;
+      binding.fingerprints = [...t.cursor.fingerprints];
+      binding.lastTurnId = t.lastCompletedTurnId;
+    },
+    releaseSession: () => {},
+    withSession: async function* (_sessionKey, _cwd, run) {
+      turn.cursor = { fingerprints: [...binding.fingerprints] };
+      turn.lastCompletedTurnId = binding.lastTurnId;
+      yield* run(turn);
+    },
+  };
+  const adapter = new CodexAdapter(runtime);
+  const base = {
+    provider: "codex-cli",
+    model: "gpt-6-sol",
+    sessionId: "kmh-codex-recovery",
+    system: "KMH owns all tools and skills.",
+    tools: parallelToolCatalog.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema,
+    })),
+    signal,
+  };
+  const history = [user("Use both tools")];
+  try {
+    // 第一段：新输入 → 第一个工具挂起，游标与绑定落盘。
+    const first = [];
+    for await (const chunk of adapter.stream({ ...base, messages: [...history] }))
+      first.push(chunk);
+    assert.ok(first.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "tool-calls"));
+    assert.equal(binding.fingerprints.length, 1);
+    // KMH 侧执行第一个工具后历史推进。
+    history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
+    history.push(tool("call_kmh", "hello from KMH", false));
+    // 生产事故模拟：会话状态重建丢弃带挂起工具的 turn（stateOf 替换），
+    // 新 turn 从绑定恢复游标，挂起表为空——结果回传必须走恢复路径而非报错。
+    await turn.dispose();
+    turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
+    const second = [];
+    for await (const chunk of adapter.stream({ ...base, messages: [...history] }))
+      second.push(chunk);
+    const text = second
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => chunk.text)
+      .join("");
+    assert.equal(text, "BRIDGE_OK");
+    assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
+  } finally {
+    await turn.dispose();
+    await fixture.close();
+  }
+});
+
 // ---- 绑定持久化（session-store） ----
 import { mkdtempSync as mkdtempSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { join as join2 } from "node:path";
