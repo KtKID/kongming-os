@@ -86,8 +86,7 @@ async function discoverSkillPaths(
     {
       command: config.command,
       cwd: input.cwd,
-      // 探针要看到 enabled 技能：压制 config.toml 里已写的关闭列表。
-      configOverrides: ["skills.config=[]"],
+      configOverrides: [],
       env: codexEnv(config),
       graceMs: config.graceMs,
       startupTimeoutMs: config.startupTimeoutMs,
@@ -165,39 +164,29 @@ export async function prepareIsolation(
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   const catalogPath = join(config.dataDir, "kmh-models.json");
   await writeFile(catalogPath, JSON.stringify(pruned));
-  // 静态隔离写入独立 CODEX_HOME 的 config.toml：MCP 设备根本不进配置，
-  // 内置 MCP 工具与 mcp__* 从源头消失。
-  const home = codexHomeDir(config);
-  await mkdir(home, { recursive: true, mode: 0o700 });
-  const lines = [
+  // 禁止修改任何 Codex 配置文件：隔离全部经进程 -c 参数注入，只影响本次调用。
+  // 独立 CODEX_HOME 为空配置，用户 MCP 设备与内置 MCP 工具从源头不存在。
+  const overrides: string[] = [
     `model_catalog_json=${tomlString(catalogPath)}`,
     `web_search=${tomlString("disabled")}`,
     "check_for_update_on_startup=false",
     "project_doc_max_bytes=0",
-    ...FEATURE_OFF.map((feature) => `features.${feature} = false`),
-    "[tools.update_plan]",
-    "enabled=false",
-    "[tools.experimental_request_user_input]",
-    "enabled=false",
-    "[skills]",
-    "include_instructions=false",
-    "[skills.bundled]",
-    "enabled=false",
-    "[orchestrator.skills]",
-    "enabled=false",
-    "[orchestrator.mcp]",
-    "enabled=false",
-    "[analytics]",
-    "enabled=false",
+    ...FEATURE_OFF.map((feature) => `features.${feature}=false`),
+    "tools.update_plan.enabled=false",
+    "tools.experimental_request_user_input.enabled=false",
+    "skills.include_instructions=false",
+    "skills.bundled.enabled=false",
+    "orchestrator.skills.enabled=false",
+    "orchestrator.mcp.enabled=false",
+    "analytics.enabled=false",
   ];
   if (disabledSkills.length > 0)
-    lines.push(
-      `config=[${disabledSkills
+    overrides.push(
+      `skills.config=[${disabledSkills
         .map((path) => `{path=${tomlString(path)},enabled=false}`)
         .join(",")}]`,
     );
-  await writeFile(join(home, "config.toml"), lines.join("\n") + "\n");
-  return { configOverrides: [], catalogPath, disabledSkills };
+  return { configOverrides: overrides, catalogPath, disabledSkills };
 }
 
 /**
