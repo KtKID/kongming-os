@@ -4,7 +4,15 @@
 
 运行 `pnpm web` 启动，运行 `pnpm config:web` 查看最终合成配置。根目录 `launch.config.json` 的 `profiles.web` 选择此 profile；本目录 `cordis.patch.yml` 完整列出 base、Web 应用、standard/PTC/minimal/Cordis 四个预设及 Kongming persona。
 
-`package.json` 的 `dsh.profile.bundles` 为 `[]`，插件树由 `cordis.patch.yml` 的 `insert` 一次加入。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
+`package.json` 的 `dsh.profile.bundles` 选择附加 bundle，完整插件树由 `cordis.patch.yml` 的 `insert` 加入。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
+
+## 计算机操作
+
+此 profile 启用 `@deepseek-ai/dsh-computer-use` 与 `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native`。两项依赖通过 `link:` 指向 DSH 子模块中的包；启动器在启动前建立本地包链接。依赖声明和 `cordis.patch.yml` 中的插件条目共同组成接入配置，原生提供方注册 `cua_driver_native__` 前缀的工具。
+
+原生驱动随 npm 依赖安装，安装时保持 optional dependencies 启用，并向启动 Web 的宿主应用授予 macOS 辅助功能与屏幕录制权限。截图传给模型还要求模型声明图像输入能力。运行条件与限制见 [原生驱动说明](../../third_party/dsh/packages/experimental/computer-use-cua-driver-native/README.md)。
+
+修改依赖后结束现有 Web 进程，再运行 `pnpm web` 启动，到设置 → 内置插件 → 全局插件中确认两个实例的运行状态为“运行中”。启动日志出现 `failed to import` 时，核对本目录的依赖声明、对应 `node_modules` 链接和目标包的 `lib/index.js`；启动记录位于 `$KMH_HOME/logs/`，默认 `~/.kmh/logs/`。Kongming 维护此 profile 与包链接，DSH 子模块维护插件和原生 SDK 的版本。
 
 ## 启动设置
 

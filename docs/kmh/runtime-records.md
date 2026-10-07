@@ -44,6 +44,25 @@ Agent 创建的项目文件由任务工作目录和工具参数决定。外部�
 
 进程日志使用每次启动独占的目录，插件文件按进程编号追加。KMH 保留既有日志，长期运行时由部署方管理保留期限。正常运行的临时文件和 spill 清理由对应 provider 的策略负责。
 
+## Web 后台启停
+
+仓库根目录的 `kmh.sh` 管理脱离终端运行的 KMH Web，其余子命令透传给 `scripts/kmh.mjs`。执行前准备 Node.js、Python 3、Bash、`lsof` 和构建后的 DSH CLI、自有插件；supervisor 通过 `node scripts/kmh.mjs web --no-open` 加载 `launch.config.json` 选择的 Web profile。Kongming 维护该脚本，运行时实现与构建由 DSH 子模块提供。
+
+```sh
+./kmh.sh start
+./kmh.sh status
+./kmh.sh restart
+./kmh.sh stop
+```
+
+也可以使用 `bash /absolute/path/to/kongming-agent/kmh.sh status` 从任意目录调用。脚本按自身文件位置定位仓库，转发调用环境、输出和退出状态；不带参数或传入 `-h/--help/help` 时展示可用操作。`start/stop/restart/status` 之外的子命令连同参数透传给 `scripts/kmh.mjs`（如 `./kmh.sh web` 前台启动 Web、`./kmh.sh cli`），由其校验参数并返回真实退出状态。
+
+脚本默认检查 3080 端口。调整 profile 的 `webserver.config.port` 后，同时设置 `KMH_WEB_PORT` 为对应端口；该环境变量只选择启停脚本检查的端口。每次操作使用同一个 `KMH_HOME` 和 `KMH_WEB_PORT`。`KMH_HOME` 的解析规则与 KMH 启动器一致。
+
+`KMH_HOME/logs/web-supervisor/` 保存 `web.pid`、`web-server.log` 与异常退出的 `crash-*.md`。正常停止释放 PID 记录；异常退出保存日志尾部，保留最近 50 份崩溃报告并等待人工处理。每次启动截断 supervisor 的运行日志；KMH 启动器另外保留前文定义的每次启动独占日志。
+
+端口已被占用时启动报错。停止操作核对 PID 记录与 supervisor 命令，再通知受管进程组退出；supervisor 缺失或命令与 PID 记录不匹配时，脚本报错并保留现有进程。启动等待 60 秒、停止等待 20 秒后仍未达到预期状态时，检查 supervisor 日志、PID 和端口，再人工处理。`restart` 在停止成功后启动新进程。
+
 ## 父进程影响
 
 数据目录由 KMH 启动器固定，任务和外部工具需要的环境继续转发。
