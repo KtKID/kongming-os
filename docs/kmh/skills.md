@@ -6,7 +6,7 @@ description: "Kongming 层技能（kmh-*）的清单、文件归属、与 DSH �
 
 ## 概述
 
-`.agents/skills/` 中每个子目录是一个技能，`SKILL.md` 为入口。其中九个 `kmh-*` 技能是 Kongming 自有技能：由 DSH 子模块的同源技能翻译适配而来，全文简体中文，只规范 kongming-agent 这一层（启动器、配置、bundles、自有插件、文档与发布）；进入 `third_party/dsh` 开发时遵循子模块自己的规则，kmh 技能对 DSH 内部只做引用。`agent-experience` 与 `record-browser-gif` 仍是指向子模块的符号链接。Kongming 的流程技能 `private-public-git-flow`、`publish`、`x-llm-eval` 为自有技能，不属于本次适配范围。Kongming 的运行和配置说明见 [底座入口](README.md)。
+`.agents/skills/` 中每个子目录是一个技能，`SKILL.md` 为入口。其中九个 `kmh-*` 技能是 Kongming 自有技能：由 DSH 子模块的同源技能翻译适配而来，全文简体中文，只规范 kongming-agent 这一层（启动器、配置、bundles、自有插件、文档与发布）；进入 `third_party/dsh` 开发时遵循子模块自己的规则，kmh 技能对 DSH 内部只做引用。`agent-experience` 与 `record-browser-gif` 仍是指向子模块的符号链接。Kongming 的流程技能 `private-public-git-flow`、`publish` 为自有技能。Kongming 的运行和配置说明见 [底座入口](README.md)。
 
 ## 目录
 
@@ -36,7 +36,7 @@ description: "Kongming 层技能（kmh-*）的清单、文件归属、与 DSH �
 |---|---|
 | `.agents/skills/kmh-*/` | Kongming 自有技能，本地目录，随 Kongming 提交维护。 |
 | `.agents/skills/agent-experience`、`.agents/skills/record-browser-gif` | 指向子模块的相对符号链接，内容随子模块版本更新。 |
-| `.agents/skills/private-public-git-flow/`、`publish/`、`x-llm-eval/` | Kongming 自有流程技能，独立维护。 |
+| `.agents/skills/private-public-git-flow/`、`publish/` | Kongming 自有 Git 流程技能。 |
 | `third_party/dsh/.agents/skills/` | DSH 技能源；其余 DSH 技能（含本次未接入的）都保留在这里。 |
 
 ## 与 DSH 子模块的边界

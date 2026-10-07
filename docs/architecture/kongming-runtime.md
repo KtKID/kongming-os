@@ -15,7 +15,6 @@
 | `tests/runtime/` | Kongming 启动与底座接入集成测试，验证配置选择、目录链接和 SDK 交互 | Kongming |
 | `.githooks/` | 当前 Node 提交和推送检查 | Kongming |
 | `.kmh/` | 本地运行数据 | 本地状态，Git 忽略 |
-| `web/` | 原界面源码与资产，供后续界面选型使用 | 保留的产品资料 |
 
 Kongming 与 DSH 分别维护 pnpm 工作区和锁文件。根工作区包含自有 `bundles/*` 和后续 `packages/*`；DSH 在子模块内管理自己的 workspace 依赖。子模块当前固定在 `ede2c76885626c1695a2878757d1b1c35998987b`，上游合入基线为 `5badb15009ae1756c3afe0ae0cef1faafc290ccc`。安装以 Git 记录的子模块提交为准。
 
