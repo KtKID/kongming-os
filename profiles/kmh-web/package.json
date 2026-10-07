@@ -13,7 +13,6 @@
   "dsh": {
     "profile": {
       "bundles": [
-        "@deepseek-ai/dsh-experimental-inspector-profile",
         "@kmh/dev-preset"
       ]
     }
