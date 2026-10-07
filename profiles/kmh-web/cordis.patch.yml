@@ -180,12 +180,26 @@
           read-only:
             sandbox: read-only
             approval: ask
+            name: 仅可查看
+            description: 只读沙箱；写操作前请求审批。
           workspace-write:
             sandbox: workspace-write
             approval: ask
+            # D17：原“工作区内修改”改为“请求审批”——Codex CLI 插件的
+            # 原生审批跟随本档（审批请求桥转 KMH 用户，单次请求授权）。
+            name: 请求审批
+            description: 工作区沙箱；越界与原生工具操作请求用户审批。
+          workspace-write-auto:
+            sandbox: workspace-write
+            approval: never
+            # D17 新增“帮我审批”：沙箱内直接执行不询问。
+            name: 帮我审批
+            description: 工作区沙箱；减少确认步骤，越界请求自动拒绝。
           danger-full-access:
             sandbox: danger-full-access
             approval: never
+            name: 完全权限
+            description: 不经沙箱与审批直接执行（含敏感操作）。
     - id: shell-env
       name: '@deepseek-ai/dsh-shell-env'
     - id: tool-bash
