@@ -78,6 +78,21 @@ export class CodexTurn {
     private readonly extraOverrides: readonly string[] = [],
   ) {}
 
+  /**
+   * 重启已回收的 turn 对象：复位关闭与终止标志并清空残留事件。
+   * start/rebuild 会复用本对象重新拉起进程；此前若经 dispose 回收，
+   * closed 标志会让 push 静默丢弃全部事件（恢复路径实测挂死于此）。
+   */
+  private reopen(): void {
+    this.closed = false;
+    this.terminalStatus = undefined;
+    this.queue = [];
+    this.itemIndex.clear();
+    this.nextIndex = 0;
+    this.pending.clear();
+    this.wakeup = undefined;
+  }
+
   /** 等待结果回传的挂起工具调用标识。 */
   pendingCallIds(): string[] {
     return [...this.pending.keys()];
@@ -99,6 +114,7 @@ export class CodexTurn {
     threadId: string | undefined,
     signal: AbortSignal,
   ): Promise<string> {
+    this.reopen();
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,
@@ -171,6 +187,7 @@ export class CodexTurn {
     rebuildText: string,
     signal: AbortSignal,
   ): Promise<string> {
+    this.reopen();
     const plan = await prepareIsolation(this.ctx, this.config, {
       cwd: this.cwd,
       signal,

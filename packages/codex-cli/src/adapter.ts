@@ -110,25 +110,13 @@ export class CodexAdapter extends LlmAdapter {
     const increment = diffIncrement(options.messages, turn.cursor);
     if (increment.kind === "baseline-lost") {
       // 编辑/重发/历史改写：等同从该点分叉——fork 或新建并注入重建历史。
-      const source = await this.runtime.bindingRecord(sessionKey);
-      await turn.rebuild(
+      yield* this.rebuildFromBinding(
+        turn,
+        options,
         startInput,
-        source === undefined
-          ? undefined
-          : {
-              threadId: source.threadId,
-              ...(source.lastTurnId !== undefined
-                ? { lastTurnId: source.lastTurnId }
-                : {}),
-            },
-        rebuildTextOf(options.messages),
+        sessionKey,
         signal,
       );
-      turn.cursor = snapshotAt(options.messages, options.messages.length);
-      await this.runtime.recordBinding(sessionKey, turn);
-      yield* turn.pump(signal);
-      if (turn.terminated) await this.runtime.recordBinding(sessionKey, turn);
-      this.runtime.releaseSession(turn);
       return;
     }
     if (increment.kind === "new-input") {
@@ -142,11 +130,67 @@ export class CodexAdapter extends LlmAdapter {
       );
       yield* turn.pump(signal);
     } else {
-      yield* turn.resumeWithToolResults(increment.results, signal);
+      let resumed = false;
+      try {
+        yield* turn.resumeWithToolResults(increment.results, signal);
+        resumed = true;
+      } catch (error) {
+        // 挂起表丢失（会话状态重建把带挂起工具的 turn 换掉，线上表现为
+        // CODEX_NO_PENDING_TOOL 回合失败且旧进程泄漏等待回执）：按基线
+        // 失效同样的恢复语义重建续推。其余失配继续抛出。
+        if (
+          !(error instanceof Error) ||
+          error.message !== "CODEX_NO_PENDING_TOOL"
+        )
+          throw error;
+      }
+      if (!resumed) {
+        yield* this.rebuildFromBinding(
+          turn,
+          options,
+          startInput,
+          sessionKey,
+          signal,
+        );
+        return;
+      }
     }
     turn.cursor = snapshotAt(options.messages, increment.consumed);
     await this.runtime.recordBinding(sessionKey, turn);
     if (turn.terminated) this.runtime.releaseSession(turn);
+  }
+  /**
+   * 按绑定记录重建绑定线程并续推：优先 fork 到 lastTurnId 边界（未决的
+   * 当前 turn 不进 fork），失败或无源时新建 thread 并注入重建历史。
+   * @param turn - 待重建的 turn（其连接与挂起状态已被视为失效）。
+   */
+  private async *rebuildFromBinding(
+    turn: CodexTurn,
+    options: GenerateOptions,
+    startInput: Omit<TurnStartInput, "text">,
+    sessionKey: string,
+    signal: AbortSignal,
+  ): AsyncGenerator<StreamChunk> {
+    await turn.dispose();
+    const source = await this.runtime.bindingRecord(sessionKey);
+    await turn.rebuild(
+      startInput,
+      source === undefined
+        ? undefined
+        : {
+            threadId: source.threadId,
+            ...(source.lastTurnId !== undefined
+              ? { lastTurnId: source.lastTurnId }
+              : {}),
+          },
+      rebuildTextOf(options.messages),
+      signal,
+    );
+    turn.cursor = snapshotAt(options.messages, options.messages.length);
+    await this.runtime.recordBinding(sessionKey, turn);
+    yield* turn.pump(signal);
+    if (turn.terminated) await this.runtime.recordBinding(sessionKey, turn);
+    this.runtime.releaseSession(turn);
   }
 }
 /** 每段重建摘要的截断长度。 */

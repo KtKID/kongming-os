@@ -188,6 +188,10 @@ export class CodexCli extends Service {
     let state = this.sessions.get(sessionKey);
     if (state === undefined || state.turn.terminated) {
       const threadId = state?.threadId;
+      // 替换已终止的 turn 时同步回收其连接与进程：不 dispose 会让它带着
+      // 未回执的工具请求滞留（线上实测泄漏进程干等数分钟后被 Codex 侧
+      // 超时中断）。dispose 幂等，正常路径已回收时无副作用。
+      if (state !== undefined) void state.turn.dispose().catch(() => undefined);
       state = {
         turn: new CodexTurn(this.ctx, this.config, cwd),
         threadId,
