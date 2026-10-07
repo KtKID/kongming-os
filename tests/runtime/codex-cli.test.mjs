@@ -298,6 +298,19 @@ test("allowlist isolation prunes only unselected native capabilities", () => {
 
 // ---- 原生审批桥（feat09，D18 公开服务直连） ----
 import { CodexApprovalBridge } from "../../packages/codex-cli/lib/src/approval.js";
+import { inject as codexCliInject } from "../../packages/codex-cli/lib/src/index.js";
+
+test("plugin entry declares the services the approval bridge forwards to", () => {
+  // D20：漏声明 inject 时桥访问 ctx.agents 抛
+  // "cannot get property ... without inject"，审批请求整体失败。
+  assert.deepEqual(codexCliInject, [
+    "llm",
+    "subprocess",
+    "agents",
+    "approval",
+    "userQuestions",
+  ]);
+});
 import {
   CommandExecutionRequestApprovalParams,
   CommandExecutionRequestApprovalResponse,
@@ -1454,12 +1467,16 @@ test("allowlist selection opens native capabilities in the spawned process", { s
     );
     assert.ok(asked.includes('sandbox_mode="workspace-write"'));
     assert.ok(asked.includes('approval_policy="on-request"'));
+    // D15/D20：请求审批档必须把提权审查路由给用户（0.162 默认 auto_review
+    // 会静默放行提权命令，不发客户端审批请求）。
+    assert.ok(asked.includes('approvals_reviewer="user"'));
     const never = await spawnOnce(selectionFromLegacy(true), {
       sandbox: "danger-full-access",
       approval: "never",
     });
     assert.ok(never.includes('sandbox_mode="danger-full-access"'));
     assert.ok(never.includes('approval_policy="never"'));
+    assert.ok(!never.includes("approvals_reviewer="));
     const untouched = await spawnOnce(
       { ...selectionFromLegacy(false), viewImage: true },
       { sandbox: "workspace-write", approval: "ask" },
