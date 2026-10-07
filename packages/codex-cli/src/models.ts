@@ -53,7 +53,9 @@ export async function fetchCatalog(
         const entry: CodexModelEntry = {
           id: model.id,
           displayName: model.displayName ?? model.id,
-          efforts: model.reasoningEfforts ?? [],
+          efforts: (model.reasoningEfforts ?? []).map((effort) =>
+            typeof effort === "string" ? effort : effort.reasoningEffort,
+          ),
         };
         if (model.defaultReasoningEffort !== undefined)
           entry.defaultEffort = model.defaultReasoningEffort;
