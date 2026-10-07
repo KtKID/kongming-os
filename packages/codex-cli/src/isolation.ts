@@ -15,6 +15,14 @@ export interface IsolationPlan {
   /** 本轮发现并关闭的原生技能路径。 */
   disabledSkills: string[];
 }
+/** Codex 数据目录：位于 KMH 会话数据目录下，与 KMH 当前 home 一致。 */
+export function codexHomeDir(config: Config): string {
+  return join(config.dataDir, "codex-home");
+}
+/** 进程环境：CODEX_HOME 指向 KMH 数据目录下的 Codex home，叠加用户配置。 */
+export function codexEnv(config: Config): Record<string, string | undefined> {
+  return { CODEX_HOME: codexHomeDir(config), ...config.env };
+}
 /** 隔离输入。 */
 export interface IsolationInput {
   cwd: string;
@@ -78,8 +86,9 @@ async function discoverSkillPaths(
     {
       command: config.command,
       cwd: input.cwd,
-      configOverrides: [],
-      env: config.env,
+      // 探针要看到 enabled 技能：压制 config.toml 里已写的关闭列表。
+      configOverrides: ["skills.config=[]"],
+      env: codexEnv(config),
       graceMs: config.graceMs,
       startupTimeoutMs: config.startupTimeoutMs,
     },
@@ -130,6 +139,8 @@ export async function prepareIsolation(
 ): Promise<IsolationPlan> {
   if (config.nativeToolsEnabled)
     return { configOverrides: [], catalogPath: "", disabledSkills: [] };
+  // CLI 启动即校验 CODEX_HOME 存在：先建目录再起探针。
+  await mkdir(codexHomeDir(config), { recursive: true, mode: 0o700 });
   const disabledSkills = await discoverSkillPaths(ctx, config, input);
   let catalog: unknown;
   try {
@@ -154,27 +165,39 @@ export async function prepareIsolation(
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   const catalogPath = join(config.dataDir, "kmh-models.json");
   await writeFile(catalogPath, JSON.stringify(pruned));
-  const overrides: string[] = [
+  // 静态隔离写入独立 CODEX_HOME 的 config.toml：MCP 设备根本不进配置，
+  // 内置 MCP 工具与 mcp__* 从源头消失。
+  const home = codexHomeDir(config);
+  await mkdir(home, { recursive: true, mode: 0o700 });
+  const lines = [
     `model_catalog_json=${tomlString(catalogPath)}`,
     `web_search=${tomlString("disabled")}`,
     "check_for_update_on_startup=false",
     "project_doc_max_bytes=0",
-    ...FEATURE_OFF.map((feature) => `features.${feature}=false`),
-    "tools.update_plan.enabled=false",
-    "tools.experimental_request_user_input.enabled=false",
-    "skills.include_instructions=false",
-    "skills.bundled.enabled=false",
-    "orchestrator.skills.enabled=false",
-    "orchestrator.mcp.enabled=false",
-    "analytics.enabled=false",
+    ...FEATURE_OFF.map((feature) => `features.${feature} = false`),
+    "[tools.update_plan]",
+    "enabled=false",
+    "[tools.experimental_request_user_input]",
+    "enabled=false",
+    "[skills]",
+    "include_instructions=false",
+    "[skills.bundled]",
+    "enabled=false",
+    "[orchestrator.skills]",
+    "enabled=false",
+    "[orchestrator.mcp]",
+    "enabled=false",
+    "[analytics]",
+    "enabled=false",
   ];
-  if (disabledSkills.length > 0) {
-    const table = disabledSkills
-      .map((path) => `{path=${tomlString(path)},enabled=false}`)
-      .join(",");
-    overrides.push(`skills.config=[${table}]`);
-  }
-  return { configOverrides: overrides, catalogPath, disabledSkills };
+  if (disabledSkills.length > 0)
+    lines.push(
+      `config=[${disabledSkills
+        .map((path) => `{path=${tomlString(path)},enabled=false}`)
+        .join(",")}]`,
+    );
+  await writeFile(join(home, "config.toml"), lines.join("\n") + "\n");
+  return { configOverrides: [], catalogPath, disabledSkills };
 }
 
 /**

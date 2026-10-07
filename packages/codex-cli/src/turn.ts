@@ -17,7 +17,7 @@ import {
   TurnCompletedParams,
   TurnResult,
 } from "./protocol.ts";
-import { prepareIsolation, verifyIsolation } from "./isolation.ts";
+import { codexEnv, prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { emptySnapshot, type CursorSnapshot } from "./cursor.ts";
 import { fieldOf } from "./protocol.ts";
 
@@ -104,7 +104,7 @@ export class CodexTurn {
         command: this.config.command,
         cwd: this.cwd,
         configOverrides: [...plan.configOverrides, ...this.extraOverrides],
-        env: this.config.env,
+        env: codexEnv(this.config),
         graceMs: this.config.graceMs,
         startupTimeoutMs: this.config.startupTimeoutMs,
       },

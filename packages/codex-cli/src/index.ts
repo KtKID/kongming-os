@@ -6,7 +6,7 @@ import { CodexAdapter } from "./adapter.ts";
 import { connectCodex } from "./connection.ts";
 import { emptySnapshot } from "./cursor.ts";
 import { fetchCatalog, type CodexModelEntry } from "./models.ts";
-import { prepareIsolation, verifyIsolation } from "./isolation.ts";
+import { codexEnv, prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { CodexTurn } from "./turn.ts";
 import { ThreadResult, TurnResult } from "./protocol.ts";
 export { Config } from "./config.ts";
@@ -70,7 +70,7 @@ export class CodexCli extends Service {
           command: this.config.command,
           cwd: this.config.cwd,
           configOverrides: [],
-          env: this.config.env,
+          env: codexEnv(this.config),
           graceMs: this.config.graceMs,
           startupTimeoutMs: this.config.startupTimeoutMs,
         },
@@ -167,7 +167,7 @@ export class CodexCli extends Service {
         command: this.config.command,
         cwd: this.config.cwd,
         configOverrides: plan.configOverrides,
-        env: this.config.env,
+        env: codexEnv(this.config),
         graceMs: this.config.graceMs,
         startupTimeoutMs: this.config.startupTimeoutMs,
       },
