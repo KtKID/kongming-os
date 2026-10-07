@@ -19,7 +19,7 @@
 | T8 | 开关开启路径：跳过裁剪，原生工具与技能可用且与 KMH 并存 | feat02 场景3 | packages/codex-cli/src/isolation.ts, packages/codex-cli/src/adapter.ts | None | [x] 🟢 |
 | T9 | unit：游标前缀/断基线/尾部形态分类、桥目录映射、隔离配置生成（开/关两态） | feat01 场景1, feat02 场景1, 场景3 | tests/runtime/codex-cli.test.mjs | None | [x] 🟢 |
 | T10 | smoke：真实 CLI 跑通"模型 → kmh_call_tool → 结果回传 → 下一 step → 最终回复"，含推理等级选择与不支持内容报错 | feat01 场景1-5 | tests/runtime/codex-cli.test.mjs | None | [x] 🟢 |
-| T11 | 验证记录：长对话 token 用量随轮数线性增长（不重复投递）、长挂起工具（模拟审批等待）时 Codex 侧行为结论回写 spec 待验证项 | feat01 场景2, feat03 场景2 | docs/spec/codex-cli-provider/spec.md | None | [!] 🔴 |
+| T11 | 验证记录：长对话 token 用量随轮数线性增长（不重复投递）、长挂起工具（模拟审批等待）时 Codex 侧行为结论回写 spec 待验证项 | feat01 场景2, feat03 场景2 | docs/spec/codex-cli-provider/spec.md | None | [x] 🟢 2026-10-07：修复 turn 边界误判重建缺陷（KMH 流后才组装 assistant 消息导致尾部恒为 [回复+输入]→每轮重建、历史双份，真机 rollout 与 fixture 双重实证）；角色过滤差分（Codex 自产回复按块摘要核对吞掉、context/system 注入透明、外来回复断基线）落地后，多轮 smoke 断言原文投递与历史单份（`第一轮`×1、无重建标记）。长挂起工具：Codex 串行发送动态工具请求且无限期等待回执（生产 117.6s 中断源自外部 interrupt，非自身超时），桥挂起续推机制见并行/恢复用例。 |
 
 ## 影响文件树
 
