@@ -1,6 +1,8 @@
 /** 一个 KMH 回合内的 Codex turn：进程、thread、挂起工具与流式投影。 */
 import type { Context } from "@deepseek-ai/cordis";
 import { readFile } from "node:fs/promises";
+import type { z } from "zod";
+import type { TokenUsageBreakdownParams } from "./protocol.ts";
 import type {} from "@deepseek-ai/dsh-attachment";
 import {
   ToolCallId,
@@ -23,6 +25,7 @@ import {
   McpToolCallProgressParams,
   ReasoningDeltaParams,
   ThreadResult,
+  TokenUsageParams,
   TurnCompletedParams,
   TurnDiffUpdatedParams,
   TurnResult,
@@ -81,7 +84,7 @@ export interface TurnStartInput {
 type Queued =
   | { kind: "chunk"; chunk: StreamChunk }
   | { kind: "tool-pause" }
-  | { kind: "turn-done"; status: string; usage?: TokenUsage }
+  | { kind: "turn-done"; status: string }
   | { kind: "failure"; error: Error };
 /** 挂起的动态工具请求。 */
 interface PendingTool {
@@ -140,6 +143,14 @@ export class CodexTurn {
    * start/rebuild 时建立；临时会话（adopt）保持 undefined，仅兼容裸名。
    */
   toolRegistry: ToolRegistry | undefined;
+  /**
+   * 未上报的逐响应用量样本队列（token 用量）：Codex 每次上游响应完成发
+   * 一条 thread/tokenUsage/updated（last=该响应用量），turn/completed 不带
+   * 用量；KMH 要求每个 step 的 assistant 消息都有样本（缺一则整轮不显示），
+   * 且首个样本常在本侧 yield 工具挂起之后才到达——队列 + finish 时消费
+   * （空则补零样本）使各样本之和恒等于回合总量，与到达时序解耦。
+   */
+  private readonly usageQueue: TokenUsage[] = [];
 
   constructor(
     private readonly ctx: Context,
@@ -171,11 +182,49 @@ export class CodexTurn {
     this.approvalAbort = undefined;
     this.nativeNotes.clear();
     this.diffBudget = newDiffBudget();
+    this.usageQueue.length = 0;
   }
 
   /** 等待结果回传的挂起工具调用标识。 */
   pendingCallIds(): string[] {
     return [...this.pending.keys()];
+  }
+  /**
+   * 消费一条未上报用量样本；队列空时补零样本（该步样本尚未到达或本轮
+   * 无上游响应）。晚到样本留给下一步，各步样本之和仍等于回合总量。
+   */
+  private consumeUsageSample(): TokenUsage {
+    return (
+      this.usageQueue.shift() ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      }
+    );
+  }
+  /**
+   * 回合终局消费：合并队列全部剩余样本为一个（KMH 消费端只认最后一条
+   * usage chunk，逐条发会被覆盖；样本不相交，逐字段求和保持口径一致）。
+   * 队列空时补零样本，保证终局步也有样本。
+   */
+  private consumeUsageTotal(): TokenUsage {
+    const merged = this.consumeUsageSample();
+    merged.totalTokens = merged.totalTokens ?? 0;
+    while (this.usageQueue.length > 0) {
+      const next = this.usageQueue.shift();
+      if (next === undefined) break;
+      merged.inputTokens += next.inputTokens;
+      merged.outputTokens += next.outputTokens;
+      merged.totalTokens += next.totalTokens ?? 0;
+      merged.cacheReadTokens =
+        (merged.cacheReadTokens ?? 0) + (next.cacheReadTokens ?? 0);
+      merged.cacheWriteTokens =
+        (merged.cacheWriteTokens ?? 0) + (next.cacheWriteTokens ?? 0);
+      if (next.reasoningTokens !== undefined)
+        merged.reasoningTokens =
+          (merged.reasoningTokens ?? 0) + next.reasoningTokens;
+    }
+    return merged;
   }
   /** 是否已经终止（进程应回收）。 */
   get terminated(): boolean {
@@ -473,6 +522,7 @@ export class CodexTurn {
             },
           },
         });
+        // 工具挂起也是一步 assistant 消息：pump 收尾时补用量样本。
         this.push({ kind: "tool-pause" });
       });
     });
@@ -607,12 +657,17 @@ export class CodexTurn {
         // 缺结束确认的调用补记待确认（场景5/6），再补算未闭合块摘要。
         this.closeUnsettledNativeNotes();
         this.digestOpenBlocks();
-        const usage = projectUsage(fieldOf(completed.turn, "usage"));
-        this.push(
-          usage === undefined
-            ? { kind: "turn-done", status: completed.turn.status }
-            : { kind: "turn-done", status: completed.turn.status, usage },
-        );
+        // turn/completed 的 turn 不带 usage（0.162 wire 实测）；样本来自
+        // thread/tokenUsage/updated 队列，pump 收尾时统一消费。
+        this.push({ kind: "turn-done", status: completed.turn.status });
+        break;
+      }
+      case Incoming.tokenUsageUpdated: {
+        // 记录本回合的逐响应用量样本（跨回合/旧回合回放按 turnId 过滤）。
+        const usageEvent = TokenUsageParams.parse(params);
+        if (usageEvent.turnId !== this.turnId) return;
+        const mapped = breakdownToUsage(usageEvent.tokenUsage.last);
+        if (mapped !== undefined) this.usageQueue.push(mapped);
         break;
       }
       case Incoming.error: {
@@ -890,7 +945,10 @@ export class CodexTurn {
         continue;
       }
       if (event.kind === "tool-pause") {
-        // 工具挂起：结束本次流但不回收进程，等待下一次调用回传结果续推。
+        // 工具挂起：先补本步用量样本再结束本次流，不回收进程，等待下一
+        // 次调用回传结果续推。样本此刻未到时补零，真实样本留在队列供下一
+        // 步消费（各步样本之和恒等于回合总量）。
+        yield { type: "usage", usage: this.consumeUsageSample() };
         yield { type: "finish", reason: { kind: "tool-calls" } };
         return;
       }
@@ -898,10 +956,9 @@ export class CodexTurn {
         await this.dispose();
         throw event.error;
       }
-      // turn-done：报用量并按状态收尾。
+      // turn-done：报用量并按状态收尾（终局合并全部剩余样本）。
       const chunks: StreamChunk[] = [];
-      if (event.usage !== undefined)
-        chunks.push({ type: "usage", usage: event.usage });
+      chunks.push({ type: "usage", usage: this.consumeUsageTotal() });
       const status = event.status;
       chunks.push({
         type: "finish",
@@ -995,24 +1052,28 @@ export class CodexTurn {
       await connection.stop(this.config.cleanupTimeoutMs);
   }
 }
-/** Codex turn 用量投影为 KMH 用量；输入拆出缓存部分。 */
-function projectUsage(value: unknown): TokenUsage | undefined {
-  if (value === null || typeof value !== "object") return undefined;
-  const record = value as {
-    inputTokens?: unknown;
-    cachedInputTokens?: unknown;
-    outputTokens?: unknown;
-  };
-  if (
-    typeof record.inputTokens !== "number" ||
-    typeof record.outputTokens !== "number"
-  )
-    return undefined;
-  const cached =
-    typeof record.cachedInputTokens === "number" ? record.cachedInputTokens : 0;
+/**
+ * Codex 用量明细（TokenUsageBreakdown，总量口径含缓存）投影为 KMH 用量
+ * （拆分口径：inputTokens 仅未缓存部分，缓存单独计）。totalTokens 保留
+ * 官方精确总数——KMH 的 normalizeUsage 缺它且缺 cacheWrite 桶时直接拒绝。
+ */
+function breakdownToUsage(
+  value: z.infer<typeof TokenUsageBreakdownParams>,
+): TokenUsage {
+  const cacheWrite = Math.max(0, value.cacheWriteInputTokens);
+  const cacheRead = Math.max(0, value.cachedInputTokens);
+  const input = Math.max(0, value.inputTokens - cacheRead - cacheWrite);
+  const output = Math.max(0, value.outputTokens);
+  const reasoning = Math.max(0, value.reasoningOutputTokens);
   return {
-    inputTokens: Math.max(0, record.inputTokens - cached),
-    outputTokens: record.outputTokens,
-    ...(cached > 0 ? { cacheReadTokens: cached } : {}),
+    inputTokens: input,
+    outputTokens: output,
+    // 与官方总数一致性：total = input + cached + cacheWrite + output。
+    totalTokens: Math.max(0, value.totalTokens),
+    cacheReadTokens: cacheRead,
+    cacheWriteTokens: cacheWrite,
+    ...(reasoning > 0 && reasoning <= output
+      ? { reasoningTokens: reasoning }
+      : {}),
   };
 }

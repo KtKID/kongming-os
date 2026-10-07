@@ -5,7 +5,10 @@ import type {} from "@deepseek-ai/dsh-client-ui-plugin-manager/client";
 import type {} from "@deepseek-ai/dsh-client-ui-conversation/client";
 import type {} from "@deepseek-ai/dsh-client-ui-renderer/client";
 import { CodexCard } from "./DetailCard.tsx";
+import { LiveBall, LiveBallView } from "./LiveBall.tsx";
 import { zh, en, type LocaleKey } from "./locales.ts";
+
+export { LiveBall, LiveBallView };
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
@@ -42,5 +45,23 @@ export function apply(ctx: Context): void {
         ),
       ),
     "codex-cli: detail card",
+  );
+  // 会话底部状态小球（第 n 轮第 n 步统计行最右）：order 2 排在活动/用量
+  // 药丸之后；非 codex 会话无记录时组件自身不渲染。
+  ctx.effect(
+    () =>
+      ctx.slots.inject("conversation.composer.dock", () =>
+        ctx.slots.register(
+          {
+            name: "conversation.composer.dock",
+            id: "codex-cli-live",
+            order: 2,
+            label: () => t("liveTitle"),
+            locale: namespace,
+          },
+          LiveBall,
+        ),
+      ),
+    "codex-cli: live ball dock",
   );
 }

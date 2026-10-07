@@ -391,10 +391,24 @@ export const ThreadCompactedParams = z
     // 0.160.0 实测字段留待桥接验证收敛，此处先保留原始对象。
   })
   .passthrough();
-/** thread/tokenUsage/updated 通知参数。 */
+/** 单次上游响应/累计的用量明细（TokenUsageBreakdown，camelCase）。 */
+export const TokenUsageBreakdownParams = z.object({
+  totalTokens: z.number(),
+  inputTokens: z.number(),
+  cachedInputTokens: z.number(),
+  cacheWriteInputTokens: z.number(),
+  outputTokens: z.number(),
+  reasoningOutputTokens: z.number(),
+});
+/** thread/tokenUsage/updated 通知参数（0.162 wire 实测：last=最近一次响应）。 */
 export const TokenUsageParams = z
   .object({
     threadId: z.string().min(1),
+    turnId: z.string().min(1),
+    tokenUsage: z.object({
+      total: TokenUsageBreakdownParams,
+      last: TokenUsageBreakdownParams,
+    }),
   })
   .passthrough();
 /** account/updated 通知参数。 */

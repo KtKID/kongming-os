@@ -47,6 +47,12 @@ export function mountWeb(ctx: Context, runtime: CodexCli): void {
     });
   }
   ctx.connection.fetch.register({
+    path: "/api/codex-cli/live",
+    methods: ["GET"],
+    requestBody: "buffered",
+    fetch: () => Promise.resolve(Response.json(runtime.liveSnapshot(), { headers: noStore })),
+  });
+  ctx.connection.fetch.register({
     path: "/api/codex-cli/config",
     methods: ["GET", "POST"],
     requestBody: "buffered",

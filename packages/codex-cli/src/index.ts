@@ -58,6 +58,19 @@ interface SessionState {
   threadId: string | undefined;
   chain: Promise<void>;
 }
+/**
+ * 会话与 Codex CLI 连接的实时状态（会话底部状态小球数据源）。
+ * green=通信已建立（进行中或进程在线）；gray=已停止/进程回收；
+ * red=异常（停止未确认、回合失败后 CLI 状态不明）。
+ */
+export interface SessionLiveState {
+  color: "green" | "gray" | "red";
+  /** 回合进行中。 */
+  streaming: boolean;
+  /** 状态说明（tooltip）。 */
+  detail: string;
+  updatedAt: number;
+}
 
 /**
  * Own shared runtime state for the Codex CLI provider.
@@ -93,6 +106,8 @@ function loadSettings(config: Config): RuntimeSettings {
 export class CodexCli extends Service {
   private catalogCache: Promise<CodexModelEntry[]> | undefined;
   private readonly sessions = new Map<string, SessionState>();
+  /** 会话 → CLI 连接实时状态（状态小球轮询数据源）。 */
+  private readonly liveStates = new Map<string, SessionLiveState>();
   private readonly store: CodexSessionStore;
   /** 账号操作（状态/登录/取消/退出）。 */
   readonly account: CodexAccount;
@@ -232,13 +247,35 @@ export class CodexCli extends Service {
     const state = this.sessions.get(sessionKey);
     if (state !== undefined) state.threadId = record.threadId;
   }
-  /** 会话终止后释放其 turn 归属。 */
-  releaseSession(turn: CodexTurn): void {
-    for (const [key, state] of this.sessions)
-      if (state.turn === turn) {
-        this.sessions.delete(key);
-        return;
-      }
+/** 会话终止后释放其 turn 归属。 */
+releaseSession(turn: CodexTurn): void {
+  for (const [key, state] of this.sessions)
+    if (state.turn === turn) {
+      this.sessions.delete(key);
+      return;
+    }
+}
+  /** 记录会话的 CLI 连接实时状态（小球数据源）。 */
+  private markLive(
+    sessionKey: string,
+    state: Omit<SessionLiveState, "updatedAt">,
+  ): void {
+    this.liveStates.set(sessionKey, { ...state, updatedAt: Date.now() });
+  }
+  /**
+   * 全部会话的实时状态快照（/api/codex-cli/live 返回体）。
+   * 空闲但 turn 仍挂起工具回执属正常步间状态（KMH 执行完工具会续推），
+   * 不判异常；红球仅出现在停止未确认与回合异常中断两类真实失配。
+   */
+  liveSnapshot(): {
+    sessions: Array<SessionLiveState & { sessionId: string }>;
+  } {
+    return {
+      sessions: [...this.liveStates].map(([key, state]) => ({
+        ...state,
+        sessionId: key,
+      })),
+    };
   }
   /**
    * 会话内串行执行：同一会话的 turn 操作排队，共用同一 CodexTurn。
@@ -260,14 +297,37 @@ export class CodexCli extends Service {
       done = resolve;
     });
     await previous;
+    this.markLive(sessionKey, {
+      color: "green",
+      streaming: true,
+      detail: "CLI 通信中",
+    });
     try {
       for await (const chunk of run(state.turn)) tokens.push(chunk);
     } catch (error) {
       failure = error;
       // 停止/失败链路：先发 turn/interrupt 并有界等待终止通知，再回收。
+      // interrupt 正常返回=CLI 确认停止；超时/失败=停止未确认。
+      let confirmed = false;
       await state.turn
         .interrupt(AbortSignal.timeout(this.config.cancelReceiptTimeoutMs))
-        .catch(() => undefined);
+        .then(
+          () => {
+            confirmed = true;
+          },
+          () => undefined,
+        );
+      const reason = error instanceof Error ? error.message : String(error);
+      const aborted = isCancelCause(error);
+      this.markLive(sessionKey, {
+        color: confirmed && aborted ? "gray" : "red",
+        streaming: false,
+        detail: aborted
+          ? confirmed
+            ? "已停止：CLI 确认中断，进程已回收"
+            : `停止未确认：CLI 未确认中断（${reason.slice(0, 120)}）`
+          : `回合异常中断：${reason.slice(0, 120)}`,
+      });
       state.turn.dispose().catch(() => undefined);
     } finally {
       done?.();
@@ -276,6 +336,13 @@ export class CodexCli extends Service {
       if (failure instanceof Error) throw failure;
       throw new Error("CODEX_SESSION_FAILED", { cause: failure });
     }
+    this.markLive(sessionKey, {
+      color: state.turn.terminated ? "gray" : "green",
+      streaming: false,
+      detail: state.turn.terminated
+        ? "已停止：回合已终止，进程已回收"
+        : "已连接：CLI 进程在线，随时续聊",
+    });
     yield* tokens;
   }
   /** 取或建会话状态；已终止的 turn 重建以复用绑定。 */
@@ -357,6 +424,24 @@ export class CodexCli extends Service {
     }
   }
 }
+
+/**
+ * 是否宿主主动取消（DSH AgentCancelCause 为普通对象经 signal.reason 抛出，
+ * 形态见 dsh-session types；AbortError 也算）。用户/宿主停止且 CLI 确认中
+ * 断属正常停止（灰球），其余失败按异常（红球）。
+ */
+function isCancelCause(error: unknown): boolean {
+  if (error instanceof Error) return error.name === "AbortError";
+  if (error === null || typeof error !== "object") return false;
+  const kind = (error as { kind?: unknown }).kind;
+  return (
+    kind === "user" ||
+    kind === "parent" ||
+    kind === "hook" ||
+    kind === "disposed"
+  );
+}
+
 /** 空游标导出（临时会话与测试用）。 */
 export { emptySnapshot };
 

@@ -1,6 +1,10 @@
 /** 详情卡片文案（中英）。 */
 export type LocaleKey =
   | "title"
+  | "liveTitle"
+  | "liveGreen"
+  | "liveGray"
+  | "liveRed"
   | "summary"
   | "loading"
   | "versionLabel"
@@ -32,6 +36,10 @@ export type LocaleKey =
 
 export const zh: Record<LocaleKey, string> = {
   title: "Codex CLI",
+  liveTitle: "Codex CLI 连接状态",
+  liveGreen: "通信正常",
+  liveGray: "已停止",
+  liveRed: "状态异常",
   summary: "官方 Codex CLI 传输：账号登录、版本检查与连接测试",
   loading: "状态加载中…",
   versionLabel: "CLI 版本",
@@ -65,6 +73,10 @@ export const zh: Record<LocaleKey, string> = {
 
 export const en: Record<LocaleKey, string> = {
   title: "Codex CLI",
+  liveTitle: "Codex CLI connection",
+  liveGreen: "Connected",
+  liveGray: "Stopped",
+  liveRed: "Abnormal",
   summary:
     "Official Codex CLI transport: account, version check, connection test",
   loading: "Loading status…",
