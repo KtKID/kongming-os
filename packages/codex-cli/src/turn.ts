@@ -1,5 +1,7 @@
 /** 一个 KMH 回合内的 Codex turn：进程、thread、挂起工具与流式投影。 */
 import type { Context } from "@deepseek-ai/cordis";
+import { readFile } from "node:fs/promises";
+import type {} from "@deepseek-ai/dsh-attachment";
 import {
   ToolCallId,
   type StreamChunk,
@@ -17,6 +19,7 @@ import {
   ThreadResult,
   TurnCompletedParams,
   TurnResult,
+  imageProjectionOf,
 } from "./protocol.ts";
 import { prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { emptySnapshot, type CursorSnapshot } from "./cursor.ts";
@@ -61,6 +64,8 @@ export class CodexTurn {
   private itemIndex = new Map<string, number>();
   private nextIndex = 0;
   private readonly pending = new Map<string, PendingTool>();
+  /** 已投影为会话图片块的生图项 id：防重复投影。 */
+  private readonly projectedImages = new Set<string>();
   threadId: string | undefined;
   turnId: string | undefined;
   /** 最近一次完成（含 interrupted）的 turn id；fork 重建的边界。 */
@@ -412,6 +417,8 @@ export class CodexTurn {
                 block: { type: "reasoning", text: record.content.join("") },
               },
             });
+          } else if (record.type === "imageGeneration") {
+            this.projectImage(item).catch(() => undefined);
           }
         }
         break;
@@ -444,6 +451,49 @@ export class CodexTurn {
       }
       default:
         break;
+    }
+  }
+  /**
+   * 把 Codex 原生生图结果投影为会话图片块：读取落盘产物、经宿主附件服务
+   * 落成 ImageAttachmentRef 后以 image 块送回 KMH 展示。展示失败不打断
+   * 生成（跳过并告警）：投影是展示增强，生成与续推链路不依赖它。
+   * @param item - item/completed 携带的 ThreadItem::ImageGeneration。
+   */
+  private async projectImage(item: unknown): Promise<void> {
+    const projection = imageProjectionOf(item);
+    if (projection === undefined) return;
+    if (this.projectedImages.has(projection.id)) return;
+    this.projectedImages.add(projection.id);
+    // 部分部署（headless）可能没有附件服务：跳过投影。
+    const store = this.ctx.attachments;
+    if (store === undefined) return;
+    try {
+      const data = await readFile(projection.path);
+      const [first] = await store.saveImages([
+        {
+          data,
+          mediaType: "image/png",
+          ...(projection.name !== undefined ? { name: projection.name } : {}),
+        },
+      ]);
+      if (first === undefined) throw new Error("CODEX_IMAGE_REF_MISSING");
+      const index = this.allocate(projection.id);
+      this.push({
+        kind: "chunk",
+        chunk: { type: "block-start", index, blockType: "image" },
+      });
+      this.push({
+        kind: "chunk",
+        chunk: {
+          type: "block-end",
+          index,
+          block: { type: "image", attachment: first },
+        },
+      });
+    } catch (error) {
+      this.ctx.logger.warn(
+        `codex-cli image projection skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
   /** 为流块分配序号；同一 itemId 复用。 */

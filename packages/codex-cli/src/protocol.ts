@@ -212,6 +212,43 @@ export const ReasoningDeltaParams = z
     delta: z.string(),
   })
   .passthrough();
+/** item/completed 的生图项（app-server ThreadItem::ImageGeneration 的 wire 形态）。 */
+export const ImageGenerationItemParams = z
+  .object({
+    type: z.literal("imageGeneration"),
+    id: z.string().min(1),
+    status: z.string(),
+    revisedPrompt: z.string().nullable().optional(),
+    savedPath: z.string().optional(),
+  })
+  .passthrough();
+
+/** 生图项的可投影产物：项 id、落盘路径与展示名。 */
+export interface ImageProjection {
+  id: string;
+  path: string;
+  name: string | undefined;
+}
+
+/**
+ * 从 item/completed 的生图项提取可投影产物。
+ * @param item - ThreadItem::ImageGeneration 的原始对象。
+ * @returns 已完成且已落盘时返回 id、路径与展示名；否则 undefined（不构成错误）。
+ */
+export function imageProjectionOf(item: unknown): ImageProjection | undefined {
+  const parsed = ImageGenerationItemParams.safeParse(item);
+  if (!parsed.success) return undefined;
+  const { id, status, revisedPrompt, savedPath } = parsed.data;
+  if (status !== "completed" || savedPath === undefined) return undefined;
+  const prompt = revisedPrompt?.trim();
+  return {
+    id,
+    path: savedPath,
+    name:
+      prompt === undefined || prompt === "" ? undefined : prompt.slice(0, 60),
+  };
+}
+
 /** item/started、item/completed 通知参数：item 形态留由消费方判别。 */
 export const ItemEventParams = z
   .object({
