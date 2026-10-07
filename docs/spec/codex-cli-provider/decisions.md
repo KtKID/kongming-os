@@ -135,6 +135,18 @@ feat09 的审批与执行范围跟随 KMH 会话权限模式，不再由插件�
 
 同轮拍板：R1 确认（feat02 默认集合）；R3 图片尺寸从简——如实显示实际与要求尺寸、完成状态反映实际交付，撤销另存交付图方案，feat10 收敛为 3 场景。
 
+### D18 审批桥接入路径（2026-10-07 实施期拍板）
+
+T1 两路核对结论：采用**公开服务直连**，否决内部工具投影。事实依据：
+
+- `GenerateOptions` 不携带 Agent（仅 sessionId），但 `ctx.agents.get(sessionId)`（`@deepseek-ai/dsh-agent` 公开 AgentRegistry）可取到活跃 Agent；模型请求进行中 agent 会话必为开放 turn，满足 `approval.request()` 的审计对前置。
+- 三类 requestApproval 走 `ctx.approval.request({agent, toolName, reason, signal})`，四态映射：`allowed-once`→accept（单次请求授权，R2）、`rejected`→decline、`cancelled`→cancel、`unavailable`→decline（fail closed，可读原因由桥记录日志）；permissions 档拒绝回空授权（scope=turn，只授予请求声明的范围）。
+- 用户输入与 MCP elicitation 需要结构化答案（approval 四态带不动），走 `ctx.userQuestions.ask()`（`@deepseek-ai/dsh-user-questions` 公开服务）：requestUserInput 问题逐条映射、答案按 `{answers:[...选中+自填]}` 回填；elicitation 表单按 requestedSchema 属性逐个映射（枚举→选项、其余→自填），答案组装回 content 对象；无应答者（NO_PROVIDER）→decline、中止→cancel。
+- 内部工具投影被否决：需要伪造模型可见工具调用与权限链挂钩，复杂且污染对话历史；公开直连零模型侧痕迹。
+- 未知服务端请求：handler throw → 行协议 `-32603` 错误回执（sdk protocol `handleIncomingRequest` 实测语义），Codex 侧收到明确失败。
+- 一次性语义结构性保证：每个服务端请求 id 恰有一次回执（transport 每 id 写一帧）；停止/中断经回合级 AbortController 使 `approval.request` 归结 cancelled、`userQuestions.ask` 抛 ASK_ABORTED，映射 cancel。
+- wire 形态依据 0.160.0 生成 schema（`app-server-protocol/src/protocol/v2/{item,permissions,mcp}.rs`）：command 决定值 accept/acceptForSession/acceptWithExecpolicyAmendment/applyNetworkPolicyAmendment/decline/cancel（桥只发 accept/decline/cancel）；fileChange 同形；permissions 回 `{permissions, scope: turn|session}`；userInput 回 `{answers: Record<id,{answers:string[]}>}`；elicitation 回 `{action: accept|decline|cancel, content?}`。
+
 ### 推荐实施顺序与验收
 
 1. 核对当前生图产物接入和尺寸错误，补上真实产物尺寸、交付图与回复的一致性验收；保留已有生图实现。
