@@ -115,15 +115,29 @@ export class CodexCli extends Service {
   async bindingRecord(sessionKey: string): Promise<BindingRecord | undefined> {
     return await this.store.get(sessionKey);
   }
-  /** 持久化会话绑定：thread、差分游标与 fork 边界一并落盘。 */
+  /** 持久化会话绑定：thread、差分游标、fork 边界与工具声明版本一并落盘。 */
   async recordBinding(sessionKey: string, turn: CodexTurn): Promise<void> {
     if (turn.threadId === undefined) return;
     const state = this.sessions.get(sessionKey);
     if (state !== undefined) state.threadId = turn.threadId;
-    await this.store.put(
-      sessionKey,
-      cursorToRecord(turn.threadId, turn.cursor, turn.lastCompletedTurnId),
+    const record = cursorToRecord(
+      turn.threadId,
+      turn.cursor,
+      turn.lastCompletedTurnId,
     );
+    // D13：声明版本随目录指纹变化递增；同指纹沿用旧版本号（feat03 场景9）。
+    const registry = turn.toolRegistry;
+    if (registry !== undefined) {
+      const previous = await this.store.get(sessionKey);
+      record.toolFingerprint = registry.fingerprint;
+      record.toolMap = Object.fromEntries(registry.declaredToKmh);
+      record.toolsVersion =
+        previous !== undefined &&
+        previous.toolFingerprint === registry.fingerprint
+          ? (previous.toolsVersion ?? 1)
+          : (previous?.toolsVersion ?? 0) + 1;
+    }
+    await this.store.put(sessionKey, record);
   }
   /** 恢复会话 turn 的差分游标（进程重启后续聊不重复投递）。 */
   private async restoreCursor(

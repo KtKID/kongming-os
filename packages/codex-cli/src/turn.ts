@@ -12,6 +12,7 @@ import { connectCodex, type CodexConnection } from "./connection.ts";
 import {
   AgentMessageDeltaParams,
   DynamicToolCallParams,
+  DynamicToolCallResponse,
   ErrorNotificationParams,
   Incoming,
   KMH_TOOL_NAMESPACE,
@@ -23,6 +24,11 @@ import {
 } from "./protocol.ts";
 import { prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { blockDigest, emptySnapshot, type CursorSnapshot } from "./cursor.ts";
+import {
+  buildToolRegistry,
+  resolveKmhToolName,
+  type ToolRegistry,
+} from "./tool-registry.ts";
 import {
   imageFailureNote,
   imageSizeNote,
@@ -92,6 +98,11 @@ export class CodexTurn {
   terminalStatus: string | undefined;
   /** 最近一次投递的用户输入文本：生图尺寸要求识别来源（feat10）。 */
   private lastUserText = "";
+  /**
+   * 本回合的工具声明表（D13）：声明名 kmh-<原名> 与目录指纹。
+   * start/rebuild 时建立；临时会话（adopt）保持 undefined，仅兼容裸名。
+   */
+  toolRegistry: ToolRegistry | undefined;
 
   constructor(
     private readonly ctx: Context,
@@ -119,6 +130,7 @@ export class CodexTurn {
     this.blockText.clear();
     this.endedBlocks.clear();
     this.lastUserText = "";
+    this.toolRegistry = undefined;
   }
 
   /** 等待结果回传的挂起工具调用标识。 */
@@ -164,6 +176,9 @@ export class CodexTurn {
     this.connection = connection;
     this.installHandlers();
     await verifyIsolation(connection, plan, signal);
+    // D13：统一 kmh- 前缀声明（含范围与碰撞校验），回执按声明表解析。
+    const registry = buildToolRegistry(input.tools);
+    this.toolRegistry = registry;
     if (threadId === undefined) {
       const raw: unknown = await connection.request(
         "thread/start",
@@ -175,7 +190,7 @@ export class CodexTurn {
           // 平铺 legacy 声明：canonical namespace 的模型侧名称为无点拼接
           // （kmh+name），不适合人读与防撞，沿用已验证的平铺真名形态。
           dynamicTools: input.tools.map((tool) => ({
-            name: tool.name,
+            name: registry.kmhToDeclared.get(tool.name),
             description: tool.description,
             inputSchema: tool.inputSchema,
           })),
@@ -184,6 +199,7 @@ export class CodexTurn {
       );
       this.threadId = ThreadResult.parse(raw).thread.id;
     } else {
+      // 旧 thread 以其建立时的声明续用：当前目录的裸名经兼容路径解析。
       const raw: unknown = await connection.request(
         "thread/resume",
         { threadId },
@@ -238,6 +254,10 @@ export class CodexTurn {
     this.connection = connection;
     this.installHandlers();
     await verifyIsolation(connection, plan, signal);
+    // D13：重建（含目录变化）一律重新声明带前缀工具；fork 分支继承源线程
+    // 的既有工具集，目录变化场景由 adapter 直接走 fresh 分支（source=undefined）。
+    const registry = buildToolRegistry(input.tools);
+    this.toolRegistry = registry;
     let forked = false;
     if (source !== undefined) {
       try {
@@ -264,7 +284,7 @@ export class CodexTurn {
           cwd: this.cwd,
           baseInstructions: input.baseInstructions,
           dynamicTools: input.tools.map((tool) => ({
-            name: tool.name,
+            name: registry.kmhToDeclared.get(tool.name),
             description: tool.description,
             inputSchema: tool.inputSchema,
           })),
@@ -324,10 +344,26 @@ export class CodexTurn {
         call.namespace !== KMH_TOOL_NAMESPACE
       )
         throw new Error("CODEX_TOOL_CALL_NAMESPACE_UNEXPECTED");
+      // D13：按声明表解析（兼容旧 thread 裸名）；未知名明确错误回执，不挂起。
+      const kmhName = resolveKmhToolName(this.toolRegistry, call.tool);
+      if (kmhName === undefined) {
+        this.ctx.logger.warn(
+          `codex-cli unknown tool callback: ${call.tool} (call ${call.callId})`,
+        );
+        return DynamicToolCallResponse.parse({
+          success: false,
+          contentItems: [
+            {
+              type: "inputText",
+              text: `CODEX_TOOL_UNKNOWN: ${call.tool} 不在当前 KMH 工具目录中`,
+            },
+          ],
+        });
+      }
       return await new Promise<unknown>((resolve, reject) => {
         this.pending.set(call.callId, {
           callId: call.callId,
-          tool: call.tool,
+          tool: kmhName,
           arguments: call.arguments,
           reply: resolve,
           fail: reject,
@@ -345,7 +381,7 @@ export class CodexTurn {
             type: "tool-call-delta",
             index,
             id,
-            name: call.tool,
+            name: kmhName,
             argumentsDelta,
           },
         });
@@ -357,7 +393,7 @@ export class CodexTurn {
             block: {
               type: "tool-call",
               id,
-              name: call.tool,
+              name: kmhName,
               arguments: argumentsDelta,
             },
           },

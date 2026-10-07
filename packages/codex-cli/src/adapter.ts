@@ -11,6 +11,7 @@ import { diffIncrement, snapshotAt } from "./cursor.ts";
 import { fieldOf } from "./protocol.ts";
 import type { CodexCli } from "./index.ts";
 import { resolveLlmModel, toLlmModels } from "./models.ts";
+import { toolDeclarationNote, toolFingerprintOf } from "./tool-registry.ts";
 import type { CodexTurn, TurnStartInput } from "./turn.ts";
 
 /**
@@ -100,7 +101,10 @@ export class CodexAdapter extends LlmAdapter {
       nativeToolsEnabled: this.runtime.settings.nativeToolsEnabled,
       reasoningEffort: options.reasoningEffort,
       baseInstructions: systemPromptOf(options),
-      developerInstructions: undefined,
+      // D13：不改写提示正文（整词替换会改普通词义），以一段声明约定说明
+      // 指明 KMH 工具名与 kmh- 前缀声明名的对应关系。
+      developerInstructions:
+        (options.tools ?? []).length > 0 ? toolDeclarationNote() : undefined,
       tools: (options.tools ?? []).map((tool) => ({
         name: tool.name,
         description: tool.description,
@@ -130,6 +134,25 @@ export class CodexAdapter extends LlmAdapter {
       if (turn.pendingCallIds().length > 0)
         throw new Error("CODEX_TOOL_PENDING");
       const record = await this.runtime.bindingRecord(sessionKey);
+      // D13 目录变化检测（feat03 场景9）：绑定记录带指纹且与当前目录不符时，
+      // 跳过 resume/fork（两者都继承旧工具集），新建 thread 重新声明工具并
+      // 按既有历史重建规则恢复上下文；旧记录无指纹表示裸名旧 thread，照常续用。
+      const fingerprint = toolFingerprintOf(startInput.tools);
+      if (
+        record !== undefined &&
+        record.toolFingerprint !== undefined &&
+        record.toolFingerprint !== fingerprint
+      ) {
+        yield* this.rebuildFromBinding(
+          turn,
+          options,
+          startInput,
+          sessionKey,
+          signal,
+          { fresh: true },
+        );
+        return;
+      }
       await turn.start(
         { text: increment.text, ...startInput },
         record?.threadId,
@@ -179,6 +202,8 @@ export class CodexAdapter extends LlmAdapter {
    * 按绑定记录重建绑定线程并续推：优先 fork 到 lastTurnId 边界（未决的
    * 当前 turn 不进 fork），失败或无源时新建 thread 并注入重建历史。
    * @param turn - 待重建的 turn（其连接与挂起状态已被视为失效）。
+   * @param mode.fresh - 目录变化路径：跳过 fork（fork 继承旧工具集），
+   *   直接新建 thread 重新声明当前工具；失败时报错含重新建立会话的出路。
    */
   private async *rebuildFromBinding(
     turn: CodexTurn,
@@ -186,22 +211,34 @@ export class CodexAdapter extends LlmAdapter {
     startInput: Omit<TurnStartInput, "text">,
     sessionKey: string,
     signal: AbortSignal,
+    mode: { fresh: boolean } = { fresh: false },
   ): AsyncGenerator<StreamChunk> {
     await turn.dispose();
-    const source = await this.runtime.bindingRecord(sessionKey);
-    await turn.rebuild(
-      startInput,
-      source === undefined
+    const source =
+      mode.fresh === true
         ? undefined
-        : {
-            threadId: source.threadId,
-            ...(source.lastTurnId !== undefined
-              ? { lastTurnId: source.lastTurnId }
-              : {}),
-          },
-      rebuildTextOf(options.messages),
-      signal,
-    );
+        : await this.runtime.bindingRecord(sessionKey);
+    try {
+      await turn.rebuild(
+        startInput,
+        source === undefined
+          ? undefined
+          : {
+              threadId: source.threadId,
+              ...(source.lastTurnId !== undefined
+                ? { lastTurnId: source.lastTurnId }
+                : {}),
+            },
+        rebuildTextOf(options.messages),
+        signal,
+      );
+    } catch (error) {
+      // feat03 场景9：恢复失败给出明确原因与出路（重试或新建会话重建绑定）。
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `CODEX_TOOL_CATALOG_REBUILD_FAILED: 工具目录变化后重建会话失败（${reason}）；可重试本回合，或新建会话以重建绑定`,
+      );
+    }
     yield* turn.pump(signal);
     // 快照在 pump 之后：重建 turn 期间产出的块摘要（delivered）才能随
     // 游标落盘，后续轮次的边界核对才有据可依（实测先快照会丢失摘要）。
