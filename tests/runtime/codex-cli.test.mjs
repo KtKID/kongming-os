@@ -230,6 +230,72 @@ test("tool fingerprint changes with catalog, description or order-stable", () =>
   assert.equal(toolFingerprintOf(echoGlob), toolFingerprintOf([...echoGlob].reverse()));
 });
 
+// ---- 原生能力逐项选择（feat02 修订版：允许清单、迁移与可用性） ----
+import {
+  DEFAULT_SELECTION,
+  FULL_SELECTION,
+  capabilityViews,
+  selectionFromLegacy,
+  selectionOf,
+} from "../../packages/codex-cli/lib/src/capabilities.js";
+import {
+  featureOffFor,
+  prunedFieldsFor,
+} from "../../packages/codex-cli/lib/src/isolation.js";
+
+test("selection model validates fields and migrates the legacy switch", () => {
+  // 合法选择原样保留；缺失/非法字段回落默认；垃圾输入整体回落。
+  assert.deepEqual(selectionOf({ ...FULL_SELECTION }), FULL_SELECTION);
+  assert.deepEqual(selectionOf({ commandExecution: true }), {
+    ...DEFAULT_SELECTION,
+    commandExecution: true,
+  });
+  assert.deepEqual(selectionOf("junk"), DEFAULT_SELECTION);
+  assert.deepEqual(selectionOf(null), DEFAULT_SELECTION);
+  // 旧总开关迁移：false → 全关（保留 KMH 与图片生成使用方式），true → 全开。
+  assert.deepEqual(selectionFromLegacy(false), DEFAULT_SELECTION);
+  assert.deepEqual(selectionFromLegacy(true), FULL_SELECTION);
+});
+
+test("capability views mark availability from the version check", () => {
+  const ok = capabilityViews({ version: "0.162.0", ok: true });
+  assert.equal(ok.length, 5);
+  assert.ok(ok.every((item) => item.available && item.reason === undefined));
+  const missing = capabilityViews({ version: undefined, ok: false, reason: "CODEX_CLI_MISSING" });
+  assert.ok(missing.every((item) => !item.available && item.reason === "CODEX_CLI_MISSING"));
+  assert.deepEqual(
+    missing.map((item) => item.id),
+    ["commandExecution", "fileChange", "viewImage", "webSearch", "skills"],
+  );
+});
+
+test("allowlist isolation prunes only unselected native capabilities", () => {
+  // 默认全关：四项工具与技能的裁剪都在，基础隔离字段也在。
+  const off = prunedFieldsFor(DEFAULT_SELECTION);
+  assert.equal(off.shell_type, "disabled");
+  assert.equal(off.apply_patch_tool_type, null);
+  assert.equal(off.supports_search_tool, false);
+  assert.equal(off.include_skills_usage_instructions, false);
+  assert.ok(featureOffFor(DEFAULT_SELECTION).includes("shell_tool"));
+  assert.ok(featureOffFor(DEFAULT_SELECTION).includes("view_image"));
+  // 全开：逐项字段与功能关闭消失，但基础隔离保留（多 agent 等始终关闭）。
+  const on = prunedFieldsFor(FULL_SELECTION);
+  assert.equal("shell_type" in on, false);
+  assert.equal("apply_patch_tool_type" in on, false);
+  assert.equal("supports_search_tool" in on, false);
+  assert.equal("include_skills_usage_instructions" in on, false);
+  const features = featureOffFor(FULL_SELECTION);
+  assert.ok(!features.includes("shell_tool"));
+  assert.ok(!features.includes("view_image"));
+  assert.ok(features.includes("multi_agent"));
+  assert.ok(features.includes("code_mode"));
+  // 单项开放：只放开该项（关一项裁一项）。
+  const partial = prunedFieldsFor({ ...DEFAULT_SELECTION, webSearch: true });
+  assert.equal("supports_search_tool" in partial, false);
+  assert.equal(partial.shell_type, "disabled");
+  assert.ok(!featureOffFor({ ...DEFAULT_SELECTION, viewImage: true }).includes("view_image"));
+});
+
 // ---- 差分游标（cursor） ----
 import {
   blockDigest,
@@ -591,10 +657,13 @@ function makeBridgeHarness(fixture, script, hooks = {}) {
   const root = mkdtempSync(join(tmpdir(), `kmh-codex-${script}-`));
   const cwd = join(root, "workspace");
   mkdirSync(cwd, { recursive: true });
+  /** 每次拉起 CLI 的完整 argv（允许清单断言用）。 */
+  const spawnArgv = [];
   const fakeCtx = {
     subprocess: {
       resolveExecutable: async (command) => command,
       spawn: ({ argv, cwd: dir, env, stdio }) => {
+        spawnArgv.push([...argv]);
         const child = spawnRaw(argv[0], argv.slice(1), {
           cwd: dir,
           env: { ...process.env, ...env },
@@ -651,7 +720,7 @@ function makeBridgeHarness(fixture, script, hooks = {}) {
     'model_provider="fixture"',
     `model_providers.fixture={name="Bridge fixture",base_url="${fixture.base}",env_key="KMH_CODEX_SMOKE_KEY",wire_api="responses",requires_openai_auth=false,supports_websockets=false}`,
   ];
-  return { fakeCtx, config, cwd, fixtureOverrides };
+  return { fakeCtx, config, cwd, fixtureOverrides, spawnArgv };
 }
 
 const parallelToolCatalog = [
@@ -708,7 +777,7 @@ function makeAdapterHarness(parts) {
     return turn;
   };
   const runtime = {
-    settings: { nativeToolsEnabled: false },
+    settings: { selection: selectionFromLegacy(false) },
     resolveCwd: () => parts.cwd,
     bindingRecord: async () =>
       binding.threadId === undefined ? undefined : { ...binding },
@@ -1021,6 +1090,58 @@ test("tool catalog change redeclares tools on a fresh thread with rebuilt histor
     assert.ok(!lastInput.includes("用户：第三轮的问题"));
   } finally {
     await getTurn().dispose();
+    await fixture.close();
+  }
+});
+
+test("allowlist selection opens native capabilities in the spawned process", { skip: !findCodexBinary() }, async () => {
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const fixture = await startFixtureServer({});
+  const { fakeCtx, config, cwd, fixtureOverrides, spawnArgv } =
+    makeBridgeHarness(fixture, "allowlist");
+  const signal = AbortSignal.timeout(120000);
+  const spawnOnce = async (selection) => {
+    const turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
+    try {
+      // 只需拉起进程核对 -c 允许清单参数，流不消费（dispose 即回收）。
+      await turn.start(
+        {
+          text: "hello",
+          model: "gpt-6-sol",
+          baseInstructions: "KMH owns all tools and skills.",
+          tools: echoToolSpec.map((entry) => ({
+            name: entry.name,
+            description: entry.description,
+            inputSchema: entry.parameters,
+          })),
+          selection,
+        },
+        undefined,
+        signal,
+      );
+    } finally {
+      await turn.dispose();
+    }
+    // 每次回合先发现技能/钩子再拉正式进程：取最后一个即本回合主进程。
+    return spawnArgv.at(-1).join("\n");
+  };
+  try {
+    // 默认全关：逐项关闭与 web_search 禁用都在（等价旧开关 false 语义）。
+    const offArgs = await spawnOnce(selectionFromLegacy(false));
+    assert.ok(offArgs.includes("features.shell_tool=false"));
+    assert.ok(offArgs.includes("features.view_image=false"));
+    assert.ok(offArgs.includes('web_search="disabled"'));
+    assert.ok(offArgs.includes("skills.bundled.enabled=false"));
+    // 全开（旧开关 true 迁移）：逐项关闭消失，基础隔离保留（feat02 场景1/7）。
+    const onArgs = await spawnOnce(selectionFromLegacy(true));
+    assert.ok(!onArgs.includes("features.shell_tool=false"));
+    assert.ok(!onArgs.includes("features.view_image=false"));
+    assert.ok(!onArgs.includes('web_search="disabled"'));
+    assert.ok(!onArgs.includes("skills.bundled.enabled=false"));
+    assert.ok(onArgs.includes("features.multi_agent=false"));
+    assert.ok(onArgs.includes("features.code_mode=false"));
+    assert.ok(onArgs.includes("tools.update_plan.enabled=false"));
+  } finally {
     await fixture.close();
   }
 });
