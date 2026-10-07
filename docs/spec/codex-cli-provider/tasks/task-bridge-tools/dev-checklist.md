@@ -40,11 +40,13 @@ kongming-agent/
 - 桥接冒烟已在真实 CLI（0.160.0，ChatGPT.app bundle）+ fixture 模型服务跑通：
   差分投递新输入 → `item/tool/call` 挂起 → 工具结果回传 → 同 turn 续推 → 最终回复；
   隔离核对通过（`tool_search`、技能哨兵、原生嵌套工具均已消灭）。
-- MCP 缺口已关闭（2026-10-07 用户拍板）：CODEX_HOME 指向 KMH 数据目录下
-  的 `codex-home`，config.toml 由插件写入，用户 `~/.codex` 的 MCP 设备
-  （node_repl、taptap-maker 等）与内置 MCP 工具不再进入模型可见集；
-  冒烟断言已收紧为模型只见 KMH 工具。连带语义：本机 ~/.codex 登录不再
-  自动生效，首次需在插件内登录（spec feat04 已同步）。
+- MCP 缺口已关闭（2026-10-07 用户两轮拍板）：CODEX_HOME 指向 KMH 数据
+  目录下的 `codex-home`（环境变量，单次调用级），用户 `~/.codex` 的 MCP
+  设备（node_repl、taptap-maker 等）与内置 MCP 工具不再进入模型可见集；
+  **禁止修改任何 Codex 配置文件**——隔离全部经 `-c` 进程参数注入（含
+  裁剪目录、功能关闭、技能按路径关闭），只影响本次调用，不落 config.toml。
+  冒烟断言收紧为模型只见 KMH 工具。连带语义：本机 ~/.codex 登录不自动
+  生效，首次需在插件内登录（spec feat04 已同步）。
 - 顺带确认：官方协议存在 `thread/fork` 方法，分叉带历史优先走原生 fork
   （task-session-binding 落地）。
 - 待验证：多轮对话 token 用量线性增长曲线、长挂起工具（分钟级）时 Codex
