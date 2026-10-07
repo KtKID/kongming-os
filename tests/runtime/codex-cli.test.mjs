@@ -354,8 +354,9 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
       .join("");
     assert.equal(text, "BRIDGE_OK");
     assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
-    // 隔离验证：CODEX_HOME 位于 KMH 数据目录且 config.toml 由插件写入，
-    // 用户 ~/.codex 的 MCP 设备不进配置，模型只看到 KMH 工具。
+    // 隔离验证：CODEX_HOME 沿用用户默认（共享登录，已拍板），用户配置的
+    // MCP 设备随之可见（已接受）；其余原生能力（shell、code mode、
+    // tool_search、原生技能）必须已消灭，KMH 工具以 kmh.* 命名空间在列。
     for (const request of fixture.requests) {
       const tools = [
         ...(request.body.tools ?? []),
@@ -363,7 +364,14 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
           .filter((item) => item.type === "additional_tools")
           .flatMap((item) => item.tools ?? []),
       ].map((tool) => tool.name ?? tool.type);
-      assert.deepEqual(tools, ["kmh_echo"]);
+      assert.ok(tools.includes("kmh_echo"), JSON.stringify(tools));
+      for (const tool of tools)
+        if (tool !== "kmh_echo")
+          assert.match(
+            tool,
+            /^(list_mcp_resources|list_mcp_resource_templates|read_mcp_resource|mcp__)/,
+            `unexpected non-MCP residual tool: ${tool}`,
+          );
     }
     // 工具结果确实进入第二请求。
     const resultSeen = (fixture.requests[1]?.body.input ?? []).some(
@@ -374,4 +382,35 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
     await turn.dispose();
     await fixture.close();
   }
+});
+
+// ---- 绑定持久化（session-store） ----
+import { mkdtempSync as mkdtempSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join2 } from "node:path";
+import { tmpdir as tmpdir2 } from "node:os";
+import {
+  CodexSessionStore,
+  cursorToRecord,
+  recordToCursor,
+} from "../../packages/codex-cli/lib/src/session-store.js";
+
+test("session store round-trips bindings and survives corruption", async () => {
+  const dir = mkdtempSync2(join2(tmpdir2(), "kmh-codex-store-"));
+  const store = new CodexSessionStore(dir);
+  await store.put("sess-1", cursorToRecord("thread-1", { fingerprints: ["a", "b"] }, "turn-9"));
+  const loaded = await store.get("sess-1");
+  assert.equal(loaded.threadId, "thread-1");
+  assert.deepEqual(loaded.fingerprints, ["a", "b"]);
+  assert.equal(loaded.lastTurnId, "turn-9");
+  const cursor = recordToCursor(loaded);
+  assert.deepEqual(cursor.fingerprints, ["a", "b"]);
+  assert.equal(await store.get("missing"), undefined);
+  await store.delete("sess-1");
+  assert.equal(await store.get("sess-1"), undefined);
+  // 损坏文件：读取回落空存储，写入可恢复。
+  writeFileSync2(join2(dir, "codex-bindings.json"), "{not json");
+  const store2 = new CodexSessionStore(dir);
+  assert.equal(await store2.get("sess-1"), undefined);
+  await store2.put("sess-2", cursorToRecord("thread-2", { fingerprints: [] }));
+  assert.equal((await store2.get("sess-2")).threadId, "thread-2");
 });
