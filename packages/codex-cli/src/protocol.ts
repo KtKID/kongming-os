@@ -107,16 +107,10 @@ export const ModelEntry = z
   .object({
     id: z.string().min(1),
     displayName: z.string().optional(),
-    // 推理等级为模型声明的可选值列表：wire 上是 {reasoningEffort, description}
-    // 对象数组，兼容纯字符串形态；缺失表示该模型不支持调节。
-    reasoningEfforts: z
-      .array(
-        z.union([
-          z.string(),
-          z.object({ reasoningEffort: z.string() }).passthrough(),
-        ]),
-      )
-      .optional(),
+    // 推理等级原值：wire 键为 supportedReasoningEfforts，值为
+    // {reasoningEffort, description} 对象数组，以 unknown 接住由调用方归一；
+    // 缺失表示该模型不支持调节。
+    supportedReasoningEfforts: z.array(z.unknown()).optional(),
     defaultReasoningEffort: z.string().optional(),
     supportsReasoningSummaries: z.boolean().optional(),
   })

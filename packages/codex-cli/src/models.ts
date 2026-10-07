@@ -5,7 +5,7 @@ import {
   type LlmResolvedModelInfo,
 } from "@deepseek-ai/dsh-llm";
 import type { CodexConnection } from "./connection.ts";
-import { ModelListResult } from "./protocol.ts";
+import { ModelListResult, fieldOf } from "./protocol.ts";
 
 /** 目录条目的插件侧形态。 */
 export interface CodexModelEntry {
@@ -50,12 +50,18 @@ export async function fetchCatalog(
       );
       const result = ModelListResult.parse(raw);
       for (const model of result.data) {
+        const efforts: string[] = [];
+        for (const effort of model.supportedReasoningEfforts ?? []) {
+          if (typeof effort === "string") efforts.push(effort);
+          else {
+            const value = fieldOf(effort, "reasoningEffort");
+            if (typeof value === "string") efforts.push(value);
+          }
+        }
         const entry: CodexModelEntry = {
           id: model.id,
           displayName: model.displayName ?? model.id,
-          efforts: (model.reasoningEfforts ?? []).map((effort) =>
-            typeof effort === "string" ? effort : effort.reasoningEffort,
-          ),
+          efforts,
         };
         if (model.defaultReasoningEffort !== undefined)
           entry.defaultEffort = model.defaultReasoningEffort;
