@@ -86,6 +86,8 @@ export function startFixtureServer(options = {}) {
       send({ type: "response.created", response: { ...response, status: "in_progress", output: [] } });
       send({ type: "response.output_item.added", output_index: 0, item });
       send({ type: "response.output_text.delta", item_id: item.id, output_index: 0, delta: text });
+      // done 事件缺省会让 Codex 不持久化最终消息：跨进程 resume 后历史缺该条。
+      send({ type: "response.output_item.done", output_index: 0, item });
       send({ type: "response.completed", response });
     }
     res.end("data: [DONE]\n\n");

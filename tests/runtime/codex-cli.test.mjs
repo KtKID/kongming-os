@@ -123,6 +123,7 @@ test("image projection extracts only completed saved generations", () => {
 
 // ---- 差分游标（cursor） ----
 import {
+  blockDigest,
   diffIncrement,
   emptySnapshot,
   snapshotAt,
@@ -154,7 +155,14 @@ test("cursor diffs fresh history into one new user input", () => {
 
 test("cursor aligns prefix and yields pending tool results", () => {
   const first = [user("帮我读 a.txt")];
-  const snapshot = snapshotAt(first, 1);
+  const callBlock = {
+    type: "tool-call",
+    id: "call-1",
+    name: "read",
+    arguments: JSON.stringify({ path: "a.txt" }),
+  };
+  // 工具调用块已在本 turn 流中投递：待核对队列须含其摘要。
+  const snapshot = snapshotAt(first, 1, [blockDigest(callBlock)]);
   const call1 = call("call-1", "read", { path: "a.txt" });
   const second = [...first, call1, tool("call-1", "内容", false)];
   const increment = diffIncrement(second, snapshot);
@@ -163,12 +171,66 @@ test("cursor aligns prefix and yields pending tool results", () => {
   assert.equal(increment.results[0].callId, "call-1");
   assert.equal(increment.results[0].text, "内容");
   assert.equal(increment.results[0].isError, false);
-  // 回传后推进游标，新输入再次可差分。
-  const advanced = snapshotAt(second, 3);
+  // 已被指纹覆盖的调用消息同时出队，回传后推进游标，新输入再次可差分。
+  assert.deepEqual(increment.delivered, []);
+  const advanced = snapshotAt(second, 3, increment.delivered);
   const third = [...second, user("继续")];
   const next = diffIncrement(third, advanced);
   assert.equal(next.kind, "new-input");
   assert.equal(next.text, "继续");
+});
+
+test("cursor swallows codex-owned replies and context injections at turn boundary", () => {
+  const reply = blockDigest({ type: "text", text: "Codex 的回答" });
+  const base = [user("第一轮的问题")];
+  const snapshot = snapshotAt(base, 1, [reply]);
+  const ctxUser = (kind) => ({
+    role: "user",
+    source: { kind },
+    content: [{ type: "text", text: "运行时上下文快照" }],
+  });
+  const assistant = (t) => ({
+    role: "assistant",
+    content: [{ type: "text", text: t }],
+  });
+  const system = () => ({
+    role: "system",
+    content: [{ type: "text", text: "系统提示" }],
+  });
+  // Codex 自产回复（摘要核对通过）+ system/ctx 注入透明 + 恰一条真实输入。
+  const next = [
+    ...base,
+    assistant("Codex 的回答"),
+    system(),
+    ctxUser("runtime-context"),
+    user("第二轮的问题"),
+  ];
+  const increment = diffIncrement(next, snapshot);
+  assert.equal(increment.kind, "new-input");
+  assert.equal(increment.text, "第二轮的问题");
+  assert.deepEqual(increment.delivered, []);
+  // 外来/被改写回复（摘要不命中）：断基线走重建，保证模型切换等场景历史完整。
+  const foreign = [...base, assistant("另一个模型的回答"), user("第二轮的问题")];
+  assert.equal(diffIncrement(foreign, snapshot).kind, "baseline-lost");
+  // 连续两条真实用户消息：一次只能投一条，断基线。
+  const doubled = [...base, user("第一条"), user("第二条")];
+  assert.equal(diffIncrement(doubled, snapshot).kind, "baseline-lost");
+  // 空块（空推理/空文本）不参与核对，两侧组装差异不影响判定。
+  const withEmpty = [
+    ...base,
+    { role: "assistant", content: [{ type: "reasoning", text: "" }, { type: "text", text: "Codex 的回答" }] },
+    user("第二轮的问题"),
+  ];
+  assert.equal(diffIncrement(withEmpty, snapshot).kind, "new-input");
+});
+
+test("cursor rejects non-text input blocks explicitly", () => {
+  const history = [
+    { role: "user", content: [{ type: "image", ref: "x" }] },
+  ];
+  const increment = diffIncrement(history, emptySnapshot());
+  assert.equal(increment.kind, "baseline-lost");
+  assert.equal(increment.reason, "unsupported-input-block");
 });
 
 test("cursor reports baseline loss on edits, shrinkage and bad tails", () => {
@@ -193,15 +255,6 @@ test("cursor reports baseline loss on edits, shrinkage and bad tails", () => {
   // 工具结果前缺失 assistant 调用即断基线。
   const orphan = [...first, tool("call-9", "孤儿结果", false)];
   assert.equal(diffIncrement(orphan, snapshot).kind, "baseline-lost");
-});
-
-test("cursor rejects non-text input blocks explicitly", () => {
-  const history = [
-    { role: "user", content: [{ type: "image", ref: "x" }] },
-  ];
-  const increment = diffIncrement(history, emptySnapshot());
-  assert.equal(increment.kind, "baseline-lost");
-  assert.equal(increment.reason, "unsupported-input-block");
 });
 
 // ---- 模型映射（models） ----
@@ -424,7 +477,8 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
 
 // ---- 并行工具挂起与状态丢失恢复（真实 CLI + fixture） ----
 // 共享的桥接测试脚手架：与上方冒烟测试同构，供并行场景复用。
-function makeBridgeHarness(fixture, script) {
+// hooks.wrapStdout 可包一层注入流（模拟 Codex 侧通知）。
+function makeBridgeHarness(fixture, script, hooks = {}) {
   const root = mkdtempSync(join(tmpdir(), `kmh-codex-${script}-`));
   const cwd = join(root, "workspace");
   mkdirSync(cwd, { recursive: true });
@@ -437,9 +491,13 @@ function makeBridgeHarness(fixture, script) {
           env: { ...process.env, ...env },
           stdio: stdio ? ["pipe", "pipe", "pipe"] : undefined,
         });
+        const stdout =
+          hooks.wrapStdout === undefined
+            ? child.stdout
+            : hooks.wrapStdout(child.stdout);
         return {
           stdin: child.stdin,
-          stdout: child.stdout,
+          stdout,
           stderr: child.stderr,
           exitCode: child.exitCode,
           done: new Promise((resolve, reject) => {
@@ -510,6 +568,80 @@ const parallelToolCatalog = [
   },
 ];
 
+/**
+ * adapter 级测试的鸭子类型 runtime：复刻真实 withSession 的串行与
+ * restoreCursor 语义（含差分游标与待核对摘要队列），turn 由测试显式替换。
+ */
+function makeAdapterHarness(parts) {
+  const binding = {
+    threadId: undefined,
+    fingerprints: [],
+    delivered: [],
+    lastTurnId: undefined,
+  };
+  let turn = new parts.CodexTurn(
+    parts.fakeCtx,
+    parts.config,
+    parts.cwd,
+    parts.fixtureOverrides,
+  );
+  const replaceTurn = async () => {
+    await turn.dispose();
+    turn = new parts.CodexTurn(
+      parts.fakeCtx,
+      parts.config,
+      parts.cwd,
+      parts.fixtureOverrides,
+    );
+    return turn;
+  };
+  const runtime = {
+    settings: { nativeToolsEnabled: false },
+    resolveCwd: () => parts.cwd,
+    bindingRecord: async () =>
+      binding.threadId === undefined ? undefined : { ...binding },
+    recordBinding: async (_key, t) => {
+      if (t.threadId === undefined) return;
+      binding.threadId = t.threadId;
+      binding.fingerprints = [...t.cursor.fingerprints];
+      binding.delivered = [...(t.cursor.delivered ?? [])];
+      binding.lastTurnId = t.lastCompletedTurnId;
+    },
+    releaseSession: () => {},
+    withSession: async function* (_sessionKey, _cwd, run) {
+      turn.cursor = {
+        fingerprints: [...binding.fingerprints],
+        delivered: [...binding.delivered],
+      };
+      turn.pendingDigests = [...binding.delivered];
+      turn.lastCompletedTurnId = binding.lastTurnId;
+      yield* run(turn);
+    },
+  };
+  return { binding, runtime, replaceTurn, getTurn: () => turn };
+}
+
+/** adapter 流收集：返回全部 chunk 与终局 reason kind 列表。 */
+async function collectStream(adapter, options) {
+  const chunks = [];
+  for await (const chunk of adapter.stream(options)) chunks.push(chunk);
+  return {
+    chunks,
+    finishes: chunks
+      .filter((chunk) => chunk.type === "finish")
+      .map((chunk) => chunk.reason?.kind),
+    text: chunks
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => chunk.text)
+      .join(""),
+  };
+}
+/** fixture 请求 input 数组的 JSON 文本（增量断言用）。 */
+function fixtureInputText(fixture, index = -1) {
+  const request = fixture.requests.at(index);
+  return JSON.stringify(request?.body.input ?? []);
+}
+
 test("parallel tool calls suspend one at a time and resume to final text", { skip: !findCodexBinary() }, async () => {
   const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
   const fixture = await startFixtureServer({ script: "parallel" });
@@ -577,30 +709,13 @@ test("adapter recovers from lost pending tools by rebuilding the thread", { skip
   const fixture = await startFixtureServer({ script: "parallel" });
   const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "recovery");
   const signal = AbortSignal.timeout(180000);
-  // 鸭子类型 runtime：只实现 drive 路径触及的接口；withSession 复刻
-  // 真实语义（串行 + 从绑定恢复游标），turn 由测试显式替换以模拟事故。
-  const binding = { threadId: undefined, fingerprints: [], lastTurnId: undefined };
-  let turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
-  const runtime = {
-    settings: { nativeToolsEnabled: false },
-    resolveCwd: () => cwd,
-    bindingRecord: async () =>
-      binding.threadId === undefined
-        ? undefined
-        : { ...binding },
-    recordBinding: async (_key, t) => {
-      if (t.threadId === undefined) return;
-      binding.threadId = t.threadId;
-      binding.fingerprints = [...t.cursor.fingerprints];
-      binding.lastTurnId = t.lastCompletedTurnId;
-    },
-    releaseSession: () => {},
-    withSession: async function* (_sessionKey, _cwd, run) {
-      turn.cursor = { fingerprints: [...binding.fingerprints] };
-      turn.lastCompletedTurnId = binding.lastTurnId;
-      yield* run(turn);
-    },
-  };
+  const { runtime, replaceTurn, getTurn } = makeAdapterHarness({
+    CodexTurn,
+    fakeCtx,
+    config,
+    cwd,
+    fixtureOverrides,
+  });
   const adapter = new CodexAdapter(runtime);
   const base = {
     provider: "codex-cli",
@@ -617,29 +732,209 @@ test("adapter recovers from lost pending tools by rebuilding the thread", { skip
   const history = [user("Use both tools")];
   try {
     // 第一段：新输入 → 第一个工具挂起，游标与绑定落盘。
-    const first = [];
-    for await (const chunk of adapter.stream({ ...base, messages: [...history] }))
-      first.push(chunk);
-    assert.ok(first.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "tool-calls"));
-    assert.equal(binding.fingerprints.length, 1);
+    const first = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.ok(first.finishes.includes("tool-calls"));
     // KMH 侧执行第一个工具后历史推进。
     history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
     history.push(tool("call_kmh", "hello from KMH", false));
     // 生产事故模拟：会话状态重建丢弃带挂起工具的 turn（stateOf 替换），
     // 新 turn 从绑定恢复游标，挂起表为空——结果回传必须走恢复路径而非报错。
-    await turn.dispose();
-    turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
-    const second = [];
-    for await (const chunk of adapter.stream({ ...base, messages: [...history] }))
-      second.push(chunk);
-    const text = second
-      .filter((chunk) => chunk.type === "text-delta")
-      .map((chunk) => chunk.text)
-      .join("");
-    assert.equal(text, "BRIDGE_OK");
-    assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
+    await replaceTurn();
+    const second = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.equal(second.text, "BRIDGE_OK");
+    assert.ok(second.finishes.includes("stop"));
   } finally {
-    await turn.dispose();
+    await getTurn().dispose();
+    await fixture.close();
+  }
+});
+
+// ---- 多轮/压缩/编辑重发基线 smoke（T3/T5/T6/T10/T11） ----
+const assistantText = (t) => ({ role: "assistant", content: [{ type: "text", text: t }] });
+const contextUser = (t) => ({
+  role: "user",
+  source: { kind: "runtime-context" },
+  content: [{ type: "text", text: t }],
+});
+const echoToolSpec = [
+  {
+    name: "kmh_echo",
+    description: "Echo text through KMH",
+    parameters: {
+      type: "object",
+      properties: { text: { type: "string" } },
+      required: ["text"],
+    },
+  },
+];
+
+test("multi turn sessions continue across restarts with linear history delivery", { skip: !findCodexBinary() }, async () => {
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
+  const fixture = await startFixtureServer({});
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "multiturn");
+  const signal = AbortSignal.timeout(180000);
+  const { runtime, replaceTurn, getTurn, binding } = makeAdapterHarness({
+    CodexTurn,
+    fakeCtx,
+    config,
+    cwd,
+    fixtureOverrides,
+  });
+  const adapter = new CodexAdapter(runtime);
+  const base = {
+    provider: "codex-cli",
+    model: "gpt-6-sol",
+    sessionId: "kmh-codex-multiturn",
+    system: "KMH owns all tools and skills.",
+    tools: echoToolSpec,
+    signal,
+  };
+  const history = [user("第一轮的问题")];
+  try {
+    // 第一轮：新输入（含 system 前缀形态）→ 工具挂起 → 结果回传 → 完成。
+    const s1 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.ok(s1.finishes.includes("tool-calls"));
+    // 首轮即原文投递：不含重建标记。
+    assert.equal(fixtureInputText(fixture).includes("对话记录重建"), false);
+    history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
+    history.push(tool("call_kmh", "hello from KMH", false));
+    const s2 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.equal(s2.text, "BRIDGE_OK");
+    assert.ok(s2.finishes.includes("stop"));
+    history.push(assistantText("BRIDGE_OK"));
+    // 进程重启（turn 对象重建）+ 第二轮：含新 context 注入与上轮回复。
+    await replaceTurn();
+    history.push(contextUser("运行时上下文快照"));
+    history.push(user("第二轮的问题"));
+    const s3 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.equal(s3.text, "BRIDGE_OK");
+    assert.ok(s3.finishes.includes("stop"));
+    // token 线性（增量投递）等价断言：原文投递、无重建、历史单份。
+    const inputText = fixtureInputText(fixture);
+    assert.equal(inputText.includes("以下是本会话此前的对话记录重建"), false);
+    assert.equal(inputText.split("第一轮的问题").length - 1, 1);
+    assert.equal(inputText.split("BRIDGE_OK").length - 1, 1);
+    assert.ok(inputText.includes("第二轮的问题"));
+    assert.ok(binding.threadId !== undefined);
+  } finally {
+    await getTurn().dispose();
+    await fixture.close();
+  }
+});
+
+test("codex native compaction notification keeps bridge and diff stable", { skip: !findCodexBinary() }, async () => {
+  const { PassThrough } = await import("node:stream");
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
+  const fixture = await startFixtureServer({});
+  let inject;
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "compact", {
+    wrapStdout: (stdout) => {
+      const pass = new PassThrough();
+      stdout.pipe(pass);
+      inject = pass;
+      return pass;
+    },
+  });
+  const signal = AbortSignal.timeout(180000);
+  const { runtime, replaceTurn, getTurn, binding } = makeAdapterHarness({
+    CodexTurn,
+    fakeCtx,
+    config,
+    cwd,
+    fixtureOverrides,
+  });
+  const adapter = new CodexAdapter(runtime);
+  const base = {
+    provider: "codex-cli",
+    model: "gpt-6-sol",
+    sessionId: "kmh-codex-compaction",
+    system: "KMH owns all tools and skills.",
+    tools: echoToolSpec,
+    signal,
+  };
+  const history = [user("第一轮的问题")];
+  try {
+    const s1 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.ok(s1.finishes.includes("tool-calls"));
+    // Codex 原生压缩通知（终拍板：KMH 基线不受影响）：桥必须不崩、后续差分不变。
+    inject.write(
+      JSON.stringify({ method: "thread/compacted", params: { threadId: binding.threadId } }) + "\n",
+    );
+    history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
+    history.push(tool("call_kmh", "hello from KMH", false));
+    const s2 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.equal(s2.text, "BRIDGE_OK");
+    assert.ok(s2.finishes.includes("stop"));
+    history.push(assistantText("BRIDGE_OK"));
+    await replaceTurn();
+    history.push(user("压缩后的下一轮"));
+    const s3 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.equal(s3.text, "BRIDGE_OK");
+    const inputText = fixtureInputText(fixture);
+    assert.equal(inputText.includes("对话记录重建"), false);
+    assert.equal(inputText.split("第一轮的问题").length - 1, 1);
+  } finally {
+    await getTurn().dispose();
+    await fixture.close();
+  }
+});
+
+test("editing history rebuilds the binding and continues linearly", { skip: !findCodexBinary() }, async () => {
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
+  const fixture = await startFixtureServer({});
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "edit-resend");
+  const signal = AbortSignal.timeout(180000);
+  const { runtime, replaceTurn, getTurn, binding } = makeAdapterHarness({
+    CodexTurn,
+    fakeCtx,
+    config,
+    cwd,
+    fixtureOverrides,
+  });
+  const adapter = new CodexAdapter(runtime);
+  const base = {
+    provider: "codex-cli",
+    model: "gpt-6-sol",
+    sessionId: "kmh-codex-edit",
+    system: "KMH owns all tools and skills.",
+    tools: echoToolSpec,
+    signal,
+  };
+  const history = [user("原始问题")];
+  try {
+    // 第一轮完成，建立基线绑定。
+    const s1 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.ok(s1.finishes.includes("tool-calls"));
+    history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
+    history.push(tool("call_kmh", "hello from KMH", false));
+    const s2 = await collectStream(adapter, { ...base, messages: [...history] });
+    assert.ok(s2.finishes.includes("stop"));
+    const firstThread = binding.threadId;
+    assert.ok(firstThread !== undefined);
+    // 编辑重发：改写用户消息，基线失效 → fork 或新建 thread 并注入重建历史。
+    const edited = [user("改写后的问题")];
+    await replaceTurn();
+    const s3 = await collectStream(adapter, { ...base, messages: [...edited] });
+    assert.ok(s3.finishes.includes("stop"));
+    const rebuildText = fixtureInputText(fixture);
+    assert.ok(rebuildText.includes("以下是本会话此前的对话记录重建"));
+    assert.ok(rebuildText.includes("改写后的问题"));
+    assert.notEqual(binding.threadId, firstThread);
+    // 重建后的新基线上，下一轮恢复增量投递。
+    edited.push(assistantText("BRIDGE_OK"), user("重建后的下一轮"));
+    await replaceTurn();
+    const s4 = await collectStream(adapter, { ...base, messages: [...edited] });
+    assert.equal(s4.text, "BRIDGE_OK");
+    const linearText = fixtureInputText(fixture);
+    // 恢复的是重建线程：历史合法含一次重建文本；断言无新增重建且原文投递。
+    assert.equal(linearText.split("以下是本会话此前的对话记录重建").length - 1, 1);
+    assert.equal(linearText.split("改写后的问题").length - 1, 1);
+    assert.ok(linearText.includes("重建后的下一轮"));
+  } finally {
+    await getTurn().dispose();
     await fixture.close();
   }
 });
@@ -657,13 +952,22 @@ import {
 test("session store round-trips bindings and survives corruption", async () => {
   const dir = mkdtempSync2(join2(tmpdir2(), "kmh-codex-store-"));
   const store = new CodexSessionStore(dir);
-  await store.put("sess-1", cursorToRecord("thread-1", { fingerprints: ["a", "b"] }, "turn-9"));
+  await store.put(
+    "sess-1",
+    cursorToRecord(
+      "thread-1",
+      { fingerprints: ["a", "b"], delivered: ["t:1"] },
+      "turn-9",
+    ),
+  );
   const loaded = await store.get("sess-1");
   assert.equal(loaded.threadId, "thread-1");
   assert.deepEqual(loaded.fingerprints, ["a", "b"]);
   assert.equal(loaded.lastTurnId, "turn-9");
+  assert.deepEqual(loaded.delivered, ["t:1"]);
   const cursor = recordToCursor(loaded);
   assert.deepEqual(cursor.fingerprints, ["a", "b"]);
+  assert.deepEqual(cursor.delivered, ["t:1"]);
   assert.equal(await store.get("missing"), undefined);
   await store.delete("sess-1");
   assert.equal(await store.get("sess-1"), undefined);
