@@ -77,6 +77,9 @@ export const Incoming = {
   turnCompleted: "turn/completed",
   itemStarted: "item/started",
   itemCompleted: "item/completed",
+  commandExecutionOutputDelta: "item/commandExecution/outputDelta",
+  mcpToolCallProgress: "item/mcpToolCall/progress",
+  turnDiffUpdated: "turn/diff/updated",
   agentMessageDelta: "item/agentMessage/delta",
   reasoningTextDelta: "item/reasoning/textDelta",
   reasoningSummaryTextDelta: "item/reasoning/summaryTextDelta",
@@ -262,6 +265,26 @@ export const ItemEventParams = z
     item: z.unknown(),
   })
   .passthrough();
+/** item/commandExecution/outputDelta 通知参数（feat08）。 */
+export const CommandExecutionOutputDeltaParams = z.object({
+  threadId: z.string().min(1),
+  turnId: z.string().min(1),
+  itemId: z.string().min(1),
+  delta: z.string(),
+});
+/** item/mcpToolCall/progress 通知参数。 */
+export const McpToolCallProgressParams = z.object({
+  threadId: z.string().min(1),
+  turnId: z.string().min(1),
+  itemId: z.string().min(1),
+  message: z.string(),
+});
+/** turn/diff/updated 通知参数。 */
+export const TurnDiffUpdatedParams = z.object({
+  threadId: z.string().min(1),
+  turnId: z.string().min(1),
+  diff: z.string(),
+});
 
 /** 审批类服务端请求的公共定位字段。 */
 const approvalLocator = {

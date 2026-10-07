@@ -13,14 +13,18 @@ import type { SessionId } from "@deepseek-ai/dsh-session";
 import { connectCodex, type CodexConnection } from "./connection.ts";
 import {
   AgentMessageDeltaParams,
+  CommandExecutionOutputDeltaParams,
   DynamicToolCallParams,
   DynamicToolCallResponse,
   ErrorNotificationParams,
   Incoming,
+  ItemEventParams,
   KMH_TOOL_NAMESPACE,
+  McpToolCallProgressParams,
   ReasoningDeltaParams,
   ThreadResult,
   TurnCompletedParams,
+  TurnDiffUpdatedParams,
   TurnResult,
   imageProjectionOf,
 } from "./protocol.ts";
@@ -36,6 +40,20 @@ import {
   type ToolRegistry,
 } from "./tool-registry.ts";
 import { CodexApprovalBridge } from "./approval.ts";
+import {
+  NATIVE_DIFF_NOTE_ID,
+  NATIVE_NOTE_LIMIT,
+  NATIVE_TRUNCATED_NOTE,
+  NATIVE_UNSETTLED_NOTE,
+  diffBudgetAccepts,
+  diffSummaryLineOf,
+  nativeCompletionNoteOf,
+  nativeHeaderOf,
+  newDiffBudget,
+  newNoteBudget,
+  type DiffNoteBudget,
+  type NativeNoteBudget,
+} from "./native-items.ts";
 import {
   imageFailureNote,
   imageSizeNote,
@@ -113,6 +131,10 @@ export class CodexTurn {
   private sessionId: SessionId | undefined;
   /** 回合级审批中止：dispose/interrupt 时待审批决定随回合取消（feat06 场景1）。 */
   private approvalAbort: AbortController | undefined;
+  /** 原生叙述账目（feat08 v1）：按 item 的体积与收尾状态；reopen 重置。 */
+  private readonly nativeNotes = new Map<string, NativeNoteBudget>();
+  /** turn 级 diff 叙述账目。 */
+  private diffBudget: DiffNoteBudget = newDiffBudget();
   /**
    * 本回合的工具声明表（D13）：声明名 kmh-<原名> 与目录指纹。
    * start/rebuild 时建立；临时会话（adopt）保持 undefined，仅兼容裸名。
@@ -147,6 +169,8 @@ export class CodexTurn {
     this.lastUserText = "";
     this.toolRegistry = undefined;
     this.approvalAbort = undefined;
+    this.nativeNotes.clear();
+    this.diffBudget = newDiffBudget();
   }
 
   /** 等待结果回传的挂起工具调用标识。 */
@@ -481,6 +505,42 @@ export class CodexTurn {
         });
         break;
       }
+      case Incoming.itemStarted: {
+        // 原生执行叙述（feat08 v1）：开始即开一个独立文本块（场景1/3）。
+        const started = ItemEventParams.parse(params);
+        const header = nativeHeaderOf(started.item);
+        if (header !== undefined)
+          this.openNativeNote(header.itemId, header.header);
+        break;
+      }
+      case Incoming.commandExecutionOutputDelta: {
+        // 命令输出随执行更新（场景1）：增量追加进该调用的叙述块，超限截断。
+        const output = CommandExecutionOutputDeltaParams.parse(params);
+        this.appendNativeNote(output.itemId, output.delta);
+        break;
+      }
+      case Incoming.mcpToolCallProgress: {
+        const progress = McpToolCallProgressParams.parse(params);
+        this.appendNativeNote(progress.itemId, `▸ 进度：${progress.message}\n`);
+        break;
+      }
+      case Incoming.turnDiffUpdated: {
+        // turn 级文件变更摘要（D14）：按范围统计行数，更新次数封顶。
+        const updated = TurnDiffUpdatedParams.parse(params);
+        if (diffBudgetAccepts(this.diffBudget)) {
+          this.diffBudget.updates += 1;
+          if (!this.nativeNotes.has(NATIVE_DIFF_NOTE_ID))
+            this.openNativeNote(
+              NATIVE_DIFF_NOTE_ID,
+              "▸ [codex 原生·变更] 本回合文件变更：",
+            );
+          this.appendNativeNote(
+            NATIVE_DIFF_NOTE_ID,
+            `${diffSummaryLineOf(updated.diff)}\n`,
+          );
+        }
+        break;
+      }
       case Incoming.itemCompleted: {
         const item = params.item;
         if (item !== null && typeof item === "object") {
@@ -520,6 +580,10 @@ export class CodexTurn {
             });
           } else if (record.type === "imageGeneration") {
             this.projectImage(item).catch(() => undefined);
+            this.closeNativeNote(item);
+          } else {
+            // 其余原生 item：追加完成状态并收尾叙述块（场景1：结果）。
+            this.closeNativeNote(item);
           }
         }
         break;
@@ -529,7 +593,8 @@ export class CodexTurn {
         if (this.turnId !== undefined && completed.turn.id !== this.turnId)
           return;
         this.terminalStatus = completed.turn.status;
-        // 终局先补算未闭合块的摘要，再入队终止事件：drive 收尾快照即完整。
+        // 缺结束确认的调用补记待确认（场景5/6），再补算未闭合块摘要。
+        this.closeUnsettledNativeNotes();
         this.digestOpenBlocks();
         const usage = projectUsage(fieldOf(completed.turn, "usage"));
         this.push(
@@ -626,6 +691,120 @@ export class CodexTurn {
       kind: "chunk",
       chunk: { type: "block-end", index, block: { type: "text", text } },
     });
+  }
+  /** 开启一条原生叙述块（item/started）。 */
+  private openNativeNote(itemId: string, header: string): void {
+    if (this.nativeNotes.has(itemId)) return;
+    const budget = newNoteBudget();
+    budget.chars = header.length;
+    budget.text = `${header}\n`;
+    this.nativeNotes.set(itemId, budget);
+    const index = this.allocate(itemId);
+    this.push({
+      kind: "chunk",
+      chunk: { type: "block-start", index, blockType: "text" },
+    });
+    this.push({
+      kind: "chunk",
+      chunk: { type: "text-delta", index, text: budget.text },
+    });
+  }
+  /** 向原生叙述块追加增量（输出/进度/diff 摘要），超限截断、收尾后拒收。 */
+  private appendNativeNote(itemId: string, text: string): void {
+    const budget = this.nativeNotes.get(itemId);
+    if (budget === undefined || budget.closed || budget.truncated) return;
+    if (budget.chars + text.length > NATIVE_NOTE_LIMIT) {
+      budget.truncated = true;
+      budget.text += NATIVE_TRUNCATED_NOTE;
+      const index = this.allocate(itemId);
+      this.push({
+        kind: "chunk",
+        chunk: { type: "text-delta", index, text: NATIVE_TRUNCATED_NOTE },
+      });
+      return;
+    }
+    budget.chars += text.length;
+    budget.text += text;
+    const index = this.allocate(itemId);
+    this.push({
+      kind: "chunk",
+      chunk: { type: "text-delta", index, text },
+    });
+  }
+  /** 收尾原生叙述块（item/completed）：补完成状态并块结束（一次性）。 */
+  private closeNativeNote(item: unknown): void {
+    const note = nativeCompletionNoteOf(item);
+    if (note === undefined) return;
+    const id = fieldOf(item, "id");
+    if (typeof id !== "string") return;
+    const budget = this.nativeNotes.get(id);
+    const index = this.allocate(id);
+    if (budget === undefined) {
+      // 错过 started 的完成事件：以完整单块补记（开头 + 完成状态）。
+      const header = nativeHeaderOf(item);
+      if (header === undefined) return;
+      const full = `${header.header}\n${note}`;
+      this.nativeNotes.set(id, {
+        ...newNoteBudget(),
+        closed: true,
+        text: full,
+      });
+      this.push({
+        kind: "chunk",
+        chunk: { type: "block-start", index, blockType: "text" },
+      });
+      this.push({
+        kind: "chunk",
+        chunk: { type: "text-delta", index, text: full },
+      });
+      this.push({
+        kind: "chunk",
+        chunk: {
+          type: "block-end",
+          index,
+          block: { type: "text", text: full },
+        },
+      });
+      return;
+    }
+    if (budget.closed) return;
+    budget.closed = true;
+    budget.text += note;
+    this.push({
+      kind: "chunk",
+      chunk: { type: "text-delta", index, text: note },
+    });
+    this.push({
+      kind: "chunk",
+      chunk: {
+        type: "block-end",
+        index,
+        block: { type: "text", text: budget.text },
+      },
+    });
+  }
+  /** 回合终局：仍未收尾的原生叙述补记待确认并闭合（场景5/6）。 */
+  private closeUnsettledNativeNotes(): void {
+    for (const [itemId, budget] of this.nativeNotes) {
+      if (budget.closed) continue;
+      // diff 摘要不是调用记录：无"待确认"语义，交给 digestOpenBlocks 常规闭合。
+      if (itemId === NATIVE_DIFF_NOTE_ID) continue;
+      budget.closed = true;
+      budget.text += NATIVE_UNSETTLED_NOTE;
+      const index = this.allocate(itemId);
+      this.push({
+        kind: "chunk",
+        chunk: { type: "text-delta", index, text: NATIVE_UNSETTLED_NOTE },
+      });
+      this.push({
+        kind: "chunk",
+        chunk: {
+          type: "block-end",
+          index,
+          block: { type: "text", text: budget.text },
+        },
+      });
+    }
   }
   /** 为流块分配序号；同一 itemId 复用。 */
   private allocate(itemId: string): number {
