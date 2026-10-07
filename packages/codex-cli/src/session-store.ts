@@ -11,6 +11,8 @@ export interface BindingRecord {
   fingerprints: string[];
   /** 已完成的最后一个 Codex turn id；fork 重建的边界。 */
   lastTurnId?: string;
+  /** 待核对的回合块摘要队列（跨进程续用）。 */
+  delivered?: string[];
 }
 /** 持久化文件形态。 */
 type BindingFile = Record<string, BindingRecord>;
@@ -82,6 +84,7 @@ function validate(value: unknown): BindingRecord | undefined {
   const threadId = (value as { threadId?: unknown }).threadId;
   const fingerprints = (value as { fingerprints?: unknown }).fingerprints;
   const lastTurnId = (value as { lastTurnId?: unknown }).lastTurnId;
+  const delivered = (value as { delivered?: unknown }).delivered;
   if (typeof threadId !== "string" || !Array.isArray(fingerprints))
     return undefined;
   if (!fingerprints.every((item) => typeof item === "string")) return undefined;
@@ -89,21 +92,30 @@ function validate(value: unknown): BindingRecord | undefined {
     threadId,
     fingerprints,
     ...(typeof lastTurnId === "string" ? { lastTurnId } : {}),
+    ...(Array.isArray(delivered) &&
+    delivered.every((item) => typeof item === "string")
+      ? { delivered: [...delivered] }
+      : {}),
   };
   return record;
 }
 /** 游标快照与绑定记录的互转。 */
 export function recordToCursor(record: BindingRecord): CursorSnapshot {
-  return { fingerprints: [...record.fingerprints] };
+  return {
+    fingerprints: [...record.fingerprints],
+    delivered: [...(record.delivered ?? [])],
+  };
 }
 export function cursorToRecord(
   threadId: string,
   cursor: CursorSnapshot,
   lastTurnId?: string,
 ): BindingRecord {
+  const delivered = cursor.delivered ?? [];
   return {
     threadId,
     fingerprints: [...cursor.fingerprints],
     ...(lastTurnId !== undefined ? { lastTurnId } : {}),
+    ...(delivered.length > 0 ? { delivered: [...delivered] } : {}),
   };
 }

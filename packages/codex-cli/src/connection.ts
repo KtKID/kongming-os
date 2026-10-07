@@ -153,7 +153,8 @@ export async function connectCodex(
     return await launch(executable, ["--session-source", "cli"]);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("unexpected argument '--session-source'")) throw error;
+    if (!message.includes("unexpected argument '--session-source'"))
+      throw error;
     return await launch(executable, []);
   }
 
@@ -176,7 +177,9 @@ export async function connectCodex(
     });
     const stderrTail = { value: "" };
     child.stderr?.on("data", (chunk: Buffer) => {
-      stderrTail.value = (stderrTail.value + chunk.toString("utf8")).slice(-2000);
+      stderrTail.value = (stderrTail.value + chunk.toString("utf8")).slice(
+        -2000,
+      );
     });
     const input = child.stdout;
     const output = child.stdin;

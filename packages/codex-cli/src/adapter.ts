@@ -107,7 +107,12 @@ export class CodexAdapter extends LlmAdapter {
         inputSchema: tool.parameters,
       })),
     };
-    const increment = diffIncrement(options.messages, turn.cursor);
+    // 差分以待核对工作队列为输入：历史 assistant 消息核对/指纹推进时出队，
+    // 余量随分支对账回 turn，本回合新块入队并随游标持久化（跨进程续用）。
+    const increment = diffIncrement(options.messages, {
+      fingerprints: turn.cursor.fingerprints,
+      delivered: turn.pendingDigests,
+    });
     if (increment.kind === "baseline-lost") {
       // 编辑/重发/历史改写：等同从该点分叉——fork 或新建并注入重建历史。
       yield* this.rebuildFromBinding(
@@ -119,6 +124,8 @@ export class CodexAdapter extends LlmAdapter {
       );
       return;
     }
+    // 差分已消费的历史 assistant 消息从待核对队列出队；余量随分支对账回
+    // turn 上（见各分支注释），本回合新产出的块继续入队并随游标持久化。
     if (increment.kind === "new-input") {
       if (turn.pendingCallIds().length > 0)
         throw new Error("CODEX_TOOL_PENDING");
@@ -128,8 +135,13 @@ export class CodexAdapter extends LlmAdapter {
         record?.threadId,
         signal,
       );
+      // start 的 reopen 清空了队列：差分余量（历史尚未消费的摘要）在队头
+      // 恢复，本回合新块随后追加。
+      turn.pendingDigests = [...increment.delivered, ...turn.pendingDigests];
       yield* turn.pump(signal);
     } else {
+      // resume 路径不重开队列：直接以差分余量为基准。
+      turn.pendingDigests = [...increment.delivered];
       let resumed = false;
       try {
         yield* turn.resumeWithToolResults(increment.results, signal);
@@ -155,7 +167,11 @@ export class CodexAdapter extends LlmAdapter {
         return;
       }
     }
-    turn.cursor = snapshotAt(options.messages, increment.consumed);
+    turn.cursor = snapshotAt(
+      options.messages,
+      increment.consumed,
+      turn.pendingDigests,
+    );
     await this.runtime.recordBinding(sessionKey, turn);
     if (turn.terminated) this.runtime.releaseSession(turn);
   }
@@ -186,10 +202,15 @@ export class CodexAdapter extends LlmAdapter {
       rebuildTextOf(options.messages),
       signal,
     );
-    turn.cursor = snapshotAt(options.messages, options.messages.length);
-    await this.runtime.recordBinding(sessionKey, turn);
     yield* turn.pump(signal);
-    if (turn.terminated) await this.runtime.recordBinding(sessionKey, turn);
+    // 快照在 pump 之后：重建 turn 期间产出的块摘要（delivered）才能随
+    // 游标落盘，后续轮次的边界核对才有据可依（实测先快照会丢失摘要）。
+    turn.cursor = snapshotAt(
+      options.messages,
+      options.messages.length,
+      turn.pendingDigests,
+    );
+    await this.runtime.recordBinding(sessionKey, turn);
     this.runtime.releaseSession(turn);
   }
 }

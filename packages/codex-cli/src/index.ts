@@ -134,6 +134,8 @@ export class CodexCli extends Service {
     if (record === undefined) return;
     turn.cursor = recordToCursor(record);
     turn.lastCompletedTurnId = record.lastTurnId;
+    // 待核对队列种子：上一流尾已写入绑定，此处回读幂等；新块随流追加。
+    turn.pendingDigests = [...turn.cursor.delivered];
     const state = this.sessions.get(sessionKey);
     if (state !== undefined) state.threadId = record.threadId;
   }

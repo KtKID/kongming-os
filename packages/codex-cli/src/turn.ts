@@ -22,7 +22,7 @@ import {
   imageProjectionOf,
 } from "./protocol.ts";
 import { prepareIsolation, verifyIsolation } from "./isolation.ts";
-import { emptySnapshot, type CursorSnapshot } from "./cursor.ts";
+import { blockDigest, emptySnapshot, type CursorSnapshot } from "./cursor.ts";
 import { fieldOf } from "./protocol.ts";
 
 /** turn 启动所需请求侧信息。 */
@@ -66,12 +66,22 @@ export class CodexTurn {
   private readonly pending = new Map<string, PendingTool>();
   /** 已投影为会话图片块的生图项 id：防重复投影。 */
   private readonly projectedImages = new Set<string>();
+  /** 文本/推理块的类型与 delta 累积（摘要补算用），按流块索引。 */
+  private readonly blockTypes = new Map<number, "text" | "reasoning">();
+  private readonly blockText = new Map<number, string>();
+  private readonly endedBlocks = new Set<number>();
   threadId: string | undefined;
   turnId: string | undefined;
   /** 最近一次完成（含 interrupted）的 turn id；fork 重建的边界。 */
   lastCompletedTurnId: string | undefined;
   /** 差分游标：已投递到 Codex thread 的对齐点。 */
   cursor: CursorSnapshot = emptySnapshot();
+  /**
+   * 待核对回合块摘要队列：本 turn 投影的块入队（block-end 时），差分
+   * 消费历史中的 assistant 消息时出队。adapter 在每次差分后把它对账为
+   * 游标返回的剩余队列，再随快照持久化（见 cursor.ts 注释）。
+   */
+  pendingDigests: string[] = [];
   /** 回合终止状态；completed 或 interrupted 后进程可回收。 */
   terminalStatus: string | undefined;
 
@@ -96,6 +106,10 @@ export class CodexTurn {
     this.nextIndex = 0;
     this.pending.clear();
     this.wakeup = undefined;
+    this.pendingDigests = [];
+    this.blockTypes.clear();
+    this.blockText.clear();
+    this.endedBlocks.clear();
   }
 
   /** 等待结果回传的挂起工具调用标识。 */
@@ -428,6 +442,8 @@ export class CodexTurn {
         if (this.turnId !== undefined && completed.turn.id !== this.turnId)
           return;
         this.terminalStatus = completed.turn.status;
+        // 终局先补算未闭合块的摘要，再入队终止事件：drive 收尾快照即完整。
+        this.digestOpenBlocks();
         const usage = projectUsage(fieldOf(completed.turn, "usage"));
         this.push(
           usage === undefined
@@ -507,8 +523,45 @@ export class CodexTurn {
   }
   private push(event: Queued): void {
     if (this.closed) return;
+    const chunk = event.kind === "chunk" ? event.chunk : undefined;
+    if (chunk !== undefined) {
+      // 文本/推理块按索引累积：Codex 对 turn 末条消息常不发 item/completed，
+      // 摘要在 turn-done 时以累积文本补算（与 KMH 侧按 delta 组装一致）。
+      if (chunk.type === "block-start") {
+        if (chunk.blockType === "text" || chunk.blockType === "reasoning") {
+          this.blockTypes.set(chunk.index, chunk.blockType);
+          this.blockText.set(chunk.index, "");
+        }
+      } else if (
+        chunk.type === "text-delta" ||
+        chunk.type === "reasoning-delta"
+      ) {
+        const text = this.blockText.get(chunk.index) ?? "";
+        this.blockText.set(chunk.index, text + chunk.text);
+      } else if (chunk.type === "block-end") {
+        this.endedBlocks.add(chunk.index);
+        const block = chunk.block as { type?: unknown; text?: unknown };
+        if (
+          (block.type === "text" || block.type === "reasoning") &&
+          typeof block.text === "string"
+        )
+          this.blockText.set(chunk.index, block.text);
+        // 本回合产出的块入待核对队列：turn 边界差分用它核对历史 assistant 消息。
+        const d = blockDigest(chunk.block);
+        if (d !== undefined) this.pendingDigests.push(d);
+      }
+    }
     this.queue.push(event);
     this.wakeup?.();
+  }
+  /** turn 终局补算未闭合文本/推理块的摘要（内容取 delta 累积）。 */
+  private digestOpenBlocks(): void {
+    for (const [index, type] of this.blockTypes) {
+      if (this.endedBlocks.has(index)) continue;
+      this.endedBlocks.add(index);
+      const d = blockDigest({ type, text: this.blockText.get(index) ?? "" });
+      if (d !== undefined) this.pendingDigests.push(d);
+    }
   }
   private wait(): Promise<void> {
     if (this.queue.length > 0) return Promise.resolve();
