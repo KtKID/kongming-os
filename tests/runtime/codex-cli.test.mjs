@@ -179,6 +179,57 @@ test("failure note keeps both states and the original artifact path", () => {
   assert.match(note, /\/Users\/x\/\.codex\/generated_images\/a\/b\.png/);
 });
 
+// ---- 工具声明映射（D13：kmh- 前缀、目录指纹与回执解析） ----
+import {
+  buildToolRegistry,
+  resolveKmhToolName,
+  toolFingerprintOf,
+} from "../../packages/codex-cli/lib/src/tool-registry.js";
+
+test("tool registry prefixes declarations and validates names", () => {
+  const registry = buildToolRegistry(parallelToolCatalog);
+  assert.equal(registry.kmhToDeclared.get("kmh_echo"), "kmh-kmh_echo");
+  assert.equal(registry.declaredToKmh.get("kmh-kmh_echo"), "kmh_echo");
+  // 前缀后名称超出官方接受范围：明确报错。
+  assert.throws(
+    () => buildToolRegistry([{ name: "bad/name", description: "", inputSchema: {} }]),
+    /CODEX_TOOL_NAME_INVALID/,
+  );
+  // 声明名碰撞（同名工具重复出现）：明确报错。
+  assert.throws(
+    () =>
+      buildToolRegistry([
+        { name: "dup", description: "", inputSchema: {} },
+        { name: "dup", description: "again", inputSchema: {} },
+      ]),
+    /CODEX_TOOL_NAME_COLLISION/,
+  );
+});
+
+test("resolveKmhToolName maps declared names and falls back to bare legacy names", () => {
+  const registry = buildToolRegistry(parallelToolCatalog);
+  // 声明名精确命中。
+  assert.equal(resolveKmhToolName(registry, "kmh-kmh_echo"), "kmh_echo");
+  // 旧 thread 裸名兼容（以当前工具表为界）。
+  assert.equal(resolveKmhToolName(registry, "kmh_echo"), "kmh_echo");
+  // 未知名：undefined（上层回明确错误回执）。
+  assert.equal(resolveKmhToolName(registry, "kmh-gone"), undefined);
+  assert.equal(resolveKmhToolName(registry, "other"), undefined);
+  // 临时会话（无声明表）：一律未知。
+  assert.equal(resolveKmhToolName(undefined, "kmh-kmh_echo"), undefined);
+});
+
+test("tool fingerprint changes with catalog, description or order-stable", () => {
+  const echo = [{ name: "kmh_echo", description: "Echo", inputSchema: {} }];
+  const echoGlob = [...echo, { name: "kmh_glob", description: "Glob", inputSchema: {} }];
+  const echoRetitled = [{ name: "kmh_echo", description: "Echo v2", inputSchema: {} }];
+  // 目录增删与描述变化都会改变指纹（展示方式变化 → 重建，feat03 场景9）。
+  assert.notEqual(toolFingerprintOf(echo), toolFingerprintOf(echoGlob));
+  assert.notEqual(toolFingerprintOf(echo), toolFingerprintOf(echoRetitled));
+  // 顺序无关：同一目录不同顺序指纹一致。
+  assert.equal(toolFingerprintOf(echoGlob), toolFingerprintOf([...echoGlob].reverse()));
+});
+
 // ---- 差分游标（cursor） ----
 import {
   blockDigest,
@@ -505,7 +556,7 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
     assert.ok(second.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
     // 隔离验证：CODEX_HOME 沿用用户默认（共享登录，已拍板），用户配置的
     // MCP 设备随之可见（已接受）；其余原生能力（shell、code mode、
-    // tool_search、原生技能）必须已消灭，KMH 工具以 kmh.* 命名空间在列。
+    // tool_search、原生技能）必须已消灭，KMH 工具以 kmh- 前缀声明在列（D13）。
     for (const request of fixture.requests) {
       const tools = [
         ...(request.body.tools ?? []),
@@ -513,9 +564,9 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
           .filter((item) => item.type === "additional_tools")
           .flatMap((item) => item.tools ?? []),
       ].map((tool) => tool.name ?? tool.type);
-      assert.ok(tools.includes("kmh_echo"), JSON.stringify(tools));
+      assert.ok(tools.includes("kmh-kmh_echo"), JSON.stringify(tools));
       for (const tool of tools)
-        if (tool !== "kmh_echo")
+        if (tool !== "kmh-kmh_echo")
           assert.match(
             tool,
             /^(list_mcp_resources|list_mcp_resource_templates|read_mcp_resource|mcp__)/,
@@ -636,6 +687,9 @@ function makeAdapterHarness(parts) {
     fingerprints: [],
     delivered: [],
     lastTurnId: undefined,
+    toolFingerprint: undefined,
+    toolMap: undefined,
+    toolsVersion: undefined,
   };
   let turn = new parts.CodexTurn(
     parts.fakeCtx,
@@ -664,6 +718,17 @@ function makeAdapterHarness(parts) {
       binding.fingerprints = [...t.cursor.fingerprints];
       binding.delivered = [...(t.cursor.delivered ?? [])];
       binding.lastTurnId = t.lastCompletedTurnId;
+      // 与真实 recordBinding 一致：声明字段随 turn.toolRegistry 落盘，
+      // 目录指纹变化递增版本（feat03 场景9 的 adapter 判据）。
+      const registry = t.toolRegistry;
+      if (registry !== undefined) {
+        const sameFingerprint = binding.toolFingerprint === registry.fingerprint;
+        binding.toolFingerprint = registry.fingerprint;
+        binding.toolMap = Object.fromEntries(registry.declaredToKmh);
+        binding.toolsVersion = sameFingerprint
+          ? binding.toolsVersion ?? 1
+          : (binding.toolsVersion ?? 0) + 1;
+      }
     },
     releaseSession: () => {},
     withSession: async function* (_sessionKey, _cwd, run) {
@@ -881,6 +946,85 @@ test("multi turn sessions continue across restarts with linear history delivery"
   }
 });
 
+const globToolSpec = [
+  ...echoToolSpec,
+  {
+    name: "kmh_glob",
+    description: "Glob files through KMH",
+    parameters: {
+      type: "object",
+      properties: { pattern: { type: "string" } },
+      required: ["pattern"],
+    },
+  },
+];
+
+test("tool catalog change redeclares tools on a fresh thread with rebuilt history", { skip: !findCodexBinary() }, async () => {
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
+  const fixture = await startFixtureServer({});
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "catalog");
+  const signal = AbortSignal.timeout(240000);
+  const { runtime, getTurn, binding } = makeAdapterHarness({
+    CodexTurn,
+    fakeCtx,
+    config,
+    cwd,
+    fixtureOverrides,
+  });
+  const adapter = new CodexAdapter(runtime);
+  const base = {
+    provider: "codex-cli",
+    model: "gpt-6-sol",
+    sessionId: "kmh-codex-catalog",
+    system: "KMH owns all tools and skills.",
+    signal,
+  };
+  const history = [user("第一轮的问题")];
+  try {
+    // 第一轮：单工具目录 → 工具挂起 → 回传 → 完成；绑定记录目录指纹 v1。
+    const s1 = await collectStream(adapter, { ...base, tools: echoToolSpec, messages: [...history] });
+    assert.ok(s1.finishes.includes("tool-calls"));
+    history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
+    history.push(tool("call_kmh", "hello from KMH", false));
+    const s2 = await collectStream(adapter, { ...base, tools: echoToolSpec, messages: [...history] });
+    assert.equal(s2.text, "BRIDGE_OK");
+    assert.ok(s2.finishes.includes("stop"));
+    history.push(assistantText("BRIDGE_OK"));
+    const threadBefore = binding.threadId;
+    assert.equal(binding.toolsVersion, 1);
+    // 第二轮：目录新增 glob → 指纹不符 → 跳过 resume/fork（两者继承旧工具集），
+    // 新建 thread 重新声明工具并注入重建历史。
+    history.push(user("第二轮的问题"));
+    const s3 = await collectStream(adapter, { ...base, tools: globToolSpec, messages: [...history] });
+    assert.equal(s3.text, "BRIDGE_OK");
+    assert.ok(s3.finishes.includes("stop"));
+    assert.notEqual(binding.threadId, threadBefore);
+    assert.equal(binding.toolsVersion, 2);
+    assert.equal(binding.toolMap["kmh-kmh_glob"], "kmh_glob");
+    assert.ok(fixtureInputText(fixture).includes("对话记录重建"));
+    assert.ok(
+      JSON.stringify(fixture.requests.at(-1)?.body.tools ?? []).includes("kmh-kmh_glob"),
+    );
+    // 第三轮：目录不变 → 指纹一致 → 正常 resume：thread 不再更换、版本
+    // 不再递增、新输入以原文（而非重建序列化）投递。
+    const threadAfterRebuild = binding.threadId;
+    history.push(assistantText("BRIDGE_OK"));
+    history.push(user("第三轮的问题"));
+    const s4 = await collectStream(adapter, { ...base, tools: globToolSpec, messages: [...history] });
+    assert.equal(s4.text, "BRIDGE_OK");
+    assert.ok(s4.finishes.includes("stop"));
+    assert.equal(binding.threadId, threadAfterRebuild);
+    assert.equal(binding.toolsVersion, 2);
+    const lastInput = fixtureInputText(fixture);
+    assert.ok(lastInput.includes("第三轮的问题"));
+    assert.ok(!lastInput.includes("用户：第三轮的问题"));
+  } finally {
+    await getTurn().dispose();
+    await fixture.close();
+  }
+});
+
 test("codex native compaction notification keeps bridge and diff stable", { skip: !findCodexBinary() }, async () => {
   const { PassThrough } = await import("node:stream");
   const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
@@ -998,7 +1142,7 @@ test("editing history rebuilds the binding and continues linearly", { skip: !fin
 });
 
 // ---- 绑定持久化（session-store） ----
-import { mkdtempSync as mkdtempSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { mkdtempSync as mkdtempSync2, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2 } from "node:fs";
 import { join as join2 } from "node:path";
 import { tmpdir as tmpdir2 } from "node:os";
 import {
@@ -1035,4 +1179,43 @@ test("session store round-trips bindings and survives corruption", async () => {
   assert.equal(await store2.get("sess-1"), undefined);
   await store2.put("sess-2", cursorToRecord("thread-2", { fingerprints: [] }));
   assert.equal((await store2.get("sess-2")).threadId, "thread-2");
+});
+
+test("binding records round-trip tool declaration fields and keep legacy entries", async () => {
+  const dir = mkdtempSync2(join2(tmpdir2(), "kmh-codex-store-tools-"));
+  const file = join2(dir, "codex-bindings.json");
+  mkdirSync2(dir, { recursive: true });
+  // 旧记录（无工具字段）与新记录共存：旧 thread 按裸名兼容续用。
+  writeFileSync2(
+    file,
+    JSON.stringify({
+      legacy: { threadId: "thread-legacy", fingerprints: ["a"] },
+      modern: {
+        threadId: "thread-modern",
+        fingerprints: ["a"],
+        toolsVersion: 3,
+        toolFingerprint: "abc123",
+        toolMap: { "kmh-kmh_echo": "kmh_echo" },
+      },
+    }),
+  );
+  const store = new CodexSessionStore(dir);
+  const legacy = await store.get("legacy");
+  assert.equal(legacy.toolFingerprint, undefined);
+  assert.equal(legacy.toolMap, undefined);
+  const modern = await store.get("modern");
+  assert.equal(modern.toolsVersion, 3);
+  assert.equal(modern.toolFingerprint, "abc123");
+  assert.deepEqual(modern.toolMap, { "kmh-kmh_echo": "kmh_echo" });
+  // 可选工具字段非法：剥除该字段保留记录（绑定本体仍可按裸名旧 thread 续用）。
+  writeFileSync2(
+    file,
+    JSON.stringify({
+      bad: { threadId: "t", fingerprints: ["a"], toolMap: { x: 1 } },
+    }),
+  );
+  const store2 = new CodexSessionStore(dir);
+  const bad = await store2.get("bad");
+  assert.equal(bad.threadId, "t");
+  assert.equal(bad.toolMap, undefined);
 });

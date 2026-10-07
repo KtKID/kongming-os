@@ -28,11 +28,12 @@ export function startFixtureServer(options = {}) {
     if (sequence === 1 && script === "parallel") {
       // 并行双工具：同一响应返回 echo 与 glob 两个调用；桥必须逐个挂起、
       // 分两次回执后续推（生产事故：并行挂起状态丢失后 CODEX_NO_PENDING_TOOL）。
+      // 函数名用 kmh- 前缀声明名：模型侧看到的就是声明目录（D13）。
       const items = [
         {
           id: "fc_kmh",
           type: "function_call",
-          name: "kmh_echo",
+          name: "kmh-kmh_echo",
           arguments: '{"text":"hello"}',
           call_id: "call_kmh",
           status: "completed",
@@ -40,7 +41,7 @@ export function startFixtureServer(options = {}) {
         {
           id: "fc_glob",
           type: "function_call",
-          name: "kmh_glob",
+          name: "kmh-kmh_glob",
           arguments: '{"pattern":"sun.png"}',
           call_id: "call_glob",
           status: "completed",
@@ -63,7 +64,7 @@ export function startFixtureServer(options = {}) {
       const item = {
         id: "fc_kmh",
         type: "function_call",
-        name: "kmh_echo",
+        name: "kmh-kmh_echo",
         arguments: '{"text":"hello"}',
         call_id: "call_kmh",
         status: "completed",
