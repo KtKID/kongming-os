@@ -9,17 +9,17 @@
 
 | # | 任务 | 场景回指 | 涉及文件 | 风险 | 状态 |
 |---|---|---|---|---|---|
-| T1 | 能力清单与选择模型：定义受支持原生工具项（命令执行、文件修改、查看图片、网络搜索）与独立的原生技能选择；RuntimeSettings 从单开关扩展为选择集并持久化 | feat02 场景1 | packages/codex-cli/src/capabilities.ts, packages/codex-cli/src/config.ts, packages/codex-cli/src/index.ts | None | [ ] ⏳ |
-| T2 | 允许清单隔离：基础隔离保留，未选项维持关闭、选中项按清单开放，图片生成默认保留；每个清单项以模型实际可见工具核对 | feat02 场景1 | packages/codex-cli/src/isolation.ts, packages/codex-cli/src/probe.ts | 高:清单遗漏或隔离失效即原生能力越界，验证不得只看 unit | [ ] ⏳ |
-| T3 | 旧开关迁移：`nativeToolsEnabled` 布尔转换为实际能力选择并显示尚待接入项；默认关闭的旧配置保留原生图片生成与 KMH 工具现有使用方式 | feat02 场景7 | packages/codex-cli/src/config.ts, packages/codex-cli/src/index.ts | 高:迁移错判直接改变能力边界，smoke 验证新旧两值 | [ ] ⏳ |
-| T4 | 能力可用性判定：清单项按本机版本、账号、模型与部署条件显示不可用及已知原因；已有选择保持可查看 | feat02 场景6 | packages/codex-cli/src/capabilities.ts | None | [ ] ⏳ |
-| T5 | 隔离应用失败 fail-loud：所选能力的限制未应用时准备阶段显示明确错误并结束，可调整选择后重试 | feat02 场景5 | packages/codex-cli/src/isolation.ts | None | [ ] ⏳ |
-| T6 | 详情页逐项选择：列表显示当前选择与每项可用状态，调整立即保存显示并说明下一回合生效；信息展示（feat05 场景1）含逐项选择与独立技能选择区 | feat05 场景1, 场景2 | packages/codex-cli/src/web.ts, packages/codex-cli/src/client/DetailCard.tsx, packages/codex-cli/src/client/locales.ts | None | [ ] ⏳ |
+| T1 | 能力清单与选择模型：定义受支持原生工具项（命令执行、文件修改、查看图片、网络搜索）与独立的原生技能选择；RuntimeSettings 从单开关扩展为选择集并持久化 | feat02 场景1 | packages/codex-cli/src/capabilities.ts, packages/codex-cli/src/config.ts, packages/codex-cli/src/index.ts | None | [x] 🟢 |
+| T2 | 允许清单隔离：基础隔离保留，未选项维持关闭、选中项按清单开放，图片生成默认保留；每个清单项以模型实际可见工具核对 | feat02 场景1 | packages/codex-cli/src/isolation.ts, packages/codex-cli/src/probe.ts | 高:清单遗漏或隔离失效即原生能力越界，验证不得只看 unit | [x] 🟢 |
+| T3 | 旧开关迁移：`nativeToolsEnabled` 布尔转换为实际能力选择并显示尚待接入项；默认关闭的旧配置保留原生图片生成与 KMH 工具现有使用方式 | feat02 场景7 | packages/codex-cli/src/config.ts, packages/codex-cli/src/index.ts | 高:迁移错判直接改变能力边界，smoke 验证新旧两值 | [x] 🟢 |
+| T4 | 能力可用性判定：清单项按本机版本、账号、模型与部署条件显示不可用及已知原因；已有选择保持可查看 | feat02 场景6 | packages/codex-cli/src/capabilities.ts | None | [x] 🟢 |
+| T5 | 隔离应用失败 fail-loud：所选能力的限制未应用时准备阶段显示明确错误并结束，可调整选择后重试 | feat02 场景5 | packages/codex-cli/src/isolation.ts | None | [x] 🟢 |
+| T6 | 详情页逐项选择：列表显示当前选择与每项可用状态，调整立即保存显示并说明下一回合生效；信息展示（feat05 场景1）含逐项选择与独立技能选择区 | feat05 场景1, 场景2 | packages/codex-cli/src/web.ts, packages/codex-cli/src/client/DetailCard.tsx, packages/codex-cli/src/client/locales.ts | None | [x] 🟢 |
 | T7 | 并存执行：选中原生工具与 KMH 工具并存，每次调用显示来源、同名按来源选择（`kmh-` 映射）、KMH 工具继续遵循 KMH 权限链 | feat02 场景3, feat01 场景1 | packages/codex-cli/src/isolation.ts, packages/codex-cli/src/adapter.ts | None | [ ] ⏳ |
-| T8 | 选择变化下一回合生效：进行中的回合按其开始时的选择完成，下一回合使用最新能力集合 | feat02 场景4 | packages/codex-cli/src/index.ts, packages/codex-cli/src/adapter.ts | None | [ ] ⏳ |
-| T9 | 原生技能独立选择：默认关闭下 `$技能名` 显式调用由 KMH 技能体系接管（新选择体系下复验既有实现）；选择开启后按原生执行 | feat02 场景2 | packages/codex-cli/src/isolation.ts | None | [ ] ⏳ |
-| T10 | unit：清单定义、迁移映射、选择持久化、各选择组合的隔离计划生成 | feat02 场景1, 场景5, 场景7 | tests/runtime/codex-cli.test.mjs | None | [ ] ⏳ |
-| T11 | smoke：真实 CLI 默认集合（模型只见 KMH 工具+原生图片生成）与选中开放项回合（来源与单次执行） | feat02 场景1, 场景3 | tests/runtime/codex-cli.test.mjs | None | [ ] ⏳ |
+| T8 | 选择变化下一回合生效：进行中的回合按其开始时的选择完成，下一回合使用最新能力集合 | feat02 场景4 | packages/codex-cli/src/index.ts, packages/codex-cli/src/adapter.ts | None | [x] 🟢 |
+| T9 | 原生技能独立选择：默认关闭下 `$技能名` 显式调用由 KMH 技能体系接管（新选择体系下复验既有实现）；选择开启后按原生执行 | feat02 场景2 | packages/codex-cli/src/isolation.ts | None | [x] 🟢 |
+| T10 | unit：清单定义、迁移映射、选择持久化、各选择组合的隔离计划生成 | feat02 场景1, 场景5, 场景7 | tests/runtime/codex-cli.test.mjs | None | [x] 🟢 |
+| T11 | smoke：真实 CLI 默认集合（模型只见 KMH 工具+原生图片生成）与选中开放项回合（来源与单次执行） | feat02 场景1, 场景3 | tests/runtime/codex-cli.test.mjs | None | [x] 🟢 |
 
 ## 影响文件树
 
@@ -36,5 +36,24 @@ kongming-agent/
 │   └── client/
 │       ├── DetailCard.tsx           M  # 逐项选择列表 UI（选择+可用状态+下一回合生效说明）
 │       └── locales.ts               M  # 选择区文案（中英）
+├── packages/codex-cli/README.md    M  # 配置表与详情页说明改为逐项选择语义
 └── tests/runtime/codex-cli.test.mjs M  # 追加：清单/迁移/隔离组合 unit 与两态 smoke
 ```
+
+## 实施记录（2026-10-07）
+
+- 能力清单四项工具 + 独立原生技能（`capabilities.ts`）：`selectionOf` 字段级校验回落默认、
+  `selectionFromLegacy` 完成旧开关迁移（false=全关保留图片生成与 KMH 现状，true=已支持项全选）；
+  设置持久化到 `dataDir/codex-settings.json`（原子写），文件缺失/损坏回落旧开关迁移。
+- 允许清单隔离（`isolation.ts`）：`prunedFieldsFor`/`featureOffFor` 纯函数按选择生成裁剪字段
+  与功能关闭表——关一项裁一项；基础隔离（多 agent、apps、Code Mode、编排器、update_plan 等）
+  始终保留不随选择开放；旧"开关全开返回空覆盖"行为废除（D12：基础隔离常在）。
+- 可用性判定（`capabilityViews`）：当前以版本检查为部署级已知原因；账号与模型粒度限制在
+  任务发起时按实际可见工具核对（详见 spec 场景6 语义），已知部分如实展示。
+- 详情页：状态接口返回 `selection` + `capabilities`（含 label/description/available/reason），
+  DetailCard 逐项 Switch + 不可用 Tag；config API 改为选择对象整体读写。
+- 验证：typecheck（host+browser）/lint 通过；32/32 测试全绿，含允许清单 argv smoke
+  （默认全关含 shell_tool/view_image/web_search/skills 关闭；全开后逐项关闭消失、
+  基础隔离仍在）与既有隔离/目录变化 smoke 无回归。
+- 遗留：T7 真实"原生+KMH 工具混合回合"验收与详情页浏览器操作验证归 task-mixed-e2e
+  （client 改动须重启 web 加载）。

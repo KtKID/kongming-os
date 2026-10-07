@@ -13,7 +13,8 @@
 | T2 | 审批批准与拒绝（Web 审批入口）：批准后原生工具执行并继续任务，拒绝后模型收到结果可继续 | feat09 场景1, 场景2 | docs/spec/codex-cli-provider/spec.md | None | [ ] ⏳ |
 | T3 | 停止与刷新恢复：停止时挂起审批取消、迟到答复过期；页面刷新/重开会话/重启后进度记录与待确认状态可查 | feat06 场景1, feat08 场景5, 场景6 | docs/spec/codex-cli-provider/spec.md | None | [ ] ⏳ |
 | T4 | 工具目录变化后续聊（真实会话）：新回合最新目录、历史保留、调用交给对应来源、恢复失败出路 | feat03 场景9, feat02 场景4 | docs/spec/codex-cli-provider/spec.md | None | [ ] ⏳ |
-| T5 | 验证结论回写：静态检查与运行结果分别记录，新增能力逐项声明已验证版本 | None | docs/spec/codex-cli-provider/spec.md, docs/spec/codex-cli-provider/decisions.md | None | [ ] ⏳ |
+| T5 | 详情页逐项选择与权限档（真实浏览器）：列表显示选择与可用状态、调整立即保存并下一回合生效；权限模式三档对原生审批行为的影响核对（task-native-tool-selection T7 一并验收） | feat05 场景1, 场景2, feat02 场景3, 场景7 | docs/spec/codex-cli-provider/spec.md | None | [ ] ⏳ |
+| T6 | 验证结论回写：静态检查与运行结果分别记录，新增能力逐项声明已验证版本 | None | docs/spec/codex-cli-provider/spec.md, docs/spec/codex-cli-provider/decisions.md | None | [ ] ⏳ |
 
 ## 影响文件树
 
