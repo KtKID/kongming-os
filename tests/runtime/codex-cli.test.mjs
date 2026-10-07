@@ -121,6 +121,64 @@ test("image projection extracts only completed saved generations", () => {
   assert.equal(imageProjectionOf({ type: "agentMessage", id: "m", text: "hi" }), undefined);
 });
 
+// ---- 生图产物验收（feat10，R3 从简） ----
+import {
+  pngSizeOf,
+  imageSizeRequirementOf,
+  imageSizeNote,
+  imageFailureNote,
+} from "../../packages/codex-cli/lib/src/image-delivery.js";
+
+/** 构造只含签名与 IHDR 的最小 PNG 头（宽高为真实字段）。 */
+function pngHeaderOf(width, height) {
+  const buf = Buffer.alloc(24);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0);
+  buf.writeUInt32BE(13, 8);
+  buf.write("IHDR", 12, "ascii");
+  buf.writeUInt32BE(width, 16);
+  buf.writeUInt32BE(height, 20);
+  return buf;
+}
+
+test("png size reads IHDR width and height, rejecting non-PNG bytes", () => {
+  // 银河会话实测产物为 1254×1254。
+  assert.deepEqual(pngSizeOf(pngHeaderOf(1254, 1254)), { width: 1254, height: 1254 });
+  assert.deepEqual(pngSizeOf(pngHeaderOf(256, 256)), { width: 256, height: 256 });
+  assert.equal(pngSizeOf(Buffer.alloc(24)), undefined);
+  assert.equal(pngSizeOf(pngHeaderOf(1254, 1254).subarray(0, 20)), undefined);
+});
+
+test("explicit size requirement needs a two-digit width x height pair", () => {
+  assert.deepEqual(imageSizeRequirementOf("帮我生成 256×256 的图标"), { width: 256, height: 256 });
+  assert.deepEqual(imageSizeRequirementOf("图片尺寸 1024x768"), { width: 1024, height: 768 });
+  assert.deepEqual(imageSizeRequirementOf("像素 800 * 600"), { width: 800, height: 600 });
+  // 单数字对（棋盘、行列类）与无数字对文本不构成要求。
+  assert.equal(imageSizeRequirementOf("画一个 4x4 的棋盘"), undefined);
+  assert.equal(imageSizeRequirementOf("生成一张银河图片"), undefined);
+});
+
+test("size note reports actual pixels and states mismatch honestly", () => {
+  const note = imageSizeNote({ width: 1254, height: 1254 }, { width: 256, height: 256 });
+  assert.match(note, /1254×1254/);
+  assert.match(note, /256×256/);
+  assert.match(note, /不符/);
+  // 无要求或要求满足时只报实际尺寸。
+  assert.equal(imageSizeNote({ width: 256, height: 256 }, undefined), "图片实际尺寸 256×256 像素。");
+  assert.equal(
+    imageSizeNote({ width: 256, height: 256 }, { width: 256, height: 256 }),
+    "图片实际尺寸 256×256 像素。",
+  );
+  // 实际尺寸不可读时如实占位。
+  assert.match(imageSizeNote(undefined, { width: 256, height: 256 }), /未知/);
+});
+
+test("failure note keeps both states and the original artifact path", () => {
+  const note = imageFailureNote("/Users/x/.codex/generated_images/a/b.png", "CODEX_IMAGE_REF_MISSING");
+  assert.match(note, /已由 Codex 生成/);
+  assert.match(note, /接入失败/);
+  assert.match(note, /\/Users\/x\/\.codex\/generated_images\/a\/b\.png/);
+});
+
 // ---- 差分游标（cursor） ----
 import {
   blockDigest,
