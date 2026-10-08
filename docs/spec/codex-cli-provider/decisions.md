@@ -186,3 +186,12 @@ v1 落地（既有公开通道，与生图附注同形态）：原生活动叙�
 - **新会话首轮误判重建**：DSH 首轮准备注入（运行时上下文、技能清单、时间戳，`source.kind` 非 user）排在真实用户输入**之后**，差分此前要求尾部最后一条是真实用户输入 → 首轮恒 baseline-lost → 全部新会话首轮走重建注入（模型回复「已接续此前上下文」的来源）。修复：`newUserInput` 定位尾部最后一条真实用户输入，其后允许任意条透明注入且其文本随真实输入一并投递（模型需要看到这些注入）；连续多条真实用户输入、外来回复仍断基线。
 - **token 用量来源**：`turn/completed` 的 turn **无 usage 字段**（0.162 wire 实测，此前 projection 从未生效）；逐响应明细只经 `thread/tokenUsage/updated`（`tokenUsage.last`，camelCase TokenUsageBreakdown）。KMH 折算（token-meter `normalizeUsage`）要求 `totalTokens` 或双缓存桶齐全，且**每个 step 的 assistant 消息都要有样本**否则整轮不显示。实现：样本队列 + 每个 step 收尾恰一条 usage chunk（空补零、终局合并剩余）；首个样本常在本侧 yield 工具挂起之后到达，队列语义使时序无关。映射保持拆分口径（inputTokens 仅未缓存部分）并保留官方 `totalTokens`。
 - **状态小球**：`conversation.composer.dock` 为公开槽位（zcode-cli 请求状态行同款接入），order 2 排在活动/用量药丸右侧；数据经 `GET /api/codex-cli/live`（2 秒轮询、按 sessionId 过滤）。三色语义：绿=通信中（含工具步间进程在线）、灰=回合完成或 CLI 确认中断后进程回收、红=停止未确认或回合异常中断。宿主停止经 `signal.reason` 抛 `AgentCancelCause` **普通对象**（`{kind:'user'|'parent'|'hook'|'disposed'}`，dsh-session types），非 AbortError——按 kind 识别；CLI 侧确认以 turn/interrupt 回执与终止通知为准。
+
+### D22 生图投影真机定案（2026-10-08 实施期拍板）
+
+「照片渲染」此前从未真正生效，两层独立缺陷（均真机定位）：
+
+- **附件服务未注入**：投影访问 `ctx.attachments`，cordis 上下文代理对未声明 inject 的服务**直接抛错**（D20 同款），且调用点 `.catch(() => undefined)` 吞掉——回合不失败、图片静默消失。插件 inject 补第六项 `attachments`（web 配置常驻 attachment-local，codex-cli 仅 web 挂载，硬性声明安全）；访问移入 try 内做纵深防御。
+- **流块索引冲突**：feat08 叙述块与 feat10 投影块按**同一 item id** 分配流块索引，叙述块先开先关后，组装器对已存在索引忽略 block-start、先关先赢忽略第二个 block-end——image 块被静默丢弃（会话事件 stream 中可见 `block-end text idx=N` 后跟 `block-start image idx=N`）。投影块改用独立索引键 `<id>:image`。
+
+真机验收（2026-10-08 太阳图轮）：imageGeneration 完成 → 叙述块 + image 块（sha256 内容寻址附件）+ 尺寸附注（实际 1254×1254，要求 256×256，如实不符）+ 模型回复齐备，Web 正常渲染可点击看原图。回归测试注入 imageGeneration 完成通知断言叙述与 image 块并存且索引不同（修复前必挂）。

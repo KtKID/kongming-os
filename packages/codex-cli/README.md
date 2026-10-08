@@ -77,7 +77,7 @@ token 用量：`turn/completed` 的 turn 不携带用量（0.162 wire 实测）�
 
 会话底部状态小球：`conversation.composer.dock` 公开槽位（order 2，排在活动/用量药丸右侧）注册 `LiveBall`，2 秒轮询 `GET /api/codex-cli/live` 按当前 sessionId 过滤。绿=回合进行中或工具步间进程在线；灰=回合完成/CLI 确认中断后进程回收；红=停止未确认（interrupt 超时）或回合异常中断。宿主停止以 `AgentCancelCause` 普通对象经 `signal.reason` 抛达，按 `{kind}` 识别。
 
-图片生成结果的展示：Codex 原生 `image_gen.imagegen` 工具在默认隔离下即对模型可用（托管 API 调用，无本地执行与审批）。生成产物由 Codex 落盘到 `~/.codex/generated_images/<threadId>/`；桥在收到对应 `item/completed` 通知时读取落盘文件、经宿主附件服务（`ctx.attachments.saveImages`）落成 `ImageAttachmentRef`，并以 image 内容块送回 KMH，会话内直接展示该图片。投影是展示增强：附件服务缺失（headless 部署）、读取或入库失败时跳过并告警，生成与续推链路不受影响；同一生图项按 id 去重，一回合多张图片逐项展示。
+图片生成结果的展示：Codex 原生 `image_gen.imagegen` 工具在默认隔离下即对模型可用（托管 API 调用，无本地执行与审批）。生成产物由 Codex 落盘到 `~/.codex/generated_images/<threadId>/`；桥在收到对应 `item/completed` 通知时读取落盘文件、经宿主附件服务（`ctx.attachments.saveImages`）落成 `ImageAttachmentRef`，并以 image 内容块送回 KMH，会话内直接展示该图片（2026-10-08 真机闭环：叙述块、image 块与尺寸附注并存渲染）。投影是展示增强：读取或入库失败时跳过并告警（落盘路径即恢复入口），生成与续推链路不受影响；同一生图项按 id 去重，一回合多张图片逐项展示。注意：image 块使用独立流块索引（`<id>:image`）——与叙述块共用 item id 的索引会让组装器按先关先赢丢弃 image 块。
 
 | 模块                                                | 职责                                             |
 | --------------------------------------------------- | ------------------------------------------------ |
