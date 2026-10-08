@@ -1162,6 +1162,7 @@ function makeAdapterHarness(parts) {
     return turn;
   };
   const runtime = {
+    config: { ...parts.config, requestTimeoutMs: 360000 },
     settings: { selection: selectionFromLegacy(false) },
     // D17 权限档：harness 无投影服务，走回落默认即可（真实映射另有 argv smoke）。
     resolvePermission: () => ({ sandbox: "workspace-write", approval: "ask" }),

@@ -17,7 +17,7 @@
     "dsh": "node scripts/kmh.mjs dsh",
     "profiles": "node scripts/kmh.mjs profiles",
     "hooks": "node scripts/install-hooks.mjs",
-    "test": "node --test --test-concurrency=1 tests/runtime/*.test.mjs",
+    "test": "node --test --test-concurrency=1 tests/runtime/*.test.mjs packages/codex-cli/test/*.test.mjs",
     "pretest": "pnpm build:kmh",
     "typecheck": "pnpm typecheck:kmh && pnpm --dir third_party/dsh run typecheck",
     "typecheck:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/runtime-log typecheck",

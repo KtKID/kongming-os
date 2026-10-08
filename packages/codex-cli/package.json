@@ -23,6 +23,8 @@
   },
   "scripts": {
     "build": "node build.mjs",
+    "pretest": "pnpm build",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "typecheck": "tsc -p tsconfig.host.json --noEmit && tsc -p tsconfig.browser.json --noEmit",
     "lint": "eslint src --max-warnings 0",
     "format:check": "prettier src tsconfig*.json package.json README.md --check"
