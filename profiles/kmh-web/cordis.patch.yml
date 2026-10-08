@@ -1253,5 +1253,5 @@
   name: "@deepseek-ai/dsh-agent-default-model"
   config:
     provider: codex-cli
-    model: gpt-5.6-luna
-    reasoningEffort: medium
+    model: gpt-6.1-sol
+    reasoningEffort: low
