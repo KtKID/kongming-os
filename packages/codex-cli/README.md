@@ -1,5 +1,5 @@
 ---
-description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置、隔离开关、账号与详情页行为，以及差分续聊与故障排查入口。
+description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置、隔离开关、原生工具审批与逐项选择、生图展示、token 用量与会话连接状态小球，以及差分续聊与故障排查入口。
 ---
 
 # @kmh/codex-cli
@@ -56,6 +56,12 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 | `graceMs`                | `1500`    | 子进程托管终止宽限                                        |
 | `env`                    | `{}`      | 追加到 CLI 进程的环境变量                                 |
 
+### 会话能力
+
+- **原生工具审批**：权限模式为「请求审批」时，Codex 原生命令执行、文件修改等提权操作在 KMH 弹出审批卡片，批准后执行、拒绝后模型收到结果继续任务；「帮我审批」「完全权限」两档不询问直接执行。
+- **图片直接入会话**：原生图片生成的产物作为图片块出现在对话里（附实际像素尺寸说明），可点击查看与保存原图。
+- **token 用量与会话状态**：每轮回复显示用量药丸（含缓存命中率）；会话底部「第 n 轮第 n 步」行最右的连接状态小球——绿=CLI 通信中、灰=已停止（进程回收）、红=停止未确认或回合异常。
+
 ### 详情页
 
 Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.160.0）、账号状态与凭据来源、默认模型、最近连接测试结果、原生能力逐项选择（命令执行、文件修改、查看图片、网络搜索与独立的原生技能，每项显示可用状态），以及登录/取消登录/退出账号/测试连接。调整立即保存并下一回合生效，进行中的回合保持原选择；原生图片生成默认保留。账号状态按 `~/.codex/auth.json` 存在性判定，打开页面不发起模型请求；退出账号作用于本机官方 Codex CLI 的登录态。
@@ -86,6 +92,9 @@ token 用量：`turn/completed` 的 turn 不携带用量（0.162 wire 实测）�
 | `src/turn.ts`                                       | 回合状态机：挂起回执、续推、interrupt、fork 重建 |
 | `src/isolation.ts`                                  | 工具/技能/钩子隔离的参数生成与核对               |
 | `src/adapter.ts`                                    | LlmAdapter：模型映射、流投影、会话驱动           |
+| `src/approval.ts`                                   | 审批桥：原生审批请求转 KMH 用户决定              |
+| `src/tool-registry.ts` / `src/capabilities.ts`      | kmh- 工具声明表与原生能力逐项选择                |
+| `src/native-items.ts` / `src/image-delivery.ts`     | 原生执行叙述与生图产物投影                       |
 | `src/session-store.ts`                              | 绑定与游标持久化                                 |
 | `src/account.ts` / `src/probe.ts` / `src/status.ts` | 账号操作、测试连接、版本基线检查                 |
 | `src/web.ts` / `src/client/`                        | 详情页路由、详情卡片与状态小球                   |
@@ -107,7 +116,7 @@ pnpm lint
 pnpm test
 ```
 
-测试含真实 CLI 冒烟（本机存在官方 Codex CLI 时执行，否则跳过）：差分投递 → 工具挂起 → 回执续推 → 最终回复，并核对模型只声明 KMH 工具与已接受的 MCP 设备。运行中的排查入口：`~/.codex/sessions/<日期>/rollout-*.jsonl`（`originator: kmh_codex_cli` 标识插件的会话）、`/api/codex-cli/status` 路由、KMH 数据目录的 `codex-cli/`。
+测试含真实 CLI 冒烟（本机存在官方 Codex CLI 时执行，否则跳过）：差分投递 → 工具挂起 → 回执续推 → 最终回复，并核对模型只声明 KMH 工具与已接受的 MCP 设备。运行中的排查入口：`~/.codex/sessions/<日期>/rollout-*.jsonl`（`originator: kmh_codex_cli` 标识插件的会话）、`/api/codex-cli/status` 与 `/api/codex-cli/live`（连接状态）路由、KMH 数据目录的 `codex-cli/`。
 
 ---
 
@@ -128,7 +137,7 @@ pnpm test
 <summary>维护者工作上下文 — 点击展开</summary>
 
 - 已接受边界：用户 MCP 设备可见（`-c` 无法压掉且清空覆盖会重置用户禁用状态）；`dynamicTools` 绑定在 thread 创建时，会话中途工具表变化要等基线重建后模型才可见；canonical namespace 注册的模型侧名称是无点拼接，已回退平铺真名。
-- 待验证：多轮 token 用量线性曲线、分钟级工具挂起时 Codex 侧超时行为、fork 分叉与崩溃恢复的端到端 smoke（单元与单轮冒烟已过）。
+- 待验证：真压缩触发观察（需真模型长上下文）、分钟级工具挂起时 Codex 侧超时行为、0.162-alpha 二进制持续观察（异常时第一怀疑对象）。
 - 测试残留：2026-10-07 早期冒烟（未加独立 home 前）在 `~/.codex/sessions/2026/10/07/` 留有约 12 个 fixture 会话文件，用户确认保留。
 
 </details>

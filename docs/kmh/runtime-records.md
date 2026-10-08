@@ -28,13 +28,14 @@ KMH_HOME=/absolute/runtime-home pnpm web
 | `attachments/v1/`、`cache/attachments/` | 附件与附件缓存 |
 | `.credentials.yaml`、`.anonymous-user-id` | 模型凭据与匿名身份 |
 | `zcode-cli/` | ZCode provider 的会话和工具状态，内部使用 `.zcode/v2/` |
+| `codex-cli/` | Codex provider 的会话-thread 绑定（`codex-bindings.json`）、详情页选择（`codex-settings.json`）与裁剪后模型目录（`kmh-models.json`） |
 | `spill/` | 超长工具输出与溢出文件 |
 | `tmp/` | 使用系统临时目录 API 的 KMH 子进程临时文件 |
 | `profiles/<name>` | 指向 Kongming 仓库 profile 源目录的链接 |
 
 profile 的配置、依赖清单和安装协调状态仍由该 profile 拥有。链接后的 `package.json`、`cordis.patch.yml`、`node_modules/` 与 `.plugin-manager/run.json` 位于仓库 profile，安装锁由同一物理文件协调。不同数据目录访问同一份 profile 时共享这些配置和依赖。
 
-Agent 创建的项目文件由任务工作目录和工具参数决定。外部程序自己的用户文件、操作系统诊断与第三方服务记录各自由对应程序管理；官方 CLI 子进程自行在用户 home 保存运行日志与模型 I/O 记录，不写入 KMH 数据目录，路径与检索方式见 [zcode-cli 包说明](../../packages/zcode-cli/README.md)。home 级 patch 或 `--patch` 可显式覆盖表中服务的路径；上述表格描述三个 KMH profile 的默认配置。
+Agent 创建的项目文件由任务工作目录和工具参数决定。外部程序自己的用户文件、操作系统诊断与第三方服务记录各自由对应程序管理；官方 CLI 子进程自行在用户 home 保存运行日志与模型 I/O 记录，不写入 KMH 数据目录，路径与检索方式见 [zcode-cli 包说明](../../packages/zcode-cli/README.md)与 [codex-cli 包说明](../../packages/codex-cli/README.md)（`~/.codex/sessions` 会话记录）。home 级 patch 或 `--patch` 可显式覆盖表中服务的路径；上述表格描述三个 KMH profile 的默认配置。
 
 ## 日志与失败处理
 

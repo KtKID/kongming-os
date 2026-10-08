@@ -4,7 +4,7 @@
 
 运行 `pnpm web` 启动，运行 `pnpm config:web` 查看最终合成配置。根目录 `launch.config.json` 的 `profiles.web` 选择此 profile；本目录 `cordis.patch.yml` 完整列出 base、Web 应用、standard/PTC/minimal/Cordis 四个预设及 Kongming persona。
 
-`package.json` 的 `dsh.profile.bundles` 选择附加 bundle，完整插件树由 `cordis.patch.yml` 的 `insert` 加入。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
+`package.json` 的 `dsh.profile.bundles` 选择附加 bundle，当前选择 `@kmh/dev-preset`（开发模式预设，插件树与 standard 一致，见 `packages/kmh-dev-preset/cordis.patch.yml`）；完整插件树由 `cordis.patch.yml` 的 `insert` 加入。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
 
 ## 计算机操作
 
