@@ -301,14 +301,16 @@ import { CodexApprovalBridge } from "../../packages/codex-cli/lib/src/approval.j
 import { inject as codexCliInject } from "../../packages/codex-cli/lib/src/index.js";
 
 test("plugin entry declares the services the approval bridge forwards to", () => {
-  // D20：漏声明 inject 时桥访问 ctx.agents 抛
-  // "cannot get property ... without inject"，审批请求整体失败。
+  // D20/D22：漏声明 inject 时运行期访问抛
+  // "cannot get property ... without inject"——审批桥（agents）与生图投影
+  // （attachments）都曾栽在这，逐项列出防止回退。
   assert.deepEqual(codexCliInject, [
     "llm",
     "subprocess",
     "agents",
     "approval",
     "userQuestions",
+    "attachments",
   ]);
 });
 import {
@@ -1930,4 +1932,102 @@ test("client registers the live ball dock and renders the three states", () => {
   assert.match(ball("gray"), /已停止/);
   assert.match(ball("red"), /state-error-primary/);
   assert.match(ball("red"), /状态异常/);
+});
+
+// ---- 生图投影整链（真实 CLI + fixture 注入 imageGeneration 完成通知） ----
+test("image generation projects an image block beside its narration", { skip: !findCodexBinary() }, async () => {
+  const { PassThrough } = await import("node:stream");
+  const { writeFileSync } = await import("node:fs");
+  const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
+  const fixture = await startFixtureServer({ script: "delayedText" });
+  let inject;
+  const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "image", {
+    wrapStdout: (stdout) => {
+      const pass = new PassThrough();
+      stdout.pipe(pass);
+      inject = pass;
+      return pass;
+    },
+  });
+  // 附件服务假实现：saveImages 回一个可识别的引用。
+  fakeCtx.attachments = {
+    saveImages: async (inputs) => [{ attachmentId: "att-img-1" }],
+  };
+  const signal = AbortSignal.timeout(120000);
+  const turn = new CodexTurn(fakeCtx, config, cwd, fixtureOverrides);
+  try {
+    await turn.start(
+      {
+        text: "画一张小图",
+        model: "gpt-6-sol",
+        baseInstructions: "KMH owns all tools and skills.",
+        tools: [],
+      },
+      undefined,
+      signal,
+    );
+    const threadId = turn.threadId;
+    // 构造 2×3 最小 PNG（签名 + IHDR，pngSizeOf 只读 IHDR 宽高）。
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(2, 0);
+    ihdr.writeUInt32BE(3, 4);
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from([0, 0, 0, 13]),
+      Buffer.from("IHDR"),
+      ihdr,
+      Buffer.alloc(4),
+    ]);
+    const imagePath = join(cwd, "generated.png");
+    writeFileSync(imagePath, png);
+    const notify = (method, params) =>
+      inject.write(JSON.stringify({ method, params }) + "\n");
+    // 叙述块（feat08）与投影块（feat10）共用 item id：索引必须互不覆盖。
+    notify("item/started", {
+      threadId,
+      item: {
+        type: "imageGeneration",
+        id: "gen-1",
+        status: "inProgress",
+        revisedPrompt: "a tiny image",
+      },
+    });
+    notify("item/completed", {
+      threadId,
+      item: {
+        type: "imageGeneration",
+        id: "gen-1",
+        status: "completed",
+        revisedPrompt: "a tiny image",
+        savedPath: imagePath,
+      },
+    });
+    const chunks = [];
+    for await (const chunk of turn.pump(signal)) chunks.push(chunk);
+    // 叙述文本块与 image 块并存（2026-10-08 前索引冲突导致 image 块被组装器丢弃）。
+    const narration = chunks.find(
+      (chunk) =>
+        chunk.type === "block-end" &&
+        chunk.block?.type === "text" &&
+        String(chunk.block.text).includes("[codex 原生·图片生成]"),
+    );
+    assert.ok(narration !== undefined, "narration text block missing");
+    const imageEnd = chunks.find(
+      (chunk) =>
+        chunk.type === "block-end" && chunk.block?.type === "image",
+    );
+    assert.ok(imageEnd !== undefined, "image block missing");
+    assert.equal(imageEnd.block.attachment.attachmentId, "att-img-1");
+    assert.notEqual(imageEnd.index, narration.index);
+    // 尺寸附注按实际像素报告。
+    const deltas = chunks
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => chunk.text)
+      .join("");
+    assert.ok(deltas.includes("实际尺寸 2×3"));
+    assert.ok(chunks.some((chunk) => chunk.type === "finish" && chunk.reason?.kind === "stop"));
+  } finally {
+    await turn.dispose();
+    await fixture.close();
+  }
 });
