@@ -699,10 +699,11 @@ export class CodexTurn {
     if (projection === undefined) return;
     if (this.projectedImages.has(projection.id)) return;
     this.projectedImages.add(projection.id);
-    // 部分部署（headless）可能没有附件服务：跳过投影。
-    const store = this.ctx.attachments;
-    if (store === undefined) return;
     try {
+      // 附件服务缺失（headless 部署）时跳过投影；访问放在 try 内——
+      // cordis 上下文代理对未注入服务的访问是抛错而非 undefined。
+      const store = this.ctx.attachments;
+      if (store === undefined) return;
       const data = await readFile(projection.path);
       const [first] = await store.saveImages([
         {
@@ -712,7 +713,9 @@ export class CodexTurn {
         },
       ]);
       if (first === undefined) throw new Error("CODEX_IMAGE_REF_MISSING");
-      const index = this.allocate(projection.id);
+      // 索引键不能与叙述块共用：openNativeNote 已按同一 item id 开过文本块
+      // （先关先赢会让同索引的 image 块被组装器静默丢弃），用独立后缀。
+      const index = this.allocate(`${projection.id}:image`);
       this.push({
         kind: "chunk",
         chunk: { type: "block-start", index, blockType: "image" },
