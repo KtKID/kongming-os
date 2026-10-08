@@ -236,6 +236,12 @@ description: 在 KMH 使用本机 Codex 模型、KMH 工具与可选择的原生
 - WHEN 清理超时发生
 - THEN 进程经现有子进程托管机制强制回收，用户看到本回合已结束的明确状态
 
+场景5: 查看连接重试并结束等待
+
+- GIVEN 连接失败，系统正在自动尝试恢复
+- WHEN 用户查看会话状态或点击停止
+- THEN 会话直接显示正在重试及失败原因；停止及时结束等待。恢复输出后显示正常状态，超过请求时限后显示超时，用户可再次发送
+
 ## feat07: 独立分享
 
 使用者可将插件包导出，交给其他 KMH 使用者安装使用。
@@ -375,3 +381,5 @@ description: 在 KMH 使用本机 Codex 模型、KMH 工具与可选择的原生
 ## 实施与验证状态（2026-10-08）
 
 十项 feat 全部实施完毕。静态检查（typecheck/lint）与 116 项测试全绿；真实 Web + codex-cli 0.162.0-alpha.2 验证覆盖：登录与模型目录、差分投递与工具挂起续推、kmh- 前缀桥接混合回合、原生进度叙事（含失败态）、详情页逐项选择与持久化、权限三档、feat09 场景1 审批往返（卡片批准 → accept → 执行 → 退出码 0 回复）。逐项验证记录见 [tasks/task-mixed-e2e/dev-checklist.md](tasks/task-mixed-e2e/dev-checklist.md)，实施期技术抉择见 [decisions.md](decisions.md) D18–D20。遗留：停止/刷新时挂起审批的取消与过期路径（feat06 场景1 关联）未做真机验收，由 task-stop-recovery 存量测试覆盖骨架。
+
+2026-10-09 的补充修复与实际回归见 [流式与思考等级](tasks/task-stream-reasoning-regression.md)及[重试、停止与时限](tasks/task-retry-status.md)。
