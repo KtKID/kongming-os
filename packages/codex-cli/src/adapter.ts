@@ -60,25 +60,40 @@ export class CodexAdapter extends LlmAdapter {
         "Codex app-server does not accept stop sequences",
         "INVALID_ARGS",
       );
-    // 辅助请求（标题生成）走独立临时会话，不触碰业务绑定。
-    if (
-      options.purpose === "session-title" ||
-      options.purpose === "compaction"
-    ) {
-      yield* this.runtime.streamAuxiliary(options);
-      return;
-    }
+    const deadline = AbortSignal.timeout(this.runtime.config.requestTimeoutMs);
+    const signal =
+      options.signal === undefined
+        ? deadline
+        : AbortSignal.any([options.signal, deadline]);
+    const request = { ...options, signal };
     const sessionKey =
       options.sessionId === undefined
         ? "kmh-codex-anonymous"
         : String(options.sessionId);
     try {
+      // 辅助请求与主对话共用单次请求时限。
+      if (
+        options.purpose === "session-title" ||
+        options.purpose === "compaction"
+      ) {
+        yield* this.runtime.streamAuxiliary(request);
+        return;
+      }
       yield* this.runtime.withSession(
         sessionKey,
         this.runtime.resolveCwd(options.sessionId),
-        (turn) => this.drive(turn, options),
+        (turn) => this.drive(turn, request),
+        signal,
       );
     } catch (error) {
+      if (signal.aborted) {
+        if (signal.reason === deadline.reason && deadline.aborted)
+          throw new LlmError(
+            `CODEX_REQUEST_TIMEOUT: ${this.runtime.config.requestTimeoutMs}ms`,
+            "CODEX_REQUEST_TIMEOUT",
+          );
+        throw new LlmError("Codex request stopped", "ABORTED");
+      }
       const message = error instanceof Error ? error.message : String(error);
       const code = /^CODEX_[A-Z_]+/.test(message)
         ? (message.split(":")[0] ?? "CODEX_REQUEST_FAILED")

@@ -168,6 +168,9 @@ export const UserTextInput = z.object({
 export const TurnStartParams = z.object({
   threadId: z.string().min(1),
   input: z.array(UserTextInput).min(1),
+  model: z.string().optional(),
+  effort: z.string().optional(),
+  summary: z.enum(["auto", "concise", "detailed", "none"]).optional(),
 });
 /** turn/start 响应。 */
 export const TurnResult: z.ZodType<{ turn: { id: string } }> = z.object({
@@ -255,6 +258,26 @@ export function imageProjectionOf(item: unknown): ImageProjection | undefined {
     name:
       prompt === undefined || prompt === "" ? undefined : prompt.slice(0, 60),
   };
+}
+
+/** app-server ThreadItem::Reasoning 的可见文本；摘要与原始内容均为字符串数组。 */
+export const ReasoningItemContent = z.object({
+  summary: z.array(z.string()).default([]),
+  content: z.array(z.string()).default([]),
+});
+
+/**
+ * 从 app-server 完成项提取摘要，摘要为空时读取原始内容。
+ * @param item - item/completed 的 reasoning 对象。
+ * @returns 非空文本；两个数组皆空时返回 undefined。
+ * @throws ZodError 文本数组包含非法元素。
+ */
+export function reasoningItemText(item: unknown): string | undefined {
+  const parsed = ReasoningItemContent.parse(item);
+  const summaryTexts = parsed.summary.filter((text) => text !== "");
+  if (summaryTexts.length > 0) return summaryTexts.join("\n\n");
+  const contentTexts = parsed.content.filter((text) => text !== "");
+  return contentTexts.length > 0 ? contentTexts.join("") : undefined;
 }
 
 /** item/started、item/completed 通知参数：item 形态留由消费方判别。 */
@@ -417,5 +440,14 @@ export const AccountUpdatedParams = z.object({}).passthrough();
 export const ErrorNotificationParams = z
   .object({
     message: z.string().optional(),
+    error: z
+      .object({
+        message: z.string(),
+        additionalDetails: z.string().nullish(),
+      })
+      .passthrough()
+      .optional(),
+    willRetry: z.boolean().optional(),
+    turnId: z.string().optional(),
   })
   .passthrough();

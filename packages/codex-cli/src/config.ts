@@ -16,8 +16,13 @@ export const Config = schema.object({
   // 空 model 表示自动：登录后取模型目录首选；非空值固定为该模型。
   model: schema.string().default(""),
   defaultMaxTokens: schema.natural().min(1).max(2147483647).default(1000000),
+  // 可见思考摘要由官方 CLI 生成；none 显式关闭摘要请求。
+  reasoningSummary: schema
+    .union(["auto", "concise", "detailed", "none"])
+    .default("auto"),
   // 启动并完成 initialize 握手的时限。
   startupTimeoutMs: schema.natural().min(1).max(2147483647).default(20000),
+  // 单次 stream（含排队、启动、重试与辅助请求）的总时限；收尾另有时限。
   requestTimeoutMs: schema.natural().min(1).max(2147483647).default(360000),
   // turn/interrupt 后等待 interrupted 终止通知的时限。
   cancelReceiptTimeoutMs: schema.natural().min(1).max(2147483647).default(5000),

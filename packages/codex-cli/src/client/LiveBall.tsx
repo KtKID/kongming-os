@@ -6,22 +6,12 @@ import type {
 } from "@deepseek-ai/dsh-client-ui-slots";
 // type-only：sessionId 标准座椅的合并声明（ui-session 提供）。
 import type {} from "@deepseek-ai/dsh-client-ui-session/client";
-import { z } from "zod";
+import { LiveSnapshot } from "../live-state.ts";
+import type { z } from "zod";
 import type { LocaleKey } from "./locales.ts";
 
 /** /api/codex-cli/live 返回体（与宿主 SessionLiveState 对应）。 */
-const snapshot = z.object({
-  sessions: z.array(
-    z.object({
-      sessionId: z.string(),
-      color: z.enum(["green", "gray", "red"]),
-      streaming: z.boolean(),
-      detail: z.string(),
-      updatedAt: z.number(),
-    }),
-  ),
-});
-type LiveEntry = z.infer<typeof snapshot>["sessions"][number];
+type LiveEntry = z.infer<typeof LiveSnapshot>["sessions"][number];
 
 /** 三态小球颜色：状态 token 与 StateDot 同源（success/idle/error）。 */
 const BALL_COLORS: Record<LiveEntry["color"], string> = {
@@ -30,7 +20,7 @@ const BALL_COLORS: Record<LiveEntry["color"], string> = {
   red: "var(--dsw-alias-state-error-primary)",
 };
 
-/** 小球纯展示：颜色 + aria 标签；详细原因放 title 提示。 */
+/** 小球及可读状态；重试和失败原因直接展示。 */
 export function LiveBallView({
   entry,
   t,
@@ -38,8 +28,9 @@ export function LiveBallView({
   entry: LiveEntry;
   t: (key: LocaleKey) => string;
 }) {
-  const label =
-    entry.color === "green"
+  const label = entry.retrying
+    ? t("liveRetrying")
+    : entry.color === "green"
       ? t("liveGreen")
       : entry.color === "gray"
         ? t("liveGray")
@@ -50,14 +41,28 @@ export function LiveBallView({
       aria-label={`${t("liveTitle")}：${label}`}
       title={`${t("liveTitle")}：${label}。${entry.detail}`}
       style={{
-        display: "inline-block",
-        width: "8px",
-        height: "8px",
-        borderRadius: "50%",
-        background: BALL_COLORS[entry.color],
-        flex: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        minWidth: 0,
       }}
-    />
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          background: BALL_COLORS[entry.color],
+          flex: "none",
+        }}
+      />
+      {entry.color === "red" && (
+        <span style={{ overflowWrap: "anywhere" }}>
+          {label}：{entry.detail}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -81,10 +86,8 @@ export function LiveBall({
         .then((response) => (response.ok ? response.json() : undefined))
         .then((value: unknown) => {
           if (value === undefined || !live) return;
-          const parsed = snapshot.parse(value);
-          setEntry(
-            parsed.sessions.find((row) => row.sessionId === sessionId),
-          );
+          const parsed = LiveSnapshot.parse(value);
+          setEntry(parsed.sessions.find((row) => row.sessionId === sessionId));
         })
         .catch(() => undefined);
     };

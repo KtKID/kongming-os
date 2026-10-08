@@ -3,6 +3,9 @@ import { Service, type Context } from "@deepseek-ai/cordis";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { addAbortListener } from "node:events";
+import type { SessionLiveState } from "./live-state.ts";
+export type { SessionLiveState } from "./live-state.ts";
 import { CodexAccount } from "./account.ts";
 import { mountWeb } from "./web.ts";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
@@ -31,7 +34,7 @@ import {
 import type {} from "@deepseek-ai/dsh-session-projection";
 import type {} from "@deepseek-ai/dsh-permission-presets";
 import { CodexTurn } from "./turn.ts";
-import { ThreadResult, TurnResult } from "./protocol.ts";
+import { ThreadResult, TurnResult, TurnStartParams } from "./protocol.ts";
 export { Config } from "./config.ts";
 export { connectCodex, CodexConnection } from "./connection.ts";
 export { CodexAdapter } from "./adapter.ts";
@@ -59,20 +62,6 @@ interface SessionState {
   threadId: string | undefined;
   chain: Promise<void>;
 }
-/**
- * 会话与 Codex CLI 连接的实时状态（会话底部状态小球数据源）。
- * green=通信已建立（进行中或进程在线）；gray=已停止/进程回收；
- * red=异常（停止未确认、回合失败后 CLI 状态不明）。
- */
-export interface SessionLiveState {
-  color: "green" | "gray" | "red";
-  /** 回合进行中。 */
-  streaming: boolean;
-  /** 状态说明（tooltip）。 */
-  detail: string;
-  updatedAt: number;
-}
-
 /**
  * Own shared runtime state for the Codex CLI provider.
  * 目录缓存、会话串行与 thread 绑定挂在此服务上，adapter 与 Web 共用。
@@ -248,25 +237,31 @@ export class CodexCli extends Service {
     const state = this.sessions.get(sessionKey);
     if (state !== undefined) state.threadId = record.threadId;
   }
-/** 会话终止后释放其 turn 归属。 */
-releaseSession(turn: CodexTurn): void {
-  for (const [key, state] of this.sessions)
-    if (state.turn === turn) {
-      this.sessions.delete(key);
-      return;
-    }
-}
+  /** 会话终止后释放其 turn 归属。 */
+  releaseSession(turn: CodexTurn): void {
+    for (const [key, state] of this.sessions)
+      if (state.turn === turn) {
+        this.sessions.delete(key);
+        return;
+      }
+  }
   /** 记录会话的 CLI 连接实时状态（小球数据源）。 */
   private markLive(
     sessionKey: string,
-    state: Omit<SessionLiveState, "updatedAt">,
+    state: Omit<SessionLiveState, "updatedAt" | "retrying"> & {
+      retrying?: boolean;
+    },
   ): void {
-    this.liveStates.set(sessionKey, { ...state, updatedAt: Date.now() });
+    this.liveStates.set(sessionKey, {
+      retrying: false,
+      ...state,
+      updatedAt: Date.now(),
+    });
   }
   /**
    * 全部会话的实时状态快照（/api/codex-cli/live 返回体）。
    * 空闲但 turn 仍挂起工具回执属正常步间状态（KMH 执行完工具会续推），
-   * 不判异常；红球仅出现在停止未确认与回合异常中断两类真实失配。
+   * 重试期间红色状态携带原因；停止或完成后 streaming 为 false。
    */
   liveSnapshot(): {
     sessions: Array<SessionLiveState & { sessionId: string }>;
@@ -281,30 +276,43 @@ releaseSession(turn: CodexTurn): void {
   /**
    * 会话内串行执行：同一会话的 turn 操作排队，共用同一 CodexTurn。
    * @param sessionKey - 会话标识。
+   * @param cwd - 会话工作目录。
    * @param run - 本次要执行的流式驱动。
+   * @param signal - 排队等待的取消与超时信号。
    */
   async *withSession(
     sessionKey: string,
     cwd: string,
     run: (turn: CodexTurn) => AsyncGenerator<StreamChunk>,
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamChunk> {
     const state = this.stateOf(sessionKey, cwd);
-    await this.restoreCursor(sessionKey, state.turn);
     const previous = state.chain;
-    const tokens: StreamChunk[] = [];
+    let drained = false;
     let failure: unknown;
     let done: (() => void) | undefined;
     state.chain = new Promise<void>((resolve) => {
       done = resolve;
     });
-    await previous;
-    this.markLive(sessionKey, {
-      color: "green",
-      streaming: true,
-      detail: "CLI 通信中",
-    });
     try {
-      for await (const chunk of run(state.turn)) tokens.push(chunk);
+      await waitForSession(previous, signal);
+    } catch (error) {
+      // 排队取消后，后继请求仍须等待当前拥有者交还执行权。
+      previous.then(
+        () => done?.(),
+        () => done?.(),
+      );
+      throw error;
+    }
+    try {
+      await this.restoreCursor(sessionKey, state.turn);
+      this.markLive(sessionKey, {
+        color: "green",
+        streaming: true,
+        detail: "CLI 通信中",
+      });
+      for await (const chunk of run(state.turn)) yield chunk;
+      drained = true;
     } catch (error) {
       failure = error;
       // 停止/失败链路：先发 turn/interrupt 并有界等待终止通知，再回收。
@@ -318,7 +326,12 @@ releaseSession(turn: CodexTurn): void {
           },
           () => undefined,
         );
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason =
+        error instanceof Error && error.name === "TimeoutError"
+          ? `CODEX_REQUEST_TIMEOUT: ${this.config.requestTimeoutMs}ms`
+          : error instanceof Error
+            ? error.message
+            : String(error);
       const aborted = isCancelCause(error);
       this.markLive(sessionKey, {
         color: confirmed && aborted ? "gray" : "red",
@@ -329,9 +342,32 @@ releaseSession(turn: CodexTurn): void {
             : `停止未确认：CLI 未确认中断（${reason.slice(0, 120)}）`
           : `回合异常中断：${reason.slice(0, 120)}`,
       });
-      state.turn.dispose().catch(() => undefined);
+      await state.turn.dispose().catch(() => undefined);
     } finally {
-      done?.();
+      try {
+        // 消费方提前 return 时，中断仍在产出的 turn 后再交还会话执行权。
+        if (!drained && failure === undefined) {
+          let confirmed = false;
+          await state.turn
+            .interrupt(AbortSignal.timeout(this.config.cancelReceiptTimeoutMs))
+            .then(
+              () => {
+                confirmed = true;
+              },
+              () => undefined,
+            );
+          await state.turn.dispose().catch(() => undefined);
+          this.markLive(sessionKey, {
+            color: confirmed ? "gray" : "red",
+            streaming: false,
+            detail: confirmed
+              ? "输出消费已结束：CLI 确认停止"
+              : "输出消费已结束：CLI 停止未确认",
+          });
+        }
+      } finally {
+        done?.();
+      }
     }
     if (failure !== undefined) {
       if (failure instanceof Error) throw failure;
@@ -344,7 +380,6 @@ releaseSession(turn: CodexTurn): void {
         ? "已停止：回合已终止，进程已回收"
         : "已连接：CLI 进程在线，随时续聊",
     });
-    yield* tokens;
   }
   /** 取或建会话状态；已终止的 turn 重建以复用绑定。 */
   private stateOf(sessionKey: string, cwd: string): SessionState {
@@ -356,7 +391,20 @@ releaseSession(turn: CodexTurn): void {
       // 超时中断）。dispose 幂等，正常路径已回收时无副作用。
       if (state !== undefined) void state.turn.dispose().catch(() => undefined);
       state = {
-        turn: new CodexTurn(this.ctx, this.config, cwd),
+        turn: new CodexTurn(
+          this.ctx,
+          this.config,
+          cwd,
+          [],
+          (retrying, detail) => {
+            this.markLive(sessionKey, {
+              color: retrying ? "red" : "green",
+              streaming: true,
+              retrying,
+              detail,
+            });
+          },
+        ),
         threadId,
         chain: Promise.resolve(),
       };
@@ -390,9 +438,9 @@ releaseSession(turn: CodexTurn): void {
       signal,
     );
     const turn = new CodexTurn(this.ctx, this.config, this.config.cwd);
+    turn.adopt(connection);
     try {
       await verifyIsolation(connection, plan, signal);
-      turn.adopt(connection);
       const ephemeral: unknown = await connection.request(
         "thread/start",
         {
@@ -412,10 +460,13 @@ releaseSession(turn: CodexTurn): void {
             if (block.type === "text") texts.push(block.text);
       const turnResult: unknown = await connection.request(
         "turn/start",
-        {
+        TurnStartParams.parse({
           threadId,
           input: [{ type: "text", text: texts.join("\n") || "ping" }],
-        },
+          model: options.model,
+          effort: options.reasoningEffort,
+          summary: this.config.reasoningSummary,
+        }),
         signal,
       );
       turn.setIds(threadId, TurnResult.parse(turnResult).turn.id);
@@ -423,6 +474,30 @@ releaseSession(turn: CodexTurn): void {
     } finally {
       await turn.dispose();
     }
+  }
+}
+
+/** 等待会话执行权；取消只结束排队者的等待。 */
+async function waitForSession(
+  previous: Promise<void>,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal === undefined) return await previous;
+  signal.throwIfAborted();
+  let listener: ReturnType<typeof addAbortListener> | undefined;
+  try {
+    await Promise.race([
+      previous,
+      new Promise<never>((_resolve, reject) => {
+        listener = addAbortListener(signal, () => {
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- DSH 以 AgentCancelCause 对象传递停止原因。
+          reject(signal.reason);
+        });
+      }),
+    ]);
+    signal.throwIfAborted();
+  } finally {
+    listener?.[Symbol.dispose]();
   }
 }
 

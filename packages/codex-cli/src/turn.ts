@@ -1,6 +1,7 @@
 /** 一个 KMH 回合内的 Codex turn：进程、thread、挂起工具与流式投影。 */
 import type { Context } from "@deepseek-ai/cordis";
 import { readFile } from "node:fs/promises";
+import { addAbortListener } from "node:events";
 import type { z } from "zod";
 import type { TokenUsageBreakdownParams } from "./protocol.ts";
 import type {} from "@deepseek-ai/dsh-attachment";
@@ -29,7 +30,9 @@ import {
   TurnCompletedParams,
   TurnDiffUpdatedParams,
   TurnResult,
+  TurnStartParams,
   imageProjectionOf,
+  reasoningItemText,
 } from "./protocol.ts";
 import {
   prepareIsolation,
@@ -114,6 +117,8 @@ export class CodexTurn {
   private readonly blockTypes = new Map<number, "text" | "reasoning">();
   private readonly blockText = new Map<number, string>();
   private readonly endedBlocks = new Set<number>();
+  /** 已开块索引；同一 item 的后续 delta 沿用现有块及累积文本。 */
+  private readonly openBlocks = new Set<number>();
   threadId: string | undefined;
   turnId: string | undefined;
   /** 最近一次完成（含 interrupted）的 turn id；fork 重建的边界。 */
@@ -158,6 +163,11 @@ export class CodexTurn {
     private readonly cwd: string,
     /** 调用方在隔离覆盖之上追加的进程配置（测试 fixture 等）。 */
     private readonly extraOverrides: readonly string[] = [],
+    /** 官方重试通知及恢复输出时的连接状态。 */
+    private readonly onConnectionState?: (
+      retrying: boolean,
+      detail: string,
+    ) => void,
   ) {}
 
   /**
@@ -177,6 +187,7 @@ export class CodexTurn {
     this.blockTypes.clear();
     this.blockText.clear();
     this.endedBlocks.clear();
+    this.openBlocks.clear();
     this.lastUserText = "";
     this.toolRegistry = undefined;
     this.approvalAbort = undefined;
@@ -301,7 +312,13 @@ export class CodexTurn {
     }
     const turn: unknown = await connection.request(
       "turn/start",
-      { threadId: this.threadId, input: [{ type: "text", text: input.text }] },
+      TurnStartParams.parse({
+        threadId: this.threadId,
+        input: [{ type: "text", text: input.text }],
+        model: input.model,
+        effort: input.reasoningEffort,
+        summary: this.config.reasoningSummary,
+      }),
       signal,
     );
     this.turnId = TurnResult.parse(turn).turn.id;
@@ -392,7 +409,13 @@ export class CodexTurn {
     if (threadId === undefined) throw new Error("CODEX_REBUILD_THREAD_MISSING");
     const turn: unknown = await connection.request(
       "turn/start",
-      { threadId, input: [{ type: "text", text: rebuildText }] },
+      TurnStartParams.parse({
+        threadId,
+        input: [{ type: "text", text: rebuildText }],
+        model: input.model,
+        effort: input.reasoningEffort,
+        summary: this.config.reasoningSummary,
+      }),
       signal,
     );
     this.turnId = TurnResult.parse(turn).turn.id;
@@ -542,10 +565,11 @@ export class CodexTurn {
       case Incoming.agentMessageDelta: {
         const delta = AgentMessageDeltaParams.parse(params);
         const index = this.allocate(delta.itemId);
-        this.push({
-          kind: "chunk",
-          chunk: { type: "block-start", index, blockType: "text" },
-        });
+        if (!this.openBlocks.has(index))
+          this.push({
+            kind: "chunk",
+            chunk: { type: "block-start", index, blockType: "text" },
+          });
         this.push({
           kind: "chunk",
           chunk: { type: "text-delta", index, text: delta.delta },
@@ -556,10 +580,11 @@ export class CodexTurn {
       case Incoming.reasoningSummaryTextDelta: {
         const delta = ReasoningDeltaParams.parse(params);
         const index = this.allocate(delta.itemId);
-        this.push({
-          kind: "chunk",
-          chunk: { type: "block-start", index, blockType: "reasoning" },
-        });
+        if (!this.openBlocks.has(index))
+          this.push({
+            kind: "chunk",
+            chunk: { type: "block-start", index, blockType: "reasoning" },
+          });
         this.push({
           kind: "chunk",
           chunk: { type: "reasoning-delta", index, text: delta.delta },
@@ -627,18 +652,20 @@ export class CodexTurn {
             });
           } else if (
             record.type === "reasoning" &&
-            typeof record.id === "string" &&
-            Array.isArray(record.content)
+            typeof record.id === "string"
           ) {
-            const index = this.allocate(record.id);
-            this.push({
-              kind: "chunk",
-              chunk: {
-                type: "block-end",
-                index,
-                block: { type: "reasoning", text: record.content.join("") },
-              },
-            });
+            const text = reasoningItemText(item);
+            if (text !== undefined) {
+              const index = this.allocate(record.id);
+              this.push({
+                kind: "chunk",
+                chunk: {
+                  type: "block-end",
+                  index,
+                  block: { type: "reasoning", text },
+                },
+              });
+            }
           } else if (record.type === "imageGeneration") {
             this.projectImage(item).catch(() => undefined);
             this.closeNativeNote(item);
@@ -672,14 +699,25 @@ export class CodexTurn {
       }
       case Incoming.error: {
         const failure = ErrorNotificationParams.parse(params);
-        // 可重试的瞬态错误不打断 turn，仅忽略。
-        if (failure.willRetry === true) break;
-        const message = fieldOf(failure.error, "message");
+        if (
+          this.turnId !== undefined &&
+          failure.turnId !== undefined &&
+          failure.turnId !== this.turnId
+        )
+          return;
+        const detail = [
+          failure.error?.message ?? failure.message ?? "unknown",
+          failure.error?.additionalDetails,
+        ]
+          .filter(Boolean)
+          .join(": ");
+        if (failure.willRetry === true) {
+          this.onConnectionState?.(true, detail);
+          break;
+        }
         this.push({
           kind: "failure",
-          error: new Error(
-            `CODEX_SERVER_ERROR: ${typeof message === "string" ? message : "unknown"}`,
-          ),
+          error: new Error(`CODEX_SERVER_ERROR: ${detail}`),
         });
         break;
       }
@@ -888,9 +926,16 @@ export class CodexTurn {
     if (this.closed) return;
     const chunk = event.kind === "chunk" ? event.chunk : undefined;
     if (chunk !== undefined) {
+      if (
+        chunk.type === "text-delta" ||
+        chunk.type === "reasoning-delta" ||
+        chunk.type === "tool-call-delta"
+      )
+        this.onConnectionState?.(false, "CLI 通信中");
       // 文本/推理块按索引累积：Codex 对 turn 末条消息常不发 item/completed，
       // 摘要在 turn-done 时以累积文本补算（与 KMH 侧按 delta 组装一致）。
       if (chunk.type === "block-start") {
+        this.openBlocks.add(chunk.index);
         if (chunk.blockType === "text" || chunk.blockType === "reasoning") {
           this.blockTypes.set(chunk.index, chunk.blockType);
           this.blockText.set(chunk.index, "");
@@ -902,6 +947,7 @@ export class CodexTurn {
         const text = this.blockText.get(chunk.index) ?? "";
         this.blockText.set(chunk.index, text + chunk.text);
       } else if (chunk.type === "block-end") {
+        this.openBlocks.delete(chunk.index);
         this.endedBlocks.add(chunk.index);
         const block = chunk.block as { type?: unknown; text?: unknown };
         if (
@@ -926,21 +972,33 @@ export class CodexTurn {
       if (d !== undefined) this.pendingDigests.push(d);
     }
   }
-  private wait(): Promise<void> {
+  private async wait(signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
     if (this.queue.length > 0) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      this.wakeup = resolve;
-    });
+    let listener: ReturnType<typeof addAbortListener> | undefined;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.wakeup = resolve;
+        listener = addAbortListener(signal, () => {
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- DSH 以 AgentCancelCause 对象传递停止原因。
+          reject(signal.reason);
+        });
+      });
+      signal.throwIfAborted();
+    } finally {
+      this.wakeup = undefined;
+      listener?.[Symbol.dispose]();
+    }
   }
 
   /**
    * 消费投影流直到工具挂起或 turn 终止。
-   * @param signal - 取消信号；中止时队列关闭并抛出 CODEX_TURN_CANCELLED。
+   * @param signal - 取消或超时信号；等待期间中止会立即抛出 signal.reason。
    */
   async *pump(signal: AbortSignal): AsyncGenerator<StreamChunk> {
     while (true) {
       signal.throwIfAborted();
-      if (this.queue.length === 0) await this.wait();
+      if (this.queue.length === 0) await this.wait(signal);
       const event = this.queue.shift();
       if (event === undefined) continue;
       if (event.kind === "chunk") {
@@ -1030,6 +1088,8 @@ export class CodexTurn {
       const deadline = Date.now() + this.config.cancelReceiptTimeoutMs;
       while (this.terminalStatus === undefined && Date.now() < deadline)
         await new Promise((resolve) => setTimeout(resolve, 25));
+      if (this.terminalStatus === undefined)
+        throw new Error("CODEX_INTERRUPT_UNCONFIRMED");
     } finally {
       this.failPending(new Error("CODEX_TURN_CANCELLED"));
       await this.dispose();

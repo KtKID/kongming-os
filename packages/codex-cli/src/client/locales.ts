@@ -5,6 +5,7 @@ export type LocaleKey =
   | "liveGreen"
   | "liveGray"
   | "liveRed"
+  | "liveRetrying"
   | "summary"
   | "loading"
   | "versionLabel"
@@ -40,6 +41,7 @@ export const zh: Record<LocaleKey, string> = {
   liveGreen: "通信正常",
   liveGray: "已停止",
   liveRed: "状态异常",
+  liveRetrying: "连接失败，正在重试",
   summary: "官方 Codex CLI 传输：账号登录、版本检查与连接测试",
   loading: "状态加载中…",
   versionLabel: "CLI 版本",
@@ -77,6 +79,7 @@ export const en: Record<LocaleKey, string> = {
   liveGreen: "Connected",
   liveGray: "Stopped",
   liveRed: "Abnormal",
+  liveRetrying: "Connection failed, Retrying",
   summary:
     "Official Codex CLI transport: account, version check, connection test",
   loading: "Loading status…",
