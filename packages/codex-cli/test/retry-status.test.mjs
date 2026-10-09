@@ -165,11 +165,12 @@ for (const retry of [false, true]) {
 }
 
 test("request deadline ends a stalled turn and permits another request", async (t) => {
+  // 时限须先覆盖 CLI 冷启动（0.162 从 send 到首个上游请求已超过 2s），剩余窗口才是"上游装死"
   const h = await harness(t, "timeout-main", {
     holdFirst: true,
-    requestTimeoutMs: 2000,
+    requestTimeoutMs: 5000,
   });
-  const result = await bounded(outcome(run(h.adapter, input)), 6000);
+  const result = await bounded(outcome(run(h.adapter, input)), 10000);
   assert.equal(result.error?.code, "CODEX_REQUEST_TIMEOUT");
   const live = h.runtime.liveSnapshot().sessions[0];
   assert.equal(live.color, "red");
@@ -184,11 +185,11 @@ test("request deadline ends a stalled turn and permits another request", async (
 test("auxiliary requests obey the same deadline", async (t) => {
   const h = await harness(t, "timeout-aux", {
     holdFirst: true,
-    requestTimeoutMs: 2000,
+    requestTimeoutMs: 5000,
   });
   const result = await bounded(
     outcome(run(h.adapter, { ...input, purpose: "session-title" })),
-    6000,
+    10000,
   );
   assert.equal(result.error?.code, "CODEX_REQUEST_TIMEOUT");
   await bounded(Promise.all(h.children.map((child) => child.done)));
