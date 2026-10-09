@@ -85,6 +85,23 @@ const actionsStyle: CSSProperties = {
   gap: 8,
   flexWrap: "wrap",
 };
+/** 能力行：Switch 在左、文字块在右。Switch 原语的 label 仅作无障碍名，可见文字由本卡片渲染。 */
+const capabilityRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+/** 能力文字块：标题行（含不可用标签）与描述行纵向排布。 */
+const capabilityTextStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+  minWidth: 0,
+};
+const capabilityTitleStyle: CSSProperties = {
+  fontSize: 13,
+  lineHeight: "18px",
+};
 
 /** 状态响应守卫：字段存在且类型正确才采用。 */
 function isStatus(value: unknown): value is StatusResponse {
@@ -251,15 +268,7 @@ export function CodexCard(props: CodexCardProps): JSX.Element {
       <Row label={t("capabilitiesLabel")}>
         <span style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {status.capabilities.map((capability) => (
-            <span
-              key={capability.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flexWrap: "wrap",
-              }}
-            >
+            <span key={capability.id} style={capabilityRowStyle}>
               <Switch
                 checked={status.selection[capability.id] === true}
                 onChange={(next) => {
@@ -269,14 +278,18 @@ export function CodexCard(props: CodexCardProps): JSX.Element {
                 }}
                 label={capability.label}
               />
-              {!capability.available && (
-                <>
-                  <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
-                  {capability.reason !== undefined && (
-                    <span style={detailStyle}>{capability.reason}</span>
+              <span style={capabilityTextStyle}>
+                <span style={valueStyle}>
+                  <span style={capabilityTitleStyle}>{capability.label}</span>
+                  {!capability.available && (
+                    <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
                   )}
-                </>
-              )}
+                </span>
+                <span style={detailStyle}>{capability.description}</span>
+                {!capability.available && capability.reason !== undefined && (
+                  <span style={detailStyle}>{capability.reason}</span>
+                )}
+              </span>
             </span>
           ))}
         </span>
