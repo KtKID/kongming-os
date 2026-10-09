@@ -141,6 +141,18 @@ importers:
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
 
+  packages/web-surface-zh:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../third_party/dsh/vendor/cordis
+        version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: link:../../third_party/dsh/packages/core/system-prompt
+        version: link:../../third_party/dsh/packages/core/system-prompt
+      '@deepseek-ai/schemastery':
+        specifier: link:../../third_party/dsh/vendor/schemastery
+        version: link:../../third_party/dsh/vendor/schemastery
+
   packages/zcode-cli:
     dependencies:
       qrcode-generator:

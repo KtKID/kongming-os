@@ -8,6 +8,7 @@
     "@kmh/dev-preset": "link:../../packages/kmh-dev-preset",
     "@kmh/kmh-echo": "link:../../packages/kmh-echo",
     "@kmh/runtime-log": "link:../../packages/runtime-log",
+    "@kmh/web-surface-zh": "link:../../packages/web-surface-zh",
     "@kmh/zcode-cli": "link:../../packages/zcode-cli"
   },
   "dsh": {

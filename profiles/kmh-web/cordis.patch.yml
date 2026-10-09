@@ -26,6 +26,8 @@
       name: '@kmh/kmh-echo'
       config:
         file: !!js dshHomePath('logs', 'kmh-echo', `events-${process.pid}.log`)
+    - id: kmh-web-surface-zh
+      name: '@kmh/web-surface-zh'
     # == upstream.cordis.yml
     - id: tool-plugin-manager
       name: '@deepseek-ai/dsh-plugin-manager/tools'

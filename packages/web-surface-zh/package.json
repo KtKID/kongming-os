@@ -1,0 +1,30 @@
+{
+  "name": "@kmh/web-surface-zh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Replace the web-app web-surface system-prompt section with Chinese wording",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "format:check": "prettier src tsconfig.json package.json README.md --check"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/schemastery": "3.18.5-alpha.1",
+    "@deepseek-ai/dsh-system-prompt": "0.2.1-alpha.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "link:../../third_party/dsh/vendor/cordis",
+    "@deepseek-ai/schemastery": "link:../../third_party/dsh/vendor/schemastery",
+    "@deepseek-ai/dsh-system-prompt": "link:../../third_party/dsh/packages/core/system-prompt"
+  }
+}
