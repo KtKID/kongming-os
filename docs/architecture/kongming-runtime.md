@@ -96,7 +96,7 @@ Web 完整文件包含 base 服务、GUI/API、Web 承载、四个 Agent 预设�
 
 ## 扩展、维护与验证
 
-新增业务插件在 Kongming 自有包中实现，通过 DSH 现有服务、事件与 effect 接入。DSH 核心更新在自有 Fork 的 `kmh/runtime-core` 上维护，审查上游变化、完成相关检查后，再更新 Kongming 子模块指针。Web 配置升级同时审查新版原配置与 Kongming 配置的差异。
+新增业务插件在 Kongming 自有包中实现，逐文件接入清单见[新增 Kongming 自有插件包](../kmh/adding-a-plugin-package.md)，通过 DSH 现有服务、事件与 effect 接入。DSH 核心更新在自有 Fork 的 `kmh/runtime-core` 上维护，审查上游变化、完成相关检查后，再更新 Kongming 子模块指针。Web 配置升级同时审查新版原配置与 Kongming 配置的差异。
 
 [`kmh-echo`](../../packages/kmh-echo/README.md) 使用函数式入口，在 headless、Web、SDK profile 中各加载一个实例。日志路径、阶段名字、写入与清理语义由包 README 说明。自有插件快速构建与类型检查使用 `pnpm build:kmh` 和 `pnpm typecheck:kmh`。
 

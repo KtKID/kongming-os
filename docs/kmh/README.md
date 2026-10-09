@@ -44,9 +44,9 @@ pnpm config:web
 KMH_HOME=/absolute/runtime-home pnpm web
 ```
 
-新增业务插件归 Kongming 的 `packages/`，bundle 的 dependencies 声明实际使用的插件；插件通过 DSH 已有的服务、事件与 effect 扩展。DSH 的外部链接包解析使用运行时依赖提供 peer，插件的 TypeScript 开发依赖需要另行声明对应 DSH 包的本地开发引用。
+新增业务插件归 Kongming 的 `packages/`，逐文件接入清单见[新增 Kongming 自有插件包](adding-a-plugin-package.md)（含 profile 依赖链接与漏项症状）；插件通过 DSH 已有的服务、事件与 effect 扩展。DSH 的外部链接包解析使用运行时依赖提供 peer，插件的 TypeScript 开发依赖需要另行声明对应 DSH 包的本地开发引用。
 
-[`kmh-echo`](../../packages/kmh-echo/README.md) 是三个 profile 共用的函数式生命周期示例，配置与日志用法见包 README。[`codex-cli`](../../packages/codex-cli/README.md) 把本机官方 Codex CLI 接为 KMH 模型提供方（经 `codex app-server --stdio` 行协议）：KMH 主控提示、工具权限与回合推进，工具以 dynamic tools 回调执行；共享用户 `~/.codex` 的登录与配置，隔离注入全部经进程 `-c` 参数单次生效；需求与验收见 [spec](../spec/codex-cli-provider/spec.md)。修改自有插件后使用 `pnpm build:kmh` 快速构建，`pnpm typecheck:kmh`、`pnpm lint` 和 `pnpm format:check` 检查自有代码，`pnpm test` 验证插件和启动链路。
+[`kmh-echo`](../../packages/kmh-echo/README.md) 是三个 profile 共用的函数式生命周期示例，配置与日志用法见包 README。[`codex-cli`](../../packages/codex-cli/README.md) 把本机官方 Codex CLI 接为 KMH 模型提供方（经 `codex app-server --stdio` 行协议）：KMH 主控提示、工具权限与回合推进，工具以 dynamic tools 回调执行；共享用户 `~/.codex` 的登录与配置，隔离注入全部经进程 `-c` 参数单次生效；需求与验收见 [spec](../spec/codex-cli-provider/spec.md)。[`web-surface-zh`](../../packages/web-surface-zh/README.md) 把 web-app 注入的 `app:web-surface` 系统提示词段落替换为中文文案，监听 `system-prompt/assemble` 瀑布按段落名替换，不改 DSH 源码。修改自有插件后使用 `pnpm build:kmh` 快速构建，`pnpm typecheck:kmh`、`pnpm lint` 和 `pnpm format:check` 检查自有代码，`pnpm test` 验证插件和启动链路。
 
 ## 版本升级
 
