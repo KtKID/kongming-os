@@ -40,6 +40,7 @@ export const turnCompletedEvent = z
     type: z.literal("turn.completed"),
     inputId: z.string().optional(),
     resultType: z.string(),
+    response: z.string().optional(),
     usage: z.unknown().optional(),
   })
   .passthrough();
@@ -135,6 +136,8 @@ export class TurnEventProjector {
   private settled: TurnSettlement | undefined;
   /** 单回合生命周期内是否产生过可见内容（终态兜底 finish 用）。 */
   private sawContent = false;
+  /** 单回合生命周期内是否收到过非空文本增量；没有时用 turn.completed 的 response 回填。 */
+  private textProjected = false;
   /** 注入用户停止：开放块立即收口，finish 归为 aborted。 */
   abort(detail: string): StreamChunk[] {
     if (this.settled !== undefined) return [];
@@ -163,7 +166,7 @@ export class TurnEventProjector {
         completed.data.resultType,
         completed.data.usage,
       );
-      return this.closeOpen();
+      return this.closeOpen(completed.data.response);
     }
     const failed = turnFailedEvent.safeParse(payload);
     if (failed.success) {
@@ -208,12 +211,15 @@ export class TurnEventProjector {
       }
       block.text += delta;
       this.sawContent = true;
-      if (delta !== "")
+      if (delta !== "") {
+        // 思考增量不代表正文已投：回填判据只认文本增量。
+        if (type === "text") this.textProjected = true;
         chunks.push({
           type: type === "text" ? "text-delta" : "reasoning-delta",
           index: block.index,
           text: delta,
         });
+      }
       return chunks;
     }
     if (event.kind === "reasoning_end" || event.kind === "text_end") {
@@ -236,8 +242,24 @@ export class TurnEventProjector {
       },
     ];
   }
-  private closeOpen(): StreamChunk[] {
+  /** 收口开放块并追加终态；finalText 仅在整回合没有文本增量时回填文本块（CLI 对非增量响应只发 turn.completed 的 response）。 */
+  private closeOpen(finalText?: string): StreamChunk[] {
     const chunks: StreamChunk[] = [];
+    const backfill =
+      finalText !== undefined && finalText !== "" && !this.textProjected
+        ? finalText
+        : undefined;
+    if (backfill !== undefined) {
+      let block = this.open.get("text");
+      if (block === undefined) {
+        const index = this.nextIndex++;
+        block = { index, type: "text", text: "" };
+        this.open.set("text", block);
+        chunks.push({ type: "block-start", index, blockType: "text" });
+      }
+      block.text = backfill;
+      chunks.push({ type: "text-delta", index: block.index, text: backfill });
+    }
     for (const type of ["text", "reasoning"] as const)
       chunks.push(...this.closeOne(type));
     if (this.settled === undefined) return chunks;
