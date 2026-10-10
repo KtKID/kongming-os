@@ -15,7 +15,7 @@ pnpm web
 pnpm run sdk
 ```
 
-`setup` 初始化固定版本子模块、安装子模块自己的锁定依赖，再登记 profile；`build` 依次构建 DSH 和 Kongming 自有插件。入口使用构建后的 `dsh` CLI 和受支持的 profile，子进程继承调用者工作目录、环境变量和模型凭据，返回真实退出状态。SDK 模式使用标准输入输出传输；启动器保留协议字节，同时保存进程输出。目录与父进程环境规则见[数据目录与运行记录](runtime-records.md)。
+`setup` 初始化固定版本子模块、安装子模块自己的锁定依赖，再登记 profile；`build` 依次构建 DSH 和 Kongming 自有插件。入口使用构建后的 `dsh` CLI 和受支持的 profile，子进程继承调用者工作目录、环境变量和模型凭据，返回真实退出状态。SDK 模式使用标准输入输出传输；启动器保留协议字节，同时保存进程输出。目录与父进程环境规则见[数据目录与运行记录](runtime-records.md)。外部脚本与服务以 headless 单次进程调用 Kongming 的入口、参数与输入输出契约，见 [Headless 外部调用](headless.md)。
 
 `pnpm hooks` 安装当前 Node Git 检查；原 Python 钩子保存在本地迁移备份中。
 
