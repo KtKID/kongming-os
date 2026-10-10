@@ -50,7 +50,10 @@
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-alpha.1",
     "react": "^18.2.0",
-    "@deepseek-ai/dsh-client-ui-session": "0.2.1-alpha.1"
+    "@deepseek-ai/dsh-client-ui-session": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-agent": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-user-approval": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-user-questions": "0.2.1-alpha.1"
   },
   "dependencies": {
     "zod": "^4.4.3",
@@ -76,7 +79,10 @@
     "@deepseek-ai/dsh-client-ui-primitives": "link:../../third_party/dsh/packages/client/ui-primitives",
     "react": "^18.3.1",
     "@types/react": "^18.3.31",
-    "@deepseek-ai/dsh-client-ui-session": "link:../../third_party/dsh/packages/client/ui-session"
+    "@deepseek-ai/dsh-client-ui-session": "link:../../third_party/dsh/packages/client/ui-session",
+    "@deepseek-ai/dsh-agent": "link:../../third_party/dsh/packages/core/agent",
+    "@deepseek-ai/dsh-user-approval": "link:../../third_party/dsh/packages/interaction/user-approval",
+    "@deepseek-ai/dsh-user-questions": "link:../../third_party/dsh/packages/interaction/user-questions"
   },
   "dsh": {
     "client": {

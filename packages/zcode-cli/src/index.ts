@@ -13,7 +13,6 @@ import type {} from "@deepseek-ai/dsh-subprocess";
 import type {} from "@deepseek-ai/dsh-session";
 import type { Config } from "./config.ts";
 import { ZcodeCli } from "./runtime.ts";
-import { projectResult } from "./protocol.ts";
 import { mountWeb } from "./web.ts";
 export { Config } from "./config.ts";
 export { ZcodeCli } from "./runtime.ts";
@@ -58,8 +57,13 @@ export class ZcodeAdapter extends LlmAdapter {
       inputModalities: ["text"],
       defaultMaxTokens: this.runtime.config.defaultMaxTokens,
       reasoning: {
-        efforts: [{ id: ReasoningEffortId("high"), name: "High" }],
-        defaultEffort: ReasoningEffortId("high"),
+        // CLI 对 GLM-5.3 系（目录内全部模型）开放 low/high/max 三档。
+        efforts: [
+          { id: ReasoningEffortId("low"), name: "Low" },
+          { id: ReasoningEffortId("high"), name: "High" },
+          { id: ReasoningEffortId("max"), name: "Max" },
+        ],
+        defaultEffort: ReasoningEffortId(this.runtime.config.reasoningLevel),
       },
     };
   }
@@ -67,14 +71,15 @@ export class ZcodeAdapter extends LlmAdapter {
     await this.resolveModel(options.provider, options.model);
     if (
       options.reasoningEffort !== undefined &&
-      options.reasoningEffort !== "high"
+      !["low", "high", "max"].includes(options.reasoningEffort)
     )
       throw new LlmError(
         "Unsupported ZCode reasoning level",
         "INVALID_REASONING_EFFORT",
       );
     try {
-      yield* projectResult(await this.runtime.generate(options));
+      // session 中继：CLI 原生回合内流式产出 reasoning 与 text 增量。
+      for await (const chunk of this.runtime.relayTurn(options)) yield chunk;
     } catch (error) {
       const code =
         error instanceof Error && /^ZCODE_[A-Z_]+$/.test(error.message)

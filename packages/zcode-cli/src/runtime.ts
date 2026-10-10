@@ -24,9 +24,14 @@ import {
   resolveCatalog,
   type ModelEntry,
 } from "./models.ts";
-import { ReasoningEffortId, type GenerateOptions } from "@deepseek-ai/dsh-llm";
+import {
+  ReasoningEffortId,
+  type GenerateOptions,
+  type StreamChunk,
+} from "@deepseek-ai/dsh-llm";
 
 import { RequestSupervisor, type RequestRecord } from "./supervisor.ts";
+import { ZcodeSessionRelay } from "./session.ts";
 import type {
   PublicStatus,
   RequestStatus,
@@ -106,8 +111,10 @@ export class ZcodeCli extends Service {
   private readonly processes = new Set<SubprocessHandle>();
   private readonly lifetime = new AbortController();
   private readonly supervision = new RequestSupervisor();
+  private readonly relay: ZcodeSessionRelay;
   private attempt: Attempt | undefined;
   private catalog: Promise<ModelEntry[]> | undefined;
+  private catalogEntries: readonly ModelEntry[] = [];
   private state: PublicStatus;
   constructor(
     ctx: Context,
@@ -120,6 +127,24 @@ export class ZcodeCli extends Service {
       model: config.model,
       reasoning: config.reasoningLevel,
     };
+    this.relay = new ZcodeSessionRelay({
+      ctx,
+      config,
+      supervision: this.supervision,
+      catalog: (signal) => this.resolveCatalog(signal),
+      catalogSnapshot: () => this.catalogEntries,
+      requestCwd: (sessionId, signal) =>
+        this.resolveRequestCwd(sessionId, signal),
+      apiKey: async () => {
+        const account = await readAccount(config.dataDir, config.providerId, {
+          ...process.env,
+          ...config.env,
+        });
+        if (!account) throw new Error("ZCODE_LOGIN_REQUIRED");
+        return account.apiKey;
+      },
+      launch: (signal) => this.openRegisteredChannel(signal),
+    });
     ctx.effect(() => () => this.dispose(), "zcode-cli: processes");
   }
   private async paths(
@@ -206,6 +231,7 @@ export class ZcodeCli extends Service {
       const entries = await load;
       const head = entries[0];
       if (head !== undefined) this.state.model = head.id;
+      this.catalogEntries = entries;
       return entries;
     } catch (error) {
       if (this.catalog === load) this.catalog = undefined;
@@ -483,6 +509,9 @@ export class ZcodeCli extends Service {
       await child.done.catch(() => undefined);
     }
     this.catalog = undefined;
+    this.catalogEntries = [];
+    // 登出后旧注册态作废：回收长驻通道，下一次登录重新注册。
+    await this.relay.dispose();
     this.state = {
       login: "idle",
       connection: "unchecked",
@@ -661,6 +690,122 @@ export class ZcodeCli extends Service {
         record.noteExitConfirmed(confirmed);
       }
     }
+  }
+  /**
+   * 拉起并注册一条长驻 app-server 通道供 session 中继使用。
+   * 调用方（中继器）负责安装反向请求处理；进程随中继器生命周期回收。
+   * 注册成功置 connection=registered；任何失败按启动类错误码抛出。
+   */
+  private async openRegisteredChannel(signal: AbortSignal): Promise<{
+    rpc: JsonRpcLineTransport;
+    child: SubprocessHandle;
+  }> {
+    const catalog = await this.resolveCatalog(signal);
+    const paths = await this.paths(
+      signal,
+      catalog.map((entry) => entry.nativeId),
+    );
+    const account = await readAccount(
+      this.config.dataDir,
+      this.config.providerId,
+      paths.env,
+    );
+    if (!account) throw new Error("ZCODE_LOGIN_REQUIRED");
+    const release = builtin.parse(
+      JSON.parse(await readFile(paths.builtin, "utf8")),
+    );
+    const revision = `zcode-builtin:${release.revision}:${createHash("sha256").update(resolve(paths.builtin)).digest("hex")}`;
+    // 长驻进程不随单次回合终止：spawn 挂独立信号（连接由中继 dispose 回收），
+    // 启动准备与注册等待仍受调用方 signal 约束。
+    const processSignal = new AbortController();
+    const child = this.spawn(
+      paths,
+      ["app-server"],
+      processSignal.signal,
+      this.config.cwd,
+    );
+    child.stderr?.resume();
+    const input = child.stdout;
+    const output = child.stdin;
+    if (!input || !output) {
+      child.terminate();
+      await child.done;
+      throw new Error("ZCODE_STDIO_MISSING");
+    }
+    const bridge = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        try {
+          const { jsonrpc, ...frame } = outgoingFrame.parse(
+            JSON.parse(chunk.toString("utf8")),
+          );
+          if (jsonrpc !== "2.0") throw new Error("Invalid frame");
+          // CLI 只把 -32601 视为「客户端无此能力」并降级继续，其他错误码
+          // 一律按交互硬失败处理；不支持的反向请求必须降级为 -32601。
+          const error = frame.error;
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            (error as { code?: unknown }).code === -32603 &&
+            (error as { message?: unknown }).message ===
+              "ZCODE_INTERACTION_UNSUPPORTED"
+          ) {
+            output.write(
+              JSON.stringify({
+                id: frame.id,
+                error: {
+                  code: -32601,
+                  message: "method not found",
+                },
+              }) + "\n",
+              callback,
+            );
+            return;
+          }
+          output.write(JSON.stringify(frame) + "\n", callback);
+        } catch (error) {
+          callback(
+            error instanceof Error ? error : new Error("ZCODE_FRAME_INVALID"),
+          );
+        }
+      },
+    });
+    const rpc = new JsonRpcLineTransport(input, bridge);
+    rpc.start();
+    delete this.state.diagnostic;
+    try {
+      await rpc.request(
+        "provider/updateAccountConfig",
+        {
+          revision: randomUUID(),
+          basedOnZCodeBuiltinRevision: revision,
+          providers: {
+            [this.config.providerId]: {
+              access: { type: "zhipu-account", entitled: true },
+              builtinModelIds: catalog.map((entry) => entry.nativeId),
+            },
+          },
+          states: {
+            [this.config.providerId]: {
+              availability: "available",
+              entitled: true,
+              current: true,
+            },
+          },
+        },
+        signal,
+      );
+    } catch (error) {
+      rpc.close();
+      bridge.destroy();
+      child.terminate();
+      await child.done.catch(() => undefined);
+      if (signal.aborted) throw new Error("ZCODE_REQUEST_CANCELLED");
+      throw error instanceof Error && startupCodes.has(error.message)
+        ? error
+        : new Error("ZCODE_MODEL_REGISTRATION_FAILED");
+    }
+    this.state.connection = "registered";
+    return { rpc, child };
   }
   /**
    * @returns The account's usable models; the head is the default model.
@@ -869,10 +1014,44 @@ export class ZcodeCli extends Service {
   requests(): RequestStatus[] {
     return this.supervision.snapshot(this.config.slowRequestMs);
   }
+  /**
+   * session 中继回合：CLI 原生会话增量发送与事件流投影（流式与思考）。
+   * 模型路由与监督语义与 generate() 一致；失败码沿用 ZCODE_* 家族。
+   * @param options - Logged model request; tools/system/maxTokens 由 CLI 会话自持（中继模式）。
+   */
+  async *relayTurn(options: GenerateOptions): AsyncGenerator<StreamChunk> {
+    const record = this.supervision.open(
+      options.sessionId,
+      requestFingerprint(options),
+    );
+    try {
+      const catalog = await this.resolveCatalog(undefined);
+      const entry =
+        options.model === undefined
+          ? catalog[0]
+          : catalog.find((item) => item.id === options.model?.toLowerCase());
+      if (entry === undefined) throw new Error("ZCODE_MODEL_UNAVAILABLE");
+      yield* this.relay.turn(options, entry, record, this.lifetime.signal);
+      this.state.connection = "ready";
+      delete this.state.error;
+      delete this.state.diagnostic;
+    } catch (error) {
+      classifyFailure(record, error);
+      throw error;
+    }
+  }
+  /**
+   * 回收长驻 session 通道：下一次回合重新拉起进程并按绑定 resume 会话。
+   * 登出或账号切换后调用，避免旧注册态继续服务。
+   */
+  async recycleSessionChannel(): Promise<void> {
+    await this.relay.dispose();
+  }
   /** Terminate every owned range and await login settlement during unload. */
   async dispose(): Promise<void> {
     this.lifetime.abort();
     this.attempt?.controller.abort();
+    await this.relay.dispose();
     for (const child of this.processes) child.terminate();
     await Promise.allSettled([...this.processes].map((child) => child.done));
     await this.attempt?.done;

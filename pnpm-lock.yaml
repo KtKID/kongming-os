@@ -165,6 +165,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: link:../../third_party/dsh/packages/core/agent
+        version: link:../../third_party/dsh/packages/core/agent
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../third_party/dsh/packages/client/connection
         version: link:../../third_party/dsh/packages/client/connection
@@ -204,6 +207,12 @@ importers:
       '@deepseek-ai/dsh-system-prompt':
         specifier: link:../../third_party/dsh/packages/core/system-prompt
         version: link:../../third_party/dsh/packages/core/system-prompt
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../third_party/dsh/packages/interaction/user-approval
+        version: link:../../third_party/dsh/packages/interaction/user-approval
+      '@deepseek-ai/dsh-user-questions':
+        specifier: link:../../third_party/dsh/packages/interaction/user-questions
+        version: link:../../third_party/dsh/packages/interaction/user-questions
       '@deepseek-ai/schemastery':
         specifier: link:../../third_party/dsh/vendor/schemastery
         version: link:../../third_party/dsh/vendor/schemastery

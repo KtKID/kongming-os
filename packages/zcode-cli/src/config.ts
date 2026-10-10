@@ -37,7 +37,10 @@ export const Config = schema.object({
       },
     )
     .default("https://open.bigmodel.cn/api/coding/paas/v4"),
-  reasoningLevel: schema.const("high").default("high"),
+  // 会话与单发路径共用的思考等级；GLM-5.3 系官方枚举为 low/high/max。
+  reasoningLevel: schema
+    .union([schema.const("low"), schema.const("high"), schema.const("max")])
+    .default("high"),
   defaultMaxTokens: schema.natural().min(1).max(2147483647).default(1000000),
   requestTimeoutMs: schema.natural().min(1).max(2147483647).default(360000),
   // 模型等待超过该时长在请求状态中标记慢请求，默认 30 秒。
@@ -45,6 +48,8 @@ export const Config = schema.object({
   // 用户停止先走官方取消通道：取消回执时限与受管范围清空确认时限。
   cancelReceiptTimeoutMs: schema.natural().min(1).max(2147483647).default(1000),
   cleanupTimeoutMs: schema.natural().min(1).max(2147483647).default(5000),
+  // 会话连接空闲回收时限：闲置超过该时长的 CLI 会话进程被回收（下回合 resume 续用）。
+  sessionIdleMs: schema.natural().min(1).max(2147483647).default(600000),
   probeTimeoutMs: schema.natural().min(1).max(2147483647).default(15000),
   probeMaxTokens: schema.natural().min(1).default(1),
   loginTimeoutMs: schema.natural().min(1).max(2147483647).default(1200000),
