@@ -1,8 +1,8 @@
 # @kmh/zcode-cli
 
-通过本机官方 ZCode CLI 的 `workspace/generateText` 接口运行 KMH 模型请求。KMH 提供系统提示、工具定义、上下文与工具执行；CLI 提供模型通信，账号模块接入官方登录流程。
+通过本机官方 ZCode CLI 的原生会话协议中继 KMH 模型请求（`session/create + subscribe + send`）：思考与正文增量实时回流，模型与思考等级随请求透传。KMH 决定何时发送，CLI 在会话内自持 agent 回合、工具执行与上下文缓存；插件负责会话绑定、增量发送、事件投影与审批桥接，账号模块接入官方登录流程。
 
-模型不写死：登录后插件查询账号模型端点（`{apiBaseUrl}/models`），与官方 CLI 内置配置中对应 Coding Plan 模板的模型清单取交集作为可用目录，目录首选即默认模型（BigModel 套餐当前为 `GLM-5.3`）。`model` 配置留空表示自动；填入具体 ID 则固定该模型。思考等级为 `high`。默认账号为 BigModel Individual Coding Plan，请求地址为 `https://open.bigmodel.cn/api/coding/paas/v4`。插件通过官方 CLI 的个人配置设置地址，再通过账号注册接口提供权益和模型信息。
+模型不写死：登录后插件查询账号模型端点（`{apiBaseUrl}/models`），与官方 CLI 内置配置中对应 Coding Plan 模板的模型清单取交集作为可用目录，目录首选即默认模型（BigModel 套餐当前为 `GLM-5.3`）。`model` 配置留空表示自动；填入具体 ID 则固定该模型。思考等级开放官方枚举 `low / high / max` 三档（GLM-5.3 系），默认 `high`。默认账号为 BigModel Individual Coding Plan，请求地址为 `https://open.bigmodel.cn/api/coding/paas/v4`。插件通过官方 CLI 的个人配置设置地址，再通过账号注册接口提供权益和模型信息。
 
 ## 使用
 
@@ -13,13 +13,13 @@ pnpm web
 
 在现有「插件」列表打开 `kmh/zcode-cli`。点击「微信 / BigModel 登录」，二维码在当前配置区展开；在电脑打开「官方授权页」，选择微信登录并扫描官方显示的登录码。插件二维码用于打开授权页。授权完成后显示「已登录」；点击「测试连接」后，成功显示「模型请求已验证」。
 
-模型选择器提供登录账号的动态模型目录（按官方模板顺序，官方模板缺失时按端点返回倒序）和 High 思考等级；重新登录后目录随新账号刷新。选择 ZCode 后，普通 KMH 会话继续使用原有 Agent 预设；宿主声明的工具全量透传给 CLI。系统消息由 KMH 组装并原样传递，宿主提供对应工具并执行返回的调用。
+模型选择器提供登录账号的动态模型目录（按官方模板顺序，官方模板缺失时按端点返回倒序）和 Low / High / Max 三档思考等级；重新登录后目录随新账号刷新。选择 ZCode 后，普通 KMH 会话继续使用原有 Agent 预设；会话由 CLI 原生 agent 回合驱动，工具执行发生在 CLI 内（CLI 自带工具集），调用其工具产生的审批经插件桥接回 KMH 审批服务（Web 审批条呈现「ZCode 工具审批」；无审批服务或匿名会话时 fail-closed 拒绝）。KMH 侧声明的宿主工具不进入 CLI 会话（见「已知限制」）。
 
 账号资料持久保存在插件数据目录，重启后仍可读取。数据目录没有账号时，插件只读借用桌面端 `~/.zcode/v2/credentials.json` 中的同套餐登录，配置区显示凭据来源为「复用桌面端登录」；桌面端重新登录后插件随下次读取自动更新。借用读取失败（文件缺失、格式变化或密钥不匹配）一律显示未登录，在插件内登录一次即写回插件数据目录并优先于借用。退出只清除插件数据目录，不影响桌面端登录。登录与连接测试分别执行。登录默认等待人工授权 20 分钟，超时显示 `ZCODE_LOGIN_TIMEOUT`；登录完成后模型连接显示「待验证」，点击「测试连接」即可检查。连接测试发送 `ping`、空工具列表，向 CLI 传递输出上限 1，并使用 `low` 思考等级（该模型支持 `low / high / max`）；思考 token 由模型产生；登录完成后开始计算独立的 15 秒探测时限，超时显示 `ZCODE_PROBE_TIMEOUT` 并保留已登录状态。登录进行中调用探测会返回 `ZCODE_LOGIN_REQUIRED`。会话请求未指定思考等级时使用配置的 `reasoningLevel`（默认 `high`）。模型目录首次解析发生在登录后的首次连接测试或模型请求；账号端点不可用时自动模式显示 `ZCODE_MODELS_ENDPOINT_FAILED`，显式 `model` 配置则跳过目录、退化为单模型请求。目录中选中模型返回套餐未开放（如官方错误码 1311）时，界面透出官方提示，改选目录内其他模型即可。界面显示插件错误码以及官方 CLI 返回的错误码和提示，凭据经过过滤。取消登录会等待登录流程结束，重试产生新的尝试身份。
 
 官方 CLI 使用自身代理传输。插件为该子进程固定设置 `NODE_USE_ENV_PROXY=0`，保留宿主提供的 HTTP、HTTPS 代理地址和绕过列表。
 
-每次模型请求在会话输入区下方显示当前阶段（「启动模型通道」「等待模型回复」），等待超过 `slowRequestMs` 追加慢请求提示，KMH 侧重试续接同一请求并显示「第 N 次尝试」。状态行只描述当前会话经 zcode cli 的请求：其他会话的请求与其他提供方的会话不显示。用户停止先经官方取消通道（见下表 `cancelReceiptTimeoutMs`），状态行随之呈现「正在停止」，进程回收确认后落定「zcode cli 任务已停止」，确认超时则保持「停止状态待确认」。请求的终止原因至少区分用户停止、启动超时、模型请求总超时（`ZCODE_REQUEST_TIMEOUT`）、提供方错误、模型通道提前退出、宿主卸载与清理失败；首个生效原因保持不变，进程回收结果独立记录。认证后的 `GET /api/zcode-cli/requests` 返回全部请求的状态快照（阶段、尝试次数、等待起点、停止链路与终止信息），客户端按会话过滤后轮询展示。
+每次模型请求在会话输入区下方显示当前阶段（「启动模型通道」「等待模型回复」），等待超过 `slowRequestMs` 追加慢请求提示，KMH 侧重试续接同一请求并显示「第 N 次尝试」。状态行只描述当前会话经 zcode cli 的请求：其他会话的请求与其他提供方的会话不显示。会话请求的停止经官方 `session/stop` 通道（见下表 `cancelReceiptTimeoutMs`），状态行随之呈现「正在停止」，回执落地后回合以中止收尾。请求的终止原因至少区分用户停止、启动超时、模型请求总超时（`ZCODE_REQUEST_TIMEOUT`）、提供方错误、模型通道提前退出、宿主卸载与清理失败；首个生效原因保持不变，进程回收结果独立记录。认证后的 `GET /api/zcode-cli/requests` 返回全部请求的状态快照（阶段、尝试次数、等待起点、停止链路与终止信息），客户端按会话过滤后轮询展示。
 
 ## 配置
 
@@ -35,19 +35,26 @@ pnpm web
 
 带会话身份的模型请求把子进程工作目录和 `workspace` 标识切换到该会话创建时的工作目录（宿主 `sessions` 服务提供）。请求不带会话身份、宿主未挂载 `sessions`、会话头部没有目录或目录已被删除时，回落到配置的 `cwd`，请求不因此失败。登录、退出与连通测试始终使用配置的 `cwd`。
 
-官方 CLI 0.16.9 将 `workspace/generateText` 的 `maxOutputTokens` 当必填项校验，缺省或超过合并后上限都会拒绝请求。因此插件对每条模型请求恒定携带输出上限：会话未指定时使用 `defaultMaxTokens`（默认 1000000），连接测试使用 `probeMaxTokens`。若调用方显式传入大于 `defaultMaxTokens` 的上限，需同步调高该配置值。
+官方 CLI 0.16.9 将 `workspace/generateText` 的 `maxOutputTokens` 当必填项校验，缺省或超过合并后上限都会拒绝请求。因此连通测试（`ping` 探测）恒定携带输出上限 1；会话中继路径的输出上限由 CLI 会话自持（个人配置已抬高校验上限），`maxTokens` 不随请求传递。
+
+## 会话中继
+
+模型请求走 CLI 原生会话协议，与官方桌面同构：每个 KMH 会话绑定一条专属 CLI 会话与一条专属 app-server 进程（连接空闲超过 `sessionIdleMs` 自动回收，**在途回合免回收**、悬挂回合由请求总超时兜底；下一回合按绑定 `session/resume` 续用；绑定持久化在 `dataDir/session-bindings.json`）。同一绑定内每回合只发送新增的用户文本（增量发送），CLI 自持完整上下文并命中其原生前缀缓存；绑定丢失或会话不可恢复时重建会话，历史以纯文本 `importedHistory` 导入（工具调用链不进入，见已知限制）。模型与思考等级经 `modelSelection` 随每条发送透传。
+
+回合事件按官方信封订阅（`session/event` 通知）：思考增量（`reasoning_delta`）与正文增量（`text_delta`）实时投影为 KMH 流式块，回合完成时折算不相交口径的 token 用量（`inputTokens` 已扣除缓存命中并单列 `cacheReadTokens`）。CLI 侧工具活动不投影为 KMH 内容块（避免宿主重复执行）；`interaction/requestPermission` 与 `interaction/requestUserInput` 经插件桥接映射 KMH 审批与用户问题服务，不支持的反向请求以「客户端无此能力」回执（CLI 按能力缺失降级，官方 MCP 等不受影响）。不支持的反向请求若以其他错误码回执会被 CLI 当作交互硬失败，因此插件将「不支持」固定降级为 -32601。
 
 | 配置                            | 默认值                                      | 用途                                                               |
 | ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
 | model                           | （空）                                      | 空=登录后按动态目录自动选择；填 ID 固定该模型（如 glm-5.3-flash）  |
 | providerId                      | account:bigmodel-individual-coding-plan     | 官方 Coding Plan 账号；支持 account:zai-individual-coding-plan     |
 | apiBaseUrl                      | https://open.bigmodel.cn/api/coding/paas/v4 | 传给官方 CLI 的模型地址；Z.ai 账号需配置自己的 Coding Plan 地址    |
-| reasoningLevel                  | high                                        | 官方模型思考等级                                                   |
+| reasoningLevel                  | high                                        | 官方模型思考等级（low / high / max）                               |
 | defaultMaxTokens                | 1000000                                     | 会话默认输出上限；个人配置同步抬高官方 CLI 的校验上限              |
 | requestTimeoutMs                | 360000                                      | 模型请求总时限；从接收请求起算，到期停止并报 ZCODE_REQUEST_TIMEOUT |
 | slowRequestMs                   | 30000                                       | 等待超过该时长在请求状态中标记慢请求                               |
 | cancelReceiptTimeoutMs          | 1000                                        | 用户停止等待官方取消回执的控制时限                                 |
 | cleanupTimeoutMs                | 5000                                        | 停止后等待进程回收确认的时限，超时标记停止状态待确认               |
+| sessionIdleMs                   | 600000                                      | 会话连接空闲回收时限；闲置 CLI 进程回收，下回合 resume 续用        |
 | probeTimeoutMs / probeMaxTokens | 15000 / 1                                   | 连通测试时限和传递的输出上限                                       |
 | loginTimeoutMs                  | 1200000                                     | 等待人工授权的时限                                                 |
 | graceMs                         | 1500                                        | 进程结束宽限时间                                                   |
@@ -77,6 +84,12 @@ pnpm --dir packages/zcode-cli pack --out /tmp/kmh-zcode-cli.tgz
 
 宿主提供 `llm` 与 `subprocess`；`connection` 提供认证后的账号 API。标准 Client 加载器加载 `./client`，账号控件进入现有 Plugins 配置区。`./prompt` 通过 systemPrompt 的 complete section 注册“你是 kmh agent，底层是 zcode cli 里的模型”的完整提示，供安装者显式挂载；常规 KMH Web 使用其现有提示组成。
 
+## 已知限制
+
+- KMH 宿主声明的工具不进入 CLI 会话：会话协议无工具声明入口，`session/create` 亦无系统提示参数（KMH persona 不注入）。后续经宿主 HTTP MCP 端点把 KMH 工具注册进会话 `mcpServers`（中继重构 M2，见仓库调研文档）。
+- 会话重建只支持纯文本：绑定丢失后的 `importedHistory` 仅携带 user/assistant 文本，工具调用链无法导入；同会话正常续用（resume）不受影响。
+- 停止语义为回合级：`session/stop` 停止在途回合并保留 CLI 会话与队列语义，DSH 队列的逐条消费等宿主行为不受插件干预。
+
 ## 验证
 
-`tests/runtime/zcode-cli.test.mjs` 覆盖工具声明透传、系统文本保留、工具往返、官方账号注册字段、模型目录解析（官方模板交集、端点失败回退、按请求选择模型）、个人配置保留、错误展示数据、取消、重试、超时、会话工作目录跟随与回落、桌面端凭据借用优先级与失败回落、Client 工厂。真实浏览器和模型验证结果见任务开发报告。
+`tests/runtime/zcode-cli.test.mjs` 覆盖官方账号注册字段、模型目录解析（官方模板交集、端点失败回退、按请求选择模型）、个人配置保留、连通测试、错误展示数据、取消、重试、超时、会话工作目录跟随与回落、桌面端凭据借用优先级与失败回落、Client 工厂。`tests/runtime/zcode-cli-session.test.mjs` 覆盖中继路径：事件投影（思考/正文块、用量折算、终态映射）、增量发送与会话复用、跨进程 resume、绑定失效重建、用户停止经 `session/stop`、审批桥映射与 fail-closed、思考等级三档暴露。真实浏览器和模型验证结果见任务开发报告。
