@@ -78,6 +78,123 @@ if (process.argv[2] === "login") {
   function send(frame) {
     process.stdout.write(JSON.stringify(frame) + "\n");
   }
+  // session 协议桩：会话表跨进程持久（镜像真实 CLI 的数据目录会话存储），
+  // 事件脚本按 mode 驱动流式/审批/挂起等形态。
+  const sessionsFile = join(home, "fixture-sessions.json");
+  function loadSessions() {
+    try {
+      return new Set(JSON.parse(readFileSync(sessionsFile, "utf8")));
+    } catch {
+      return new Set();
+    }
+  }
+  function saveSession(id) {
+    const all = loadSessions();
+    all.add(id);
+    writeFileSync(sessionsFile, JSON.stringify([...all]));
+  }
+  const sessions = loadSessions();
+  let eventSeq = 0;
+  let activePrompt = undefined;
+  // 镜像真实 CLI 信封：判别字段 type 在信封层，payload 只带本体字段。
+  function emit(sessionId, type, payload = {}) {
+    send({
+      method: "session/event",
+      params: {
+        sessionId,
+        seq: ++eventSeq,
+        type,
+        payload,
+        timestamp: Date.now(),
+      },
+    });
+  }
+  function emitTurnScript(sessionId, content, inputId) {
+    const steps = [
+      () =>
+        emit(sessionId, "turn.started", {
+          turnNumber: 0,
+          input: content,
+          inputId,
+        }),
+      () =>
+        emit(sessionId, "model.streaming", { kind: "reasoning_start" }),
+      () =>
+        emit(sessionId, "model.streaming", {
+          kind: "reasoning_delta",
+          delta: "思考片段",
+        }),
+      () =>
+        emit(sessionId, "model.streaming", { kind: "reasoning_end" }),
+      () => emit(sessionId, "model.streaming", { kind: "text_start" }),
+      () =>
+        emit(sessionId, "model.streaming", {
+          kind: "text_delta",
+          delta: "你好",
+        }),
+    ];
+    let delay = 15;
+    for (const step of steps) {
+      setTimeout(step, delay);
+      delay += 15;
+    }
+    if (mode === "session-hang") return; // 无终态：等待停止通道介入
+    if (mode === "session-fail") {
+      setTimeout(
+        () => {
+          emit(sessionId, "turn.failed", {
+            inputId,
+            error: { message: "fixture turn blew up" },
+          });
+          activePrompt = undefined;
+        },
+        delay + 40,
+      );
+      return;
+    }
+    setTimeout(() => {
+      if (mode === "session-tool") {
+        // 工具审批：先发反向审批请求，收到应答后再收尾。
+        send({
+          id: "perm-1",
+          method: "interaction/requestPermission",
+          params: {
+            requestId: "perm-req-1",
+            sessionId,
+            toolCallId: "tc-1",
+            toolName: "Bash",
+            riskLevel: "medium",
+            reason: "run ls",
+            input: { command: "ls" },
+            options: [
+              {
+                optionId: "allow",
+                kind: "allow",
+                name: "允许",
+                response: { decision: "allow" },
+              },
+            ],
+          },
+        });
+        return;
+      }
+      emit(sessionId, "model.streaming", { kind: "text_delta", delta: "，世界" });
+      setTimeout(() => {
+        emit(sessionId, "model.streaming", { kind: "text_end" });
+        emit(sessionId, "turn.completed", {
+          inputId,
+          resultType: mode === "session-cancel" ? "cancelled" : "success",
+          usage: {
+            inputTokens: 100,
+            outputTokens: 10,
+            totalTokens: 110,
+            cacheReadTokens: 60,
+          },
+        });
+        activePrompt = undefined;
+      }, 15);
+    }, delay + 10);
+  }
   for await (const line of rl) {
     const frame = JSON.parse(line);
     if (frame.jsonrpc !== undefined) {
@@ -167,7 +284,121 @@ if (process.argv[2] === "login") {
       send({ id: frame.id, result: { applied: true } });
     } else if (frame.method === "runtime/capabilities")
       send({ id: frame.id, result: { version: "fixture" } });
-    else if (frame.method === "workspace/generateText") {
+    else if (frame.method === "session/create") {
+      appendFileSync(
+        join(home, "session-creates.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      const sessionId = `sess-fx-${process.pid}-${Date.now()}`;
+      sessions.add(sessionId);
+      saveSession(sessionId);
+      send({
+        id: frame.id,
+        result: { session: { sessionId }, messages: [] },
+      });
+    } else if (frame.method === "session/resume") {
+      appendFileSync(
+        join(home, "session-resumes.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      const sessionId = frame.params?.sessionId;
+      if (typeof sessionId === "string" && sessions.has(sessionId)) {
+        send({
+          id: frame.id,
+          result: { session: { sessionId }, messages: [] },
+        });
+      } else {
+        send({
+          id: frame.id,
+          error: { code: -32001, message: "Session not found" },
+        });
+      }
+    } else if (frame.method === "session/subscribe") {
+      appendFileSync(
+        join(home, "session-subscribes.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      send({
+        id: frame.id,
+        result: {
+          sessionId: frame.params.sessionId,
+          eventSeq: eventSeq,
+          events: [],
+        },
+      });
+    } else if (frame.method === "session/send") {
+      const content = frame.params?.content;
+      const reasoningLevel =
+        frame.params?.modelSelection?.options?.reasoningLevel;
+      if (typeof content !== "string" || content === "") {
+        send({
+          id: frame.id,
+          error: { code: -32602, message: "content required" },
+        });
+        continue;
+      }
+      if (reasoningLevel !== undefined && !["low", "high", "max"].includes(reasoningLevel)) {
+        send({
+          id: frame.id,
+          error: {
+            code: -32603,
+            message: `Reasoning level is required for ${provider}/${frame.params.modelSelection.modelId}`,
+            data: { code: "invalid_model_request" },
+          },
+        });
+        continue;
+      }
+      if (activePrompt !== undefined) {
+        send({
+          id: frame.id,
+          error: {
+            code: -32010,
+            message: "A prompt is already running for this session",
+          },
+        });
+        continue;
+      }
+      appendFileSync(
+        join(home, "session-sends.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      const sessionId = frame.params.sessionId;
+      activePrompt = sessionId;
+      send({
+        id: frame.id,
+        result: { accepted: true, sessionId, stateRevision: 1 },
+      });
+      const inputId = frame.params.inputId ?? "input-fx";
+      // 通道退出：send 受理后进程直接结束，模拟 CLI 崩溃/被杀。
+      if (mode === "session-exit") {
+        setTimeout(() => process.exit(3), 30);
+        continue;
+      }
+      emitTurnScript(sessionId, content, inputId);
+    } else if (frame.method === "session/stop") {
+      appendFileSync(
+        join(home, "session-stops.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      activePrompt = undefined;
+      send({ id: frame.id, result: { stopped: true } });
+    } else if (frame.id === "perm-1") {
+      // 审批应答回执：记录决定后按允许/拒绝收尾回合。
+      appendFileSync(
+        join(home, "permission-replies.jsonl"),
+        JSON.stringify(frame.result ?? frame.error) + "\n",
+      );
+      const sessionId = activePrompt;
+      if (typeof sessionId !== "string") continue;
+      emit(sessionId, "model.streaming", { kind: "text_delta", delta: "，世界" });
+      emit(sessionId, "model.streaming", { kind: "text_end" });
+      emit(sessionId, "turn.completed", {
+        inputId: "input-fx",
+        resultType: "success",
+        usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+      });
+      activePrompt = undefined;
+    } else if (frame.method === "workspace/generateText") {
       // GLM-5.3-Flash 的无效档位经官方选择解析后产生缺少档位错误。
       if (
         !["low", "high", "max"].includes(
