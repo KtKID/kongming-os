@@ -1,0 +1,19 @@
+{
+  "name": "@kmh/profile-mobile",
+  "private": true,
+  "dependencies": {
+    "@kmh/bundle-kongming": "link:../../bundles/kongming",
+    "@kmh/codex-cli": "link:../../packages/codex-cli",
+    "@kmh/runtime-log": "link:../../packages/runtime-log",
+    "@kmh/zcode-cli": "link:../../packages/zcode-cli"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-headless",
+        "@kmh/bundle-kongming"
+      ]
+    }
+  }
+}

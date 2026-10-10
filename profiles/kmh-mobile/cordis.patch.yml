@@ -1,0 +1,31 @@
+# Kongming 管理的应用覆盖；会话与机器偏好位于 KMH_HOME。
+- insert:
+    - id: runtime-log
+      name: '@kmh/runtime-log'
+      config:
+        file: !!js dshHomePath('logs', 'plugins', `runtime-${process.pid}.jsonl`)
+    - id: kmh-zcode-cli
+      name: '@kmh/zcode-cli'
+      config:
+        providerId: account:bigmodel-individual-coding-plan
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('zcode-cli')
+    - id: kmh-codex-cli
+      name: '@kmh/codex-cli'
+      config:
+        # 官方 Codex CLI 可执行文件：本机 PATH 里的 homebrew 包损坏（vendor 二进制缺失），
+        # 改用 ChatGPT.app 自带的官方 CLI；与 kmh-web 同源。
+        command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('codex-cli')
+- id: agent-default-model
+  name: '@deepseek-ai/dsh-agent-default-model'
+  config:
+    provider: zcode-cli
+    model: glm-5.3-flash
+- id: spill-local
+  config:
+    root: !!js dshHomePath('spill')
+- id: plugin-manager
+  config:
+    logRoot: !!js dshHomePath('logs', 'plugin-manager', 'kmh-mobile')
