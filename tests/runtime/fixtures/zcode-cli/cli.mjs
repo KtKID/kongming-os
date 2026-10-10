@@ -110,6 +110,29 @@ if (process.argv[2] === "login") {
     });
   }
   function emitTurnScript(sessionId, content, inputId) {
+    if (mode === "session-flat") {
+      // 非增量回合：零 model.streaming 事件，正文只随终态 response 出现。
+      emit(sessionId, "turn.started", {
+        turnNumber: 0,
+        input: content,
+        inputId,
+      });
+      setTimeout(() => {
+        emit(sessionId, "turn.completed", {
+          inputId,
+          resultType: "success",
+          response: "整段只在终态出现的正文",
+          usage: {
+            inputTokens: 100,
+            outputTokens: 10,
+            totalTokens: 110,
+            cacheReadTokens: 60,
+          },
+        });
+        activePrompt = undefined;
+      }, 30);
+      return;
+    }
     const steps = [
       () =>
         emit(sessionId, "turn.started", {

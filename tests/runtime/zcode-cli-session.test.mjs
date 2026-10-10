@@ -156,6 +156,88 @@ test("projector streams reasoning and text blocks with disjoint usage and stop",
   assert.deepEqual(chunks[7].reason, { kind: "stop" });
   assert.equal(projector.finished, true);
 });
+test("projector backfills the response text when a turn has no deltas", () => {
+  // 真机丢文本形态：整回合零增量，正文只出现在 turn.completed.response。
+  const flat = new TurnEventProjector();
+  const chunks = flat.push({
+    type: "turn.completed",
+    resultType: "success",
+    response: "整段只在终态出现的正文",
+    usage: { inputTokens: 5, outputTokens: 3, totalTokens: 8 },
+  });
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ["block-start", "text-delta", "block-end", "usage", "finish"],
+  );
+  assert.equal(chunks[0].blockType, "text");
+  assert.equal(chunks[1].text, "整段只在终态出现的正文");
+  assert.deepEqual(chunks[2].block, {
+    type: "text",
+    text: "整段只在终态出现的正文",
+  });
+  // response 为空串：无可回填，只出终态。
+  const empty = new TurnEventProjector();
+  const emptyChunks = empty.push({
+    type: "turn.completed",
+    resultType: "success",
+    response: "",
+  });
+  assert.deepEqual(emptyChunks.map((chunk) => chunk.type), ["finish"]);
+});
+test("projector keeps streamed text and skips backfill when response also arrives", () => {
+  // 已有文本增量时终态 response 不得重复回填。
+  const projector = new TurnEventProjector();
+  const chunks = [
+    ...projector.push({ type: "model.streaming", kind: "text_start" }),
+    ...projector.push({
+      type: "model.streaming",
+      kind: "text_delta",
+      delta: "流式正文",
+    }),
+    ...projector.push({ type: "model.streaming", kind: "text_end" }),
+    ...projector.push({
+      type: "turn.completed",
+      resultType: "success",
+      response: "终态同文重复体",
+    }),
+  ];
+  const textDeltas = chunks.filter((chunk) => chunk.type === "text-delta");
+  assert.deepEqual(
+    textDeltas.map((chunk) => chunk.text),
+    ["流式正文"],
+  );
+  const blockEnd = chunks.find((chunk) => chunk.type === "block-end");
+  assert.deepEqual(blockEnd.block, { type: "text", text: "流式正文" });
+});
+test("projector backfills response text after reasoning-only deltas", () => {
+  // 思考增量不代表正文已投：reasoning-only 回合的正文仍从 response 回填。
+  const projector = new TurnEventProjector();
+  const chunks = [
+    ...projector.push({ type: "model.streaming", kind: "reasoning_start" }),
+    ...projector.push({
+      type: "model.streaming",
+      kind: "reasoning_delta",
+      delta: "只思考",
+    }),
+    ...projector.push({ type: "model.streaming", kind: "reasoning_end" }),
+    ...projector.push({
+      type: "turn.completed",
+      resultType: "success",
+      response: "思考后才出现的正文",
+    }),
+  ];
+  assert.ok(chunks.some((chunk) => chunk.type === "reasoning-delta"));
+  const textDeltas = chunks.filter((chunk) => chunk.type === "text-delta");
+  assert.deepEqual(
+    textDeltas.map((chunk) => chunk.text),
+    ["思考后才出现的正文"],
+  );
+  // 回填块在思考块之后收口：思考与正文两块共存且序不乱。
+  const blocks = chunks
+    .filter((chunk) => chunk.type === "block-end")
+    .map((chunk) => chunk.block.type);
+  assert.deepEqual(blocks, ["reasoning", "text"]);
+});
 test("projector maps resultType variants and failure events", () => {
   const maxTokens = new TurnEventProjector();
   maxTokens.push({ type: "turn.completed", resultType: "error_max_turns" });
@@ -254,6 +336,32 @@ test("relay turn streams reasoning and text through the adapter", async (t) => {
     readFileSync(join(dir, "session-bindings.json"), "utf8"),
   );
   assert.ok(bindings["sess-kmh-1"].cliSessionId.startsWith("sess-fx-"));
+});
+test("flat turn without deltas delivers the response text end to end", async (t) => {
+  // 覆盖真机丢文本形态：CLI 不发增量，正文只在 turn.completed.response。
+  const { runtime } = await fixture(t, "session-flat");
+  await signIn(runtime);
+  const adapter = new ZcodeAdapter(runtime);
+  const chunks = [];
+  for await (const chunk of adapter.stream({
+    provider: "zcode-cli",
+    model: "glm-5.3-flash",
+    sessionId: "sess-kmh-flat",
+    messages: [userMessage("你好")],
+  }))
+    chunks.push(chunk);
+  const textDeltas = chunks.filter((chunk) => chunk.type === "text-delta");
+  assert.deepEqual(
+    textDeltas.map((chunk) => chunk.text),
+    ["整段只在终态出现的正文"],
+  );
+  const blockEnd = chunks.find((chunk) => chunk.type === "block-end");
+  assert.deepEqual(blockEnd.block, {
+    type: "text",
+    text: "整段只在终态出现的正文",
+  });
+  assert.equal(chunks.at(-2).type, "usage");
+  assert.deepEqual(chunks.at(-1).reason, { kind: "stop" });
 });
 test("second turn reuses the bound session and sends only new input", async (t) => {
   const { runtime, dir } = await fixture(t);
