@@ -5,7 +5,7 @@ description: ZCode 原生 session 复用与提示缓存的源码核实与本机�
 # ZCode 原生 session 复用与提示缓存核实
 
 > Report ID: 20261008-zcode-session-cache
-> 回指任务: [task-zcode-session](../../../../../kmh-session-suspend-plugin/tasks/task-zcode-session/dev-report.md)（feat08 T1 表述修正，任务清单归 session-suspend spec，本报告归 zcode-cli 协议能力调查）
+> 回指任务: task-zcode-session（dev-report 已随 session-suspend 插件退役移除；feat08 T1 表述修正结论归档于本报告）
 > 核实日期：2026-10-08（Asia/Shanghai）
 > 源码基线：`other/ZCode` commit `29628c9`（v3.14.3）；本机 CLI 0.16.9（SHA256 `fad4c35c…`，版本对应关系沿用 task dev-report 已核实结论）
 > 实测数据：`~/.zcode/cli/rollout/model-io-*.jsonl`（本机现存请求记录）
