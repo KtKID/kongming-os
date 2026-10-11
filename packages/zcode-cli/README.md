@@ -43,6 +43,21 @@ pnpm web
 
 回合事件按官方信封订阅（`session/event` 通知）：思考增量（`reasoning_delta`）与正文增量（`text_delta`）实时投影为 KMH 流式块，回合完成时折算不相交口径的 token 用量（`inputTokens` 已扣除缓存命中并单列 `cacheReadTokens`）。CLI 侧工具活动不投影为 KMH 内容块（避免宿主重复执行）；`interaction/requestPermission` 与 `interaction/requestUserInput` 经插件桥接映射 KMH 审批与用户问题服务，不支持的反向请求以「客户端无此能力」回执（CLI 按能力缺失降级，官方 MCP 等不受影响）。不支持的反向请求若以其他错误码回执会被 CLI 当作交互硬失败，因此插件将「不支持」固定降级为 -32601。
 
+### 会话权限
+
+插件读取宿主 `permissionPresets` 服务，将当前会话选择同步到 ZCode 原生模式：
+
+| KMH 选择                           | ZCode 模式 | CLI 生效状态                      |
+| ---------------------------------- | ---------- | --------------------------------- |
+| 仅可查看（`read-only`）            | 计划模式   | `mode=build`，`planEnabled=true`  |
+| 请求审批（`workspace-write`）      | 变更前确认 | `mode=build`，`planEnabled=false` |
+| 完全权限（`danger-full-access`）   | 完全访问   | `mode=yolo`，`planEnabled=false`  |
+| 帮我审批（`workspace-write-auto`） | 自动编辑   | `mode=edit`，`planEnabled=false`  |
+
+创建携带 `mode`，回执仍为默认权限时通过 `session/setMode` 校正；恢复后重新应用当前选择。权限选择事件同步进行中的连接，每次发送前等待模式确认。CLI 0.16.9 将计划开关与基础权限分别记录；进入计划模式先设置 `build`，再设置 `plan`，并核对 `session.updated` 中的 `planEnabled=true`。模式设置失败或回执不符时，本次消息发送明确失败。已开始的操作遵循 CLI 自身的执行语义。
+
+完全权限的残余工具审批回调由当前会话授权直接允许；计划模式的残余审批拒绝；请求审批按宿主服务的允许或拒绝返回。回调要求已绑定的活跃 KMH Agent。宿主缺少会话或权限服务时使用变更前确认，缺少审批服务时拒绝。未知权限预设报 `ZCODE_PERMISSION_MODE_UNSUPPORTED`。DSH 的 `approval=never` 保持关闭询问并拒绝请求的语义。
+
 | 配置                            | 默认值                                      | 用途                                                               |
 | ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
 | model                           | （空）                                      | 空=登录后按动态目录自动选择；填 ID 固定该模型（如 glm-5.3-flash）  |
@@ -82,7 +97,7 @@ pnpm --dir packages/zcode-cli pack --out /tmp/kmh-zcode-cli.tgz
 
 包公开导出 provider、`./client` 和可选的 `./prompt`。安装者需要兼容 Cordis/DSH 服务、官方 CLI 和自己的账号。包包含编译产物、类型、文档与许可证；运行数据留在每位使用者的数据目录。
 
-宿主提供 `llm` 与 `subprocess`；`connection` 提供认证后的账号 API。标准 Client 加载器加载 `./client`，账号控件进入现有 Plugins 配置区。`./prompt` 通过 systemPrompt 的 complete section 注册“你是 kmh agent，底层是 zcode cli 里的模型”的完整提示，供安装者显式挂载；常规 KMH Web 使用其现有提示组成。
+宿主提供 `llm` 与 `subprocess`；`connection` 提供认证后的账号 API；`sessions` 与 `permissionPresets` 提供会话权限，`agents` 与 `approval` 提供工具审批。标准 Client 加载器加载 `./client`，账号控件进入现有 Plugins 配置区。`./prompt` 通过 systemPrompt 的 complete section 注册“你是 kmh agent，底层是 zcode cli 里的模型”的完整提示，供安装者显式挂载；常规 KMH Web 使用其现有提示组成。
 
 ## 已知限制
 
