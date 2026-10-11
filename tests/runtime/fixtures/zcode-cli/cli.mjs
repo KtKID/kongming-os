@@ -94,6 +94,7 @@ if (process.argv[2] === "login") {
     writeFileSync(sessionsFile, JSON.stringify([...all]));
   }
   const sessions = loadSessions();
+  const sessionModes = new Map();
   let eventSeq = 0;
   let activePrompt = undefined;
   // 镜像真实 CLI 信封：判别字段 type 在信封层，payload 只带本体字段。
@@ -315,9 +316,19 @@ if (process.argv[2] === "login") {
       const sessionId = `sess-fx-${process.pid}-${Date.now()}`;
       sessions.add(sessionId);
       saveSession(sessionId);
+      sessionModes.set(sessionId, {
+        mode:
+          frame.params.mode === "plan" || mode === "session-create-default"
+            ? "build"
+            : (frame.params.mode ?? "build"),
+        planEnabled: frame.params.mode === "plan",
+      });
       send({
         id: frame.id,
-        result: { session: { sessionId }, messages: [] },
+        result: {
+          session: { sessionId, mode: sessionModes.get(sessionId).mode },
+          messages: [],
+        },
       });
     } else if (frame.method === "session/resume") {
       appendFileSync(
@@ -325,6 +336,8 @@ if (process.argv[2] === "login") {
         JSON.stringify(frame.params) + "\n",
       );
       const sessionId = frame.params?.sessionId;
+      if (frame.params.mode !== undefined)
+        throw new Error("resume accepts no mode");
       if (typeof sessionId === "string" && sessions.has(sessionId)) {
         send({
           id: frame.id,
@@ -336,6 +349,41 @@ if (process.argv[2] === "login") {
           error: { code: -32001, message: "Session not found" },
         });
       }
+    } else if (frame.method === "session/setMode") {
+      appendFileSync(
+        join(home, "session-modes.jsonl"),
+        JSON.stringify(frame.params) + "\n",
+      );
+      if (mode === "session-mode-fail" && frame.params.mode === "yolo") {
+        send({
+          id: frame.id,
+          error: { code: -32603, message: "mode rejected" },
+        });
+        continue;
+      }
+      const previous = sessionModes.get(frame.params.sessionId) ?? {
+        mode: "build",
+        planEnabled: false,
+      };
+      const state = {
+        mode: frame.params.mode === "plan" ? previous.mode : frame.params.mode,
+        planEnabled: frame.params.mode === "plan",
+      };
+      sessionModes.set(frame.params.sessionId, state);
+      if (mode !== "session-plan-missing" || frame.params.mode !== "plan")
+        emit(frame.params.sessionId, "session.updated", state);
+      send({
+        id: frame.id,
+        result: {
+          session: {
+            sessionId: frame.params.sessionId,
+            mode:
+              mode === "session-mode-mismatch" && frame.params.mode === "yolo"
+                ? "build"
+                : state.mode,
+          },
+        },
+      });
     } else if (frame.method === "session/subscribe") {
       appendFileSync(
         join(home, "session-subscribes.jsonl"),

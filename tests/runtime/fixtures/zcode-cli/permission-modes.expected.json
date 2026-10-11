@@ -1,0 +1,8 @@
+{
+  "createdMode": "yolo",
+  "modeChanges": ["build", "build", "plan"],
+  "cliDecisions": ["allow", "allow", "deny", "deny"],
+  "approvalDecisions": ["allowed-once", "rejected", "rejected"],
+  "prompts": 2,
+  "sessionCount": 1
+}

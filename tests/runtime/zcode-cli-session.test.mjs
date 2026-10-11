@@ -9,6 +9,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  existsSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -26,6 +27,18 @@ import { ZcodeCli } from "../../packages/zcode-cli/lib/src/runtime.js";
 import { ZcodeAdapter } from "../../packages/zcode-cli/lib/src/index.js";
 import { TurnEventProjector } from "../../packages/zcode-cli/lib/src/events.js";
 import { splitHistory } from "../../packages/zcode-cli/lib/src/session.js";
+import {
+  zcodeModeForPreset,
+  resolveZcodeMode,
+} from "../../packages/zcode-cli/lib/src/permission.js";
+import {
+  Session,
+  SessionId,
+} from "../../third_party/dsh/packages/core/session/lib/index.js";
+import {
+  ApprovalService,
+  setApprovalPolicy,
+} from "../../third_party/dsh/packages/interaction/user-approval/lib/index.js";
 import {
   ZcodeInteractionBridge,
   permissionDecisionOf,
@@ -100,6 +113,297 @@ const userMessage = (text) => ({
 const assistantMessage = (text) => ({
   role: "assistant",
   content: [{ type: "text", text }],
+});
+
+function permissionSession(ctx, preset = "workspace-write") {
+  const session = { id: "sess-permissions", header: {} };
+  const state = { preset };
+  ctx.provide("sessions", {
+    get: (id) => (id === session.id ? session : undefined),
+  });
+  ctx.provide("permissionPresets", { current: () => state.preset });
+  return {
+    session,
+    select(value) {
+      state.preset = value;
+      ctx.emit("session/event", session, {
+        type: "permission/preset",
+        data: { preset: value },
+      });
+    },
+  };
+}
+
+async function permissionTurn(runtime, text = "权限测试") {
+  const chunks = [];
+  for await (const chunk of runtime.relayTurn({
+    provider: "zcode-cli",
+    model: "glm-5.3-flash",
+    sessionId: "sess-permissions",
+    messages: [userMessage(text)],
+  }))
+    chunks.push(chunk);
+  return chunks;
+}
+
+test("permissions mapping rejects unknown presets and preserves conservative defaults", async (t) => {
+  const { ctx } = await fixture(t);
+  assert.equal(resolveZcodeMode(ctx, undefined), "build");
+  const permissions = permissionSession(ctx);
+  assert.equal(resolveZcodeMode(ctx, "unbound"), "build");
+  for (const [preset, expected] of [
+    ["read-only", "plan"],
+    ["workspace-write", "build"],
+    ["workspace-write-auto", "edit"],
+    ["danger-full-access", "yolo"],
+  ]) {
+    permissions.select(preset);
+    assert.equal(zcodeModeForPreset(preset), expected);
+    assert.equal(resolveZcodeMode(ctx, "sess-permissions"), expected);
+  }
+  for (const preset of ["", " ", "custom", "yolo", "x".repeat(1024)])
+    assert.throws(
+      () => zcodeModeForPreset(preset),
+      /ZCODE_PERMISSION_MODE_UNSUPPORTED/,
+    );
+});
+
+test("permissions full access still requires a bound active KMH agent", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-tool");
+  permissionSession(ctx, "danger-full-access");
+  await signIn(runtime);
+  await permissionTurn(runtime);
+  assert.equal(
+    readLog(dir, "permission-replies.jsonl").at(-1).decision,
+    "deny",
+  );
+});
+
+for (const [preset, expected] of [
+  ["read-only", "plan"],
+  ["workspace-write", "build"],
+  ["danger-full-access", "yolo"],
+]) {
+  test(`permissions create ${preset} as ${expected}`, async (t) => {
+    const { runtime, dir, ctx } = await fixture(t);
+    permissionSession(ctx, preset);
+    await signIn(runtime);
+    await permissionTurn(runtime);
+    assert.equal(readLog(dir, "session-creates.jsonl")[0].mode, expected);
+  });
+}
+
+test("permissions switching preserves the CLI session and incremental input", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t);
+  const permissions = permissionSession(ctx);
+  await signIn(runtime);
+  await permissionTurn(runtime, "第一问");
+  permissions.select("danger-full-access");
+  await permissionTurn(runtime, "第二问");
+  permissions.select("read-only");
+  await permissionTurn(runtime, "第三问");
+  const creates = readLog(dir, "session-creates.jsonl");
+  const sends = readLog(dir, "session-sends.jsonl");
+  const modes = readLog(dir, "session-modes.jsonl");
+  assert.equal(creates.length, 1);
+  assert.deepEqual(
+    sends.map((send) => send.content),
+    ["第一问", "第二问", "第三问"],
+  );
+  assert.equal(new Set(sends.map((send) => send.sessionId)).size, 1);
+  assert.deepEqual(
+    modes.map((request) => request.mode),
+    ["yolo", "build", "plan"],
+  );
+});
+
+test("permissions creation corrects the CLI default before the first send", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-create-default");
+  permissionSession(ctx, "danger-full-access");
+  await signIn(runtime);
+  await permissionTurn(runtime);
+  assert.equal(readLog(dir, "session-creates.jsonl")[0].mode, "yolo");
+  assert.deepEqual(readLog(dir, "session-modes.jsonl").map((request) => request.mode), ["yolo"]);
+  assert.equal(readLog(dir, "session-sends.jsonl").length, 1);
+});
+
+test("permissions resume applies the current mode to the persisted CLI session", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t);
+  const permissions = permissionSession(ctx, "danger-full-access");
+  await signIn(runtime);
+  await permissionTurn(runtime);
+  await runtime.recycleSessionChannel();
+  permissions.select("read-only");
+  await permissionTurn(runtime, "恢复后继续");
+  assert.equal(readLog(dir, "session-creates.jsonl").length, 1);
+  const resume = readLog(dir, "session-resumes.jsonl")[0];
+  const mode = readLog(dir, "session-modes.jsonl").at(-1);
+  assert.equal(mode.sessionId, resume.sessionId);
+  assert.equal(mode.mode, "plan");
+});
+
+test("permissions callbacks follow the live preset with the real approval service", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-tool");
+  const session = Session.create(SessionId("sess-permissions"));
+  session.append("turn/start", { turn: 1 });
+  const agent = { id: session.id, session };
+  const state = { preset: "danger-full-access", answer: "allowed-once" };
+  ctx.provide("sessions", {
+    get: (id) => (id === session.id ? session : undefined),
+  });
+  ctx.provide("agents", {
+    get: (id) => (id === session.id ? agent : undefined),
+  });
+  ctx.provide("permissionPresets", { current: () => state.preset });
+  new ApprovalService(ctx, { policy: "never" });
+  let prompts = 0;
+  ctx.on("approval/request", () => {
+    prompts += 1;
+    return Promise.resolve(state.answer);
+  });
+  await signIn(runtime);
+  await permissionTurn(runtime, "完全权限");
+  assert.equal(
+    readLog(dir, "permission-replies.jsonl").at(-1).decision,
+    "allow",
+  );
+  assert.equal(prompts, 0);
+  for (const [preset, policy, answer, expected] of [
+    ["workspace-write", "ask", "allowed-once", "allow"],
+    ["workspace-write", "ask", "rejected", "deny"],
+    ["read-only", "ask", "allowed-once", "deny"],
+  ]) {
+    state.preset = preset;
+    state.answer = answer;
+    setApprovalPolicy(session, policy);
+    ctx.emit("session/event", session, {
+      type: "permission/preset",
+      data: { preset },
+    });
+    await permissionTurn(runtime, preset);
+    assert.equal(
+      readLog(dir, "permission-replies.jsonl").at(-1).decision,
+      expected,
+    );
+  }
+  assert.equal(prompts, 2);
+  setApprovalPolicy(session, "never");
+  assert.equal(
+    await ctx.approval.request({ agent, toolName: "control" }),
+    "rejected",
+  );
+  assert.equal(prompts, 2);
+  const snapshot = {
+    createdMode: readLog(dir, "session-creates.jsonl")[0].mode,
+    modeChanges: readLog(dir, "session-modes.jsonl").map(
+      (request) => request.mode,
+    ),
+    cliDecisions: readLog(dir, "permission-replies.jsonl").map(
+      (reply) => reply.decision,
+    ),
+    approvalDecisions: session
+      .snapshotEvents()
+      .filter((event) => event.type === "approval/decided")
+      .map((event) => event.data.outcome),
+    prompts,
+    sessionCount: readLog(dir, "session-creates.jsonl").length,
+  };
+  assert.deepEqual(
+    snapshot,
+    JSON.parse(
+      readFileSync(
+        "tests/runtime/fixtures/zcode-cli/permission-modes.expected.json",
+        "utf8",
+      ),
+    ),
+  );
+});
+
+test("permissions switch during a running turn without sending another prompt", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-hang");
+  const permissions = permissionSession(ctx);
+  await signIn(runtime);
+  const controller = new AbortController();
+  const chunks = [];
+  const running = (async () => {
+    for await (const chunk of runtime.relayTurn({
+      provider: "zcode-cli",
+      model: "glm-5.3-flash",
+      sessionId: "sess-permissions",
+      messages: [userMessage("运行时切换")],
+      signal: controller.signal,
+    }))
+      chunks.push(chunk);
+  })();
+  t.after(() => controller.abort());
+  for (
+    let n = 0;
+    n < 100 && !chunks.some((chunk) => chunk.type === "text-delta");
+    n++
+  )
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(chunks.some((chunk) => chunk.type === "text-delta"));
+  permissions.select("danger-full-access");
+  let changes = [];
+  for (let n = 0; n < 100; n++) {
+    try {
+      changes = readLog(dir, "session-modes.jsonl");
+    } catch {
+      /* Await first mode request. */
+    }
+    if (changes.length > 0) break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(changes.at(-1)?.mode, "yolo");
+  assert.equal(readLog(dir, "session-sends.jsonl").length, 1);
+  controller.abort();
+  await running;
+  assert.equal(chunks.at(-1).reason.kind, "aborted");
+});
+
+test("permissions mode failure blocks further sends", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-mode-fail");
+  const permissions = permissionSession(ctx);
+  await signIn(runtime);
+  await permissionTurn(runtime);
+  permissions.select("danger-full-access");
+  await assert.rejects(permissionTurn(runtime, "受阻输入"), /mode rejected/);
+  assert.equal(readLog(dir, "session-sends.jsonl").length, 1);
+});
+
+test("permissions mismatched mode acknowledgement blocks further sends", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-mode-mismatch");
+  const permissions = permissionSession(ctx);
+  await signIn(runtime);
+  await permissionTurn(runtime);
+  permissions.select("danger-full-access");
+  await assert.rejects(
+    permissionTurn(runtime, "受阻输入"),
+    /ZCODE_PERMISSION_MODE_NOT_APPLIED/,
+  );
+  assert.equal(readLog(dir, "session-sends.jsonl").length, 1);
+});
+
+test("permissions missing plan confirmation blocks the first send", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t, "session-plan-missing");
+  permissionSession(ctx, "read-only");
+  await signIn(runtime);
+  await assert.rejects(
+    permissionTurn(runtime),
+    /ZCODE_PERMISSION_MODE_NOT_APPLIED/,
+  );
+  assert.equal(existsSync(join(dir, "session-sends.jsonl")), false);
+});
+
+test("permissions unknown live preset fails before creating a CLI session", async (t) => {
+  const { runtime, dir, ctx } = await fixture(t);
+  permissionSession(ctx, "custom");
+  await signIn(runtime);
+  await assert.rejects(
+    permissionTurn(runtime),
+    /ZCODE_PERMISSION_MODE_UNSUPPORTED/,
+  );
+  assert.equal(existsSync(join(dir, "session-creates.jsonl")), false);
 });
 
 test("projector streams reasoning and text blocks with disjoint usage and stop", () => {
