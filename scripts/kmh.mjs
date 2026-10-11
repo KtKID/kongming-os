@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { resolveKmhHome, runtimeEnvironment } from './runtime-home.mjs';
 import { recordLauncherFailure, runLogged } from './runtime-logs.mjs';
+import { discoverWatchPackages, startPluginWatchers } from './plugin-watch.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = join(root, 'third_party/dsh');
@@ -75,7 +76,7 @@ export function readLaunchProfiles(file = join(root, 'launch.config.json')) {
 export async function main(args = process.argv.slice(2)) {
   const [command = 'help', ...forwarded] = args;
   if (command === 'help' || command === '--help') {
-    console.log('Kongming：setup | build | cli <task> | web | sdk | dsh <args> | profiles\nlaunch.config.json 选择 profile；profiles/<name>/cordis.patch.yml 配置应用；KMH_HOME 指定运行数据目录。');
+    console.log('Kongming：setup | build | cli <task> | web [--no-watch] | sdk | dsh <args> | profiles\nWeb 默认监听自有插件源码；--no-watch 使用已有构建产物。\nlaunch.config.json 选择 profile；profiles/<name>/cordis.patch.yml 配置应用；KMH_HOME 指定运行数据目录。');
     return;
   }
   if (command === 'setup') {
@@ -106,10 +107,33 @@ export async function main(args = process.argv.slice(2)) {
   if (command !== 'dsh' && !Object.hasOwn(profiles, command)) throw new Error(`未知命令：${command}`);
   const bin = join(runtime, 'apps/cli/lib/bin.js');
   if (!existsSync(bin)) throw new Error('请先运行 pnpm build 构建 DSH');
-  const cliArgs = command === 'dsh' ? forwarded : ['--profile', profiles[command], ...forwarded];
-  const result = await runLogged(process.execPath, [bin, ...cliArgs], {
-    home, label: command === 'dsh' ? 'dsh' : profiles[command], cwd: process.cwd(), env,
-  });
+  const watchEnabled = command === 'web' && !forwarded.includes('--no-watch');
+  const packages = watchEnabled ? discoverWatchPackages(root) : [];
+  env.KMH_PLUGIN_WATCH_ROOTS = JSON.stringify(packages.map(pkg => join(pkg.dir, 'lib')));
+  const cliForwarded = command === 'web' ? forwarded.filter(arg => arg !== '--no-watch') : forwarded;
+  const cliArgs = command === 'dsh' ? forwarded : ['--profile', profiles[command], ...cliForwarded];
+  const inspectOnly = cliForwarded.some(arg => ['--help', '-h', '--version', '--dump-config', '--dump-config-schema'].includes(arg));
+  let watchers;
+  let stopping;
+  const onInterrupt = () => { stopping = 'SIGINT'; };
+  const onTerminate = () => { stopping = 'SIGTERM'; };
+  process.on('SIGINT', onInterrupt);
+  process.on('SIGTERM', onTerminate);
+  let result;
+  try {
+    if (watchEnabled && !inspectOnly) watchers = await startPluginWatchers(packages);
+    if (stopping) {
+      process.exitCode = stopping === 'SIGINT' ? 130 : 0;
+      return;
+    }
+    result = await runLogged(process.execPath, [bin, ...cliArgs], {
+      home, label: command === 'dsh' ? 'dsh' : profiles[command], cwd: process.cwd(), env,
+    });
+  } finally {
+    await watchers?.close();
+    process.off('SIGINT', onInterrupt);
+    process.off('SIGTERM', onTerminate);
+  }
   if (result.signal) {
     process.kill(process.pid, result.signal);
     return;
