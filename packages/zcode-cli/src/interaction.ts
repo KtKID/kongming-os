@@ -10,6 +10,7 @@ import type { Agent } from "@deepseek-ai/dsh-agent/types";
 import type { AskUserQuestionItem } from "@deepseek-ai/dsh-user-questions/types";
 import { z as zod } from "zod";
 import type { ModelEntry } from "./models.ts";
+import { resolveZcodeMode } from "./permission.ts";
 
 const providerRuntimeHeaders = zod.object({
   providerId: zod.string(),
@@ -126,13 +127,30 @@ export class ZcodeInteractionBridge {
     }
     if (method === "interaction/requestPermission") {
       const request = permissionRequest.parse(params);
-      const agent = this.agentOf(
-        typeof params.sessionId === "string" ? params.sessionId : undefined,
-      );
-      const approval = this.ctx.get("approval");
-      if (agent === undefined || approval === undefined) {
+      const cliSessionId =
+        typeof params.sessionId === "string" ? params.sessionId : undefined;
+      const agent = this.agentOf(cliSessionId);
+      if (agent === undefined) {
         this.ctx.logger.warn(
-          `zcode-cli approval unavailable (agent=${String(agent === undefined)}, service=${String(approval === undefined)}); failing closed: ${request.toolName}`,
+          `zcode-cli approval agent unavailable: ${request.toolName}`,
+        );
+        return { decision: "deny", reason: "审批会话不可用" };
+      }
+      const kmhSessionId =
+        cliSessionId === undefined
+          ? undefined
+          : this.deps.kmhSessionOf(cliSessionId);
+      const mode = resolveZcodeMode(
+        this.ctx,
+        kmhSessionId === undefined ? undefined : brandSessionId(kmhSessionId),
+      );
+      if (mode === "yolo") return { decision: "allow" };
+      if (mode === "plan")
+        return { decision: "deny", reason: "KMH 仅可查看：ZCode 使用计划模式" };
+      const approval = this.ctx.get("approval");
+      if (approval === undefined) {
+        this.ctx.logger.warn(
+          `zcode-cli approval service unavailable: ${request.toolName}`,
         );
         return { decision: "deny", reason: "审批服务不可用" };
       }

@@ -195,6 +195,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: link:../../third_party/dsh/packages/llm/llm
         version: link:../../third_party/dsh/packages/llm/llm
+      '@deepseek-ai/dsh-permission-presets':
+        specifier: link:../../third_party/dsh/packages/interaction/permission-presets
+        version: link:../../third_party/dsh/packages/interaction/permission-presets
       '@deepseek-ai/dsh-sdk-protocol':
         specifier: link:../../third_party/dsh/packages/sdk/protocol
         version: link:../../third_party/dsh/packages/sdk/protocol

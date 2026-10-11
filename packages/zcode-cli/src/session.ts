@@ -12,6 +12,12 @@ import type { RequestSupervisor, RequestRecord } from "./supervisor.ts";
 import type { TerminationCause } from "./status.ts";
 import { TurnEventProjector } from "./events.ts";
 import { ZcodeInteractionBridge } from "./interaction.ts";
+import {
+  resolveZcodeMode,
+  SessionModeResult,
+  ZcodeExecutionState,
+  type ZcodePermissionMode,
+} from "./permission.ts";
 
 /** 单个 KMH 会话的绑定记录。 */
 interface BindingRecord {
@@ -98,6 +104,12 @@ type SessionListener = (payload: unknown) => void;
 class RelayConnection {
   private readonly listeners = new Set<SessionListener>();
   private dead = false;
+  /** 本连接恢复或创建的 CLI 会话。 */
+  cliSessionId: string | undefined;
+  /** 最近一次确认已生效的 CLI 模式。 */
+  permissionMode: ZcodePermissionMode | undefined;
+  private executionState: ZcodeExecutionState | undefined;
+  private modeTail: Promise<void> = Promise.resolve();
   /** 本连接是否已完成事件订阅。 */
   subscribed = false;
   /** 到达的 session/event 通知总数（诊断：宿主是否收到推送）。 */
@@ -132,6 +144,13 @@ class RelayConnection {
         typeof payload === "object" && payload !== null
           ? { ...payload, type: envelope.type }
           : { type: envelope.type };
+      if (envelope.type === "session.updated") {
+        const state = ZcodeExecutionState.safeParse(payload);
+        if (state.success) {
+          this.executionState = state.data;
+          this.permissionMode = undefined;
+        }
+      }
       this.lastEventAt = Date.now();
       for (const listener of this.listeners) listener(merged);
     });
@@ -152,6 +171,52 @@ class RelayConnection {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+  /** 串行同步模式；每次实际发送前读取最新权限，回执确认后更新缓存。 */
+  syncMode(
+    resolve: () => ZcodePermissionMode,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const operation = this.modeTail
+      .catch(() => undefined)
+      .then(async () => {
+        const sessionId = this.cliSessionId;
+        if (sessionId === undefined || this.dead) return;
+        const mode = resolve();
+        if (mode === this.permissionMode) return;
+        if (mode === "plan") {
+          const baseline = SessionModeResult.parse(
+            await this.rpc.request(
+              "session/setMode",
+              { sessionId, mode: "build" },
+              signal,
+            ),
+          );
+          if (
+            baseline.session.sessionId !== sessionId ||
+            baseline.session.mode !== "build"
+          )
+            throw new Error("ZCODE_PERMISSION_MODE_NOT_APPLIED");
+        }
+        const result = SessionModeResult.parse(
+          await this.rpc.request(
+            "session/setMode",
+            { sessionId, mode },
+            signal,
+          ),
+        );
+        const applied =
+          mode === "plan"
+            ? result.session.mode === "build" &&
+              this.executionState?.mode === "build" &&
+              this.executionState.planEnabled
+            : result.session.mode === mode;
+        if (result.session.sessionId !== sessionId || !applied)
+          throw new Error("ZCODE_PERMISSION_MODE_NOT_APPLIED");
+        this.permissionMode = mode;
+      });
+    this.modeTail = operation;
+    return operation;
   }
   /** 关闭输入并等待进程退出；超时强制回收。 */
   async stop(cleanupTimeoutMs: number): Promise<void> {
@@ -245,6 +310,22 @@ export class ZcodeSessionRelay {
   private readonly reaper: ReturnType<typeof setInterval>;
   constructor(private readonly options: SessionRelayOptions) {
     this.store = new SessionBindingStore(options.config.dataDir);
+    options.ctx.on("session/event", (session, event) => {
+      if (event.type !== "permission/preset") return;
+      const connection = this.connections.get(session.id);
+      if (connection === undefined || connection.exited) return;
+      connection
+        .syncMode(
+          () => resolveZcodeMode(options.ctx, session.id),
+          AbortSignal.timeout(options.config.cleanupTimeoutMs),
+        )
+        .catch((error: unknown) =>
+          options.ctx.logger.warn(
+            "zcode-cli permission mode sync failed",
+            error,
+          ),
+        );
+    });
     // 空闲回收：CLI 进程内存占用高，闲置会话的连接定期回收（下次回合 resume 续用）。
     // 扫描间隔随闲置时限收敛（idle/2，夹在 1s 与 60s 之间），小闲置配置可被测试观测。
     this.reaper = setInterval(
@@ -367,6 +448,7 @@ export class ZcodeSessionRelay {
         const sessionId = sessionIdOf(raw);
         if (sessionId === bound.cliSessionId) {
           this.reverse.set(bound.cliSessionId, sessionKey);
+          connection.cliSessionId = bound.cliSessionId;
           await this.subscribeOnce(connection, bound.cliSessionId, signal);
           return bound.cliSessionId;
         }
@@ -378,11 +460,13 @@ export class ZcodeSessionRelay {
       }
     }
     const { imported } = splitHistory(options.messages);
+    const mode = resolveZcodeMode(this.options.ctx, options.sessionId);
     const raw: unknown = await connection.rpc.request(
       "session/create",
       {
         workspace: { workspacePath, workspaceKey: workspacePath },
         persistence: "immediate",
+        mode,
         ...(imported.length > 0
           ? {
               importedHistory: {
@@ -399,6 +483,10 @@ export class ZcodeSessionRelay {
     );
     const sessionId = sessionIdOf(raw);
     if (sessionId === undefined) throw new Error("ZCODE_SESSION_CREATE_FAILED");
+    const created = SessionModeResult.parse(raw);
+    connection.cliSessionId = sessionId;
+    if (mode !== "plan" && created.session.mode === mode)
+      connection.permissionMode = mode;
     await this.store.put(sessionKey, {
       cliSessionId: sessionId,
       workspacePath,
@@ -533,6 +621,10 @@ export class ZcodeSessionRelay {
         connection,
         sessionKey,
         options,
+        signal,
+      );
+      await connection.syncMode(
+        () => resolveZcodeMode(this.options.ctx, options.sessionId),
         signal,
       );
       const { input } = splitHistory(options.messages);
