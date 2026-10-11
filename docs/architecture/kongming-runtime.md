@@ -16,7 +16,7 @@
 | `.githooks/` | 当前 Node 提交和推送检查 | Kongming |
 | `.kmh/` | 本地运行数据 | 本地状态，Git 忽略 |
 
-Kongming 与 DSH 分别维护 pnpm 工作区和锁文件。根工作区包含自有 `bundles/*` 和后续 `packages/*`；DSH 在子模块内管理自己的 workspace 依赖。子模块当前固定在 `ede2c76885626c1695a2878757d1b1c35998987b`，上游合入基线为 `5badb15009ae1756c3afe0ae0cef1faafc290ccc`。安装以 Git 记录的子模块提交为准。
+Kongming 与 DSH 分别维护 pnpm 工作区和锁文件。根工作区包含自有 `bundles/*` 和后续 `packages/*`；DSH 在子模块内管理自己的 workspace 依赖。子模块当前版本为 `9de374a8f3ea3564c71eb8c9cd007c8ac563b452`，上游合入基线为 `5badb15009ae1756c3afe0ae0cef1faafc290ccc`。该版本包含插件安装诊断目录、Web 浏览器账号登录与用户停止时挂起待发送队列的原生语义。安装以 Git 记录的子模块提交为准。
 
 ## 启动链路
 
