@@ -17,11 +17,11 @@ export interface IsolationPlan {
   disabledSkills: string[];
 }
 
-/** 会话生效权限档旋钮（D17）：sandbox 直接映射，approval 映射审批策略。 */
+/** KMH 会话权限旋钮；工作区免人工询问档对应 Codex 自动审查。 */
 export interface PermissionKnobs {
   /** 官方沙箱档：read-only / workspace-write / danger-full-access。 */
   sandbox: string;
-  /** KMH 审批策略：ask（产生用户审批请求）/ never（不询问）。 */
+  /** KMH 审批策略：ask 交用户决定；never 自动拒绝宿主审批请求。 */
   approval: "ask" | "never";
 }
 
@@ -311,25 +311,24 @@ export async function prepareIsolation(
   if (
     input.permission !== undefined &&
     (selection.commandExecution || selection.fileChange)
-  )
-    // D17 权限档映射：仅选中执行类原生工具时注入沙箱/审批参数
-    // （避免影响未开放执行工具时的默认行为，如生图产物落盘）。
-    // ask → on-request（审批请求经桥转 KMH 用户），never → 不询问。
+  ) {
+    // 帮我审批保留 KMH 的 never 旋钮，原生权限请求交 Codex 自动审查。
+    const autoReview =
+      input.permission.sandbox === "workspace-write" &&
+      input.permission.approval === "never";
     overrides.push(
       `sandbox_mode=${tomlString(input.permission.sandbox)}`,
       `approval_policy=${tomlString(
-        input.permission.approval === "ask" ? "on-request" : "never",
+        autoReview || input.permission.approval === "ask"
+          ? "on-request"
+          : "never",
       )}`,
     );
-  if (
-    input.permission !== undefined &&
-    input.permission.approval === "ask" &&
-    (selection.commandExecution || selection.fileChange)
-  )
-    // 请求审批档显式把提权审查路由给用户（D15：实测 0.162 运行时默认
-    // approvals_reviewer=auto_review，内部审查会直接放行提权命令而不发
-    // 客户端审批请求；spec feat09 要求由 KMH 用户决定）。
-    overrides.push(`approvals_reviewer=${tomlString("user")}`);
+    if (autoReview || input.permission.approval === "ask")
+      overrides.push(
+        `approvals_reviewer=${tomlString(autoReview ? "auto_review" : "user")}`,
+      );
+  }
   return { configOverrides: overrides, catalogPath, disabledSkills };
 }
 

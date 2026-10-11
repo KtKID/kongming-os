@@ -194,9 +194,9 @@
           workspace-write-auto:
             sandbox: workspace-write
             approval: never
-            # D17 新增“帮我审批”：沙箱内直接执行不询问。
+            # Codex 原生权限请求交官方自动审查；KMH 工具沿用宿主策略。
             name: 帮我审批
-            description: 工作区沙箱；减少确认步骤，越界请求自动拒绝。
+            description: 工作区沙箱；Codex 自动审查原生操作的额外权限请求。
           danger-full-access:
             sandbox: danger-full-access
             approval: never
@@ -501,7 +501,7 @@
       inject:
         - webStartup
       config:
-        openBrowser: true
+        openBrowser: !!js ctx.webStartup.openBrowser
         printUrl: true
         surfaceContext: true
         trustedHosts: []
