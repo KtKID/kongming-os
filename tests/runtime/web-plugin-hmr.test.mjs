@@ -1,14 +1,23 @@
-/** 通过真实 KMH Web 入口验证源码编译、同进程插件重载和页面 rebuilt 通知。 */
+/** 通过真实 KMH Web 入口验证保存源码保持产物、手动编译和同进程插件重载。 */
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { root } from '../../scripts/kmh.mjs';
 import { loadOverlayPatches } from '../../third_party/dsh/packages/boot/app-boot/lib/index.js';
+const require = createRequire(import.meta.url);
+
+/** 显式运行包的单次构建；编译失败保留诊断，超时按失败报告。 */
+function buildPackage(dir, name) {
+  const args = name === 'kmh-echo' ? [require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.json'] : ['build.mjs'];
+  const result = spawnSync(process.execPath, args, { cwd: join(dir, 'packages', name), encoding: 'utf8', timeout: 30000 });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+}
 
 /** 等待可观察状态；超时抛出本次断言的说明。 */
 async function until(check, message) {
@@ -29,14 +38,14 @@ async function freePort() {
   return port;
 }
 
-test('真实 Web 连续应用插件源码并推送页面更新，服务 PID 保持一致', { timeout: 120000 }, async t => {
+test('保存源码保持现有代码，手动构建后 Web 连续热重载并更新页面', { timeout: 120000 }, async t => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'kmh-web-hmr-')));
   const home = join(dir, 'home');
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   for (const name of ['scripts', 'third_party', 'packages', 'profiles']) mkdirSync(join(dir, name));
   symlinkSync(join(root, 'third_party/dsh'), join(dir, 'third_party/dsh'), 'dir');
   symlinkSync(join(root, 'node_modules'), join(dir, 'node_modules'), 'dir');
-  for (const name of ['kmh.mjs', 'plugin-watch.mjs', 'runtime-home.mjs', 'runtime-logs.mjs']) cpSync(join(root, 'scripts', name), join(dir, 'scripts', name));
+  for (const name of ['kmh.mjs', 'runtime-home.mjs', 'runtime-logs.mjs']) cpSync(join(root, 'scripts', name), join(dir, 'scripts', name));
   cpSync(join(root, 'launch.config.json'), join(dir, 'launch.config.json'));
   for (const name of ['kmh-echo', 'zcode-cli']) {
     const source = join(root, 'packages', name);
@@ -64,6 +73,8 @@ test('真实 Web 连续应用插件源码并推送页面更新，服务 PID 保�
   const echoSource = join(dir, 'packages/kmh-echo/src/index.ts');
   const echo = readFileSync(echoSource, 'utf8');
   writeFileSync(echoSource, echo.replaceAll('"apply"', '"apply-v1"'));
+  buildPackage(dir, 'kmh-echo');
+  buildPackage(dir, 'zcode-cli');
   const child = spawn(process.execPath, [join(dir, 'scripts/kmh.mjs'), 'web', '--no-open'], {
     cwd: dir, env: { ...process.env, KMH_HOME: home, DSH_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -79,10 +90,17 @@ test('真实 Web 连续应用插件源码并推送页面更新，服务 PID 保�
   const events = () => readFileSync(join(logDir, log), 'utf8');
   assert.match(events(), /apply-v1/);
   const pid = Number(log.match(/events-(\d+)/)[1]);
+  const echoOutput = join(dir, 'packages/kmh-echo/lib/index.js');
+  const initialArtifact = readFileSync(echoOutput, 'utf8');
   writeFileSync(echoSource, echo.replaceAll('"apply"', '"apply-v2"'));
+  await delay(1800);
+  assert.equal(readFileSync(echoOutput, 'utf8'), initialArtifact);
+  assert.doesNotMatch(events(), /unload|apply-v2/);
+  buildPackage(dir, 'kmh-echo');
   await until(() => events().includes('apply-v2'), () => diagnostics() + events());
   assert.equal(events().match(/unload/g)?.length, 1);
   writeFileSync(echoSource, echo.replaceAll('"apply"', '"apply-v3"'));
+  buildPackage(dir, 'kmh-echo');
   await until(() => events().includes('apply-v3'), () => diagnostics() + events());
   assert.equal(events().match(/unload/g)?.length, 2);
   assert.deepEqual(readdirSync(logDir), [log]);
@@ -99,7 +117,13 @@ test('真实 Web 连续应用插件源码并推送页面更新，服务 PID 保�
   await until(() => frames.includes('"type":"graph"'), () => frames);
   const clientSource = join(dir, 'packages/zcode-cli/src/client/index.ts');
   const page = readFileSync(clientSource, 'utf8');
+  const pageOutput = join(dir, 'packages/zcode-cli/lib/client.js');
+  const initialPage = readFileSync(pageOutput, 'utf8');
   writeFileSync(clientSource, page + '\nexport const kmhHmrProbe = "page-v2";\n');
+  await delay(1800);
+  assert.equal(readFileSync(pageOutput, 'utf8'), initialPage);
+  assert.doesNotMatch(frames, /"type":"rebuilt","id":"@kmh\/zcode-cli"/);
+  buildPackage(dir, 'zcode-cli');
   await until(() => frames.includes('"type":"rebuilt","id":"@kmh/zcode-cli"'), () => diagnostics() + frames);
   assert.match(readFileSync(join(dir, 'packages/zcode-cli/lib/client.js'), 'utf8'), /page-v2/);
   controller.abort();
