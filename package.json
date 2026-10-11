@@ -21,7 +21,7 @@
     "pretest": "pnpm build:kmh",
     "typecheck": "pnpm typecheck:kmh && pnpm --dir third_party/dsh run typecheck",
     "typecheck:kmh": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/runtime-log --filter @kmh/web-surface-zh typecheck",
-    "lint": "bash -n kmh.sh && node --check scripts/kmh.mjs && node --check scripts/plugin-watch.mjs && node --check packages/zcode-cli/build.mjs && node --check packages/codex-cli/build.mjs && node --check scripts/runtime-home.mjs && node --check scripts/runtime-logs.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/runtime-log --filter @kmh/web-surface-zh lint",
+    "lint": "bash -n kmh.sh && node --check scripts/kmh.mjs && node --check packages/zcode-cli/build.mjs && node --check packages/codex-cli/build.mjs && node --check scripts/runtime-home.mjs && node --check scripts/runtime-logs.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/runtime-log --filter @kmh/web-surface-zh lint",
     "format:check": "pnpm --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/runtime-log --filter @kmh/web-surface-zh format:check"
   },
   "devDependencies": {
