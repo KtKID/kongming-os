@@ -4,6 +4,8 @@ description: Web 开发时自动应用 KMH 自有插件的代码修改，记录�
 
 # Web 自动应用插件代码修改
 
+本任务记录首次自动构建实现与当时的验收。当前 Web 已调整为 [手动构建插件后应用修改](task-manual-plugin-build.md)，日常操作见 [Web 插件热更新](../../../kmh/README.md#web-插件热更新)。
+
 > spec: docs/spec/kmh-plugin-framework-v0.1/spec.md
 > feat: feat08
 > 创建: 2026-10-11

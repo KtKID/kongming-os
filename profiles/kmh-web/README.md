@@ -4,7 +4,7 @@
 
 运行 `pnpm web` 启动，运行 `pnpm config:web` 查看最终合成配置。根目录 `launch.config.json` 的 `profiles.web` 选择此 profile；本目录 `cordis.patch.yml` 完整列出 base、Web 应用、standard/PTC/minimal/Cordis 四个预设及 Kongming persona。
 
-自有插件代码修改通过 [Web 插件热更新](../../docs/kmh/README.md#web-插件热更新) 自动应用；`pnpm web --no-watch` 选择已有构建产物。HMR 的代码目录由启动器提供，配置文件继续由现有 profile 监听应用。
+Web 使用已有构建产物，修改插件源码后手动构建；新产物通过 [Web 插件热更新](../../docs/kmh/README.md#web-插件热更新) 应用。HMR 的代码目录由启动器提供，配置文件继续由现有 profile 监听应用。
 
 `package.json` 的 `dsh.profile.bundles` 选择附加 bundle，当前选择 `@kmh/dev-preset`（开发模式预设，插件树与 standard 一致，见 `packages/kmh-dev-preset/cordis.patch.yml`）；完整插件树由 `cordis.patch.yml` 的 `insert` 加入。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
 

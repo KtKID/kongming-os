@@ -18,7 +18,7 @@
 | 6 | `tests/runtime/<name>.test.mjs` | `node:test` 直引 `../../packages/<name>/lib/index.js`，随 `pnpm test` 自动执行 | — |
 | 7 | 文档 | 单包 `README.md`；`docs/kmh/README.md` 自有插件段落提及；跨包能力按需 | — |
 
-完成 1、3 后跑 `pnpm install` 更新根锁文件（锁文件须与包声明同批提交）；完成 5 后跑 `pnpm run setup` 建立链接，重新启动开发流程以发现新包。已有插件的源码与配置修改通过 [Web 插件热更新](README.md#web-插件热更新) 应用；新增页面包需按该章节导出自己的页面监听入口。
+完成 1、3 后跑 `pnpm install` 更新根锁文件（锁文件须与包声明同批提交）；完成 5 后跑 `pnpm run setup` 建立链接，构建新包并重新启动 Web 以发现产物目录。已有插件的源码修改在手动构建后通过 [Web 插件热更新](README.md#web-插件热更新) 应用，配置修改通过 profile HMR 应用。页面包的构建命令同时生成声明的页面入口。
 
 ## 机制说明
 
