@@ -21,6 +21,14 @@ pnpm run sdk
 
 Web 后台管理使用 `./kmh.sh start|stop|restart|status`（其余子命令透传给 `scripts/kmh.mjs`，如 `./kmh.sh web` 前台启动、`./kmh.sh cli`），前置条件、运行记录和失败处理见 [Web 后台启停](runtime-records.md#web-后台启停)。
 
+### Web 插件热更新
+
+`pnpm web` 与 `./kmh.sh start` 默认先编译自有插件，再保持源码监听。修改 `packages/` 内已加载插件的源码后，TypeScript 更新 `lib/`，DSH HMR 释放旧实例并在同一 Web 进程内加载新代码。ZCode/Codex 的页面构建器同时监听浏览器源码，已有 `client-hmr` 向浏览器推送 `rebuilt` 通知。
+
+初始编译失败会结束启动并报告诊断；运行中的类型错误保留上一份有效产物，修正后继续更新。停止 Web 同时关闭 TypeScript 与页面构建监听。`pnpm web --no-watch` 使用已有构建产物并保留配置热更新；帮助与配置导出始终作为单次操作结束。已有运行进程安装这套开发启动流程时执行一次 `./kmh.sh restart`，之后普通插件代码修改自动生效。
+
+启动器从含 `src/`、构建命令和 `tsconfig.json` 的自有包发现监听目标。解决方案配置的每个引用项目独立编译；声明 Web 页面入口的包在 `build.mjs` 导出异步 `watchClient()`，成功时返回关闭函数，初始化失败时释放已创建的构建器。启动器把绝对产物目录通过 `KMH_PLUGIN_WATCH_ROOTS` 提供给 Web profile 的 HMR；该变量由启动器管理。新增包后重新运行开发启动以发现新目标；DSH 源码开发与依赖版本升级沿用对应流程。
+
 DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作区包含 `bundles/*` 与自有 `packages/*`，DSH 的 Cordis、基础包、native 和构建配置归子模块所有。
 
 ## DSH 技能
