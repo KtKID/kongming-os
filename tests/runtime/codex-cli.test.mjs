@@ -1541,6 +1541,20 @@ test("allowlist selection opens native capabilities in the spawned process", { s
     // D15/D20：请求审批档必须把提权审查路由给用户（0.162 默认 auto_review
     // 会静默放行提权命令，不发客户端审批请求）。
     assert.ok(asked.includes('approvals_reviewer="user"'));
+    const autoReviewed = await spawnOnce(
+      { ...selectionFromLegacy(false), commandExecution: true },
+      { sandbox: "workspace-write", approval: "never" },
+    );
+    assert.ok(autoReviewed.includes('sandbox_mode="workspace-write"'));
+    assert.ok(autoReviewed.includes('approval_policy="on-request"'));
+    assert.ok(autoReviewed.includes('approvals_reviewer="auto_review"'));
+    const readOnly = await spawnOnce(
+      { ...selectionFromLegacy(false), fileChange: true },
+      { sandbox: "read-only", approval: "ask" },
+    );
+    assert.ok(readOnly.includes('sandbox_mode="read-only"'));
+    assert.ok(readOnly.includes('approval_policy="on-request"'));
+    assert.ok(readOnly.includes('approvals_reviewer="user"'));
     const never = await spawnOnce(selectionFromLegacy(true), {
       sandbox: "danger-full-access",
       approval: "never",
@@ -1558,6 +1572,73 @@ test("allowlist selection opens native capabilities in the spawned process", { s
     await fixture.close();
   }
 });
+
+test(
+  "official CLI reads the mapped approval policy and reviewer",
+  { skip: !findCodexBinary() },
+  async () => {
+    const { prepareIsolation } =
+      await import("../../packages/codex-cli/lib/src/isolation.js");
+    const { connectCodex } =
+      await import("../../packages/codex-cli/lib/src/connection.js");
+    const fixture = await startFixtureServer({});
+    const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(
+      fixture,
+      "approval-config",
+    );
+    const signal = AbortSignal.timeout(120000);
+    try {
+      for (const [permission, expectedPolicy, expectedReviewer] of [
+        [
+          { sandbox: "workspace-write", approval: "never" },
+          "on-request",
+          "auto_review",
+        ],
+        [{ sandbox: "workspace-write", approval: "ask" }, "on-request", "user"],
+        [{ sandbox: "read-only", approval: "ask" }, "on-request", "user"],
+        [
+          { sandbox: "danger-full-access", approval: "never" },
+          "never",
+          undefined,
+        ],
+      ]) {
+        const plan = await prepareIsolation(fakeCtx, config, {
+          cwd,
+          signal,
+          permission,
+          selection: { ...selectionFromLegacy(false), commandExecution: true },
+        });
+        const connection = await connectCodex(
+          fakeCtx,
+          {
+            command: config.command,
+            cwd,
+            env: config.env,
+            graceMs: config.graceMs,
+            startupTimeoutMs: config.startupTimeoutMs,
+            configOverrides: [...plan.configOverrides, ...fixtureOverrides],
+          },
+          signal,
+        );
+        try {
+          const result = await connection.request(
+            "config/read",
+            { includeLayers: false },
+            signal,
+          );
+          assert.equal(result.config.sandbox_mode, permission.sandbox);
+          assert.equal(result.config.approval_policy, expectedPolicy);
+          if (expectedReviewer !== undefined)
+            assert.equal(result.config.approvals_reviewer, expectedReviewer);
+        } finally {
+          await connection.stop(config.cleanupTimeoutMs);
+        }
+      }
+    } finally {
+      await fixture.close();
+    }
+  },
+);
 
 test("native execution narration projects item lifecycle into the stream", { skip: !findCodexBinary() }, async () => {
   const { PassThrough } = await import("node:stream");

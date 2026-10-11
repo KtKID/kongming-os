@@ -8,6 +8,7 @@ import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { root } from '../../scripts/kmh.mjs';
+import { loadOverlayPatches } from '../../third_party/dsh/packages/boot/app-boot/lib/index.js';
 
 /** 等待可观察状态；超时抛出本次断言的说明。 */
 async function until(check, message) {
@@ -58,6 +59,8 @@ test('真实 Web 连续应用插件源码并推送页面更新，服务 PID 保�
     writeFileSync(join(target, 'cordis.yml'), '[]\n');
     writeFileSync(join(target, 'cordis.patch.yml'), name === 'kmh-web' ? readFileSync(join(root, 'profiles/kmh-web/cordis.patch.yml'), 'utf8').replace('port: 3080', `port: ${port}`) : '[]\n');
   }
+  const webRuntime = loadOverlayPatches('test', join(dir, 'profiles/kmh-web/cordis.patch.yml')).flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'web-runtime');
+  assert.equal(webRuntime.config.openBrowser.__jsExpr, 'ctx.webStartup.openBrowser', 'Web 配置必须接收 --no-open 的启动值');
   const echoSource = join(dir, 'packages/kmh-echo/src/index.ts');
   const echo = readFileSync(echoSource, 'utf8');
   writeFileSync(echoSource, echo.replaceAll('"apply"', '"apply-v1"'));
@@ -103,6 +106,7 @@ test('真实 Web 连续应用插件源码并推送页面更新，服务 PID 保�
   await stream;
   child.kill('SIGTERM');
   assert.deepEqual(await exited, { code: 0, signal: null });
+  assert.doesNotMatch(output, /dsh web: opening the default browser/);
   assert.throws(() => process.kill(pid, 0), /ESRCH/);
   const artifact = readFileSync(join(dir, 'packages/kmh-echo/lib/index.js'), 'utf8');
   writeFileSync(echoSource, echo.replaceAll('"apply"', '"after-stop"'));
