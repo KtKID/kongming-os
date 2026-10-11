@@ -208,7 +208,6 @@ KMH_CODEX_TEST_TMP=/private/tmp/kmh-codex-retry-20261009 pnpm --filter @kmh/code
 <details>
 <summary>维护者的工作上下文——点击展开</summary>
 
-- 测试残留：2026-10-07 早期冒烟（未加独立 home 前）在 `~/.codex/sessions/2026/10/07/` 留有约 12 个 fixture 会话文件，用户确认保留。
 - canonical namespace 注册的模型侧名称是无点拼接，已回退平铺真名。
 
 </details>
