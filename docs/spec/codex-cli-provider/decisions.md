@@ -120,18 +120,18 @@ KMH 工具对 Codex 统一声明为 `kmh-<原名>`。adapter 保存声明名与 
 
 官方源码依据：[工具参数与生成请求](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/ext/image-generation/src/tool.rs)、[生图 backend](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/ext/image-generation/src/backend.rs)。现有 KMH 投影入口见 [protocol.ts](../../../packages/codex-cli/src/protocol.ts) 与 [turn.ts](../../../packages/codex-cli/src/turn.ts)。
 
-### D17 权限模式三档映射与验收从简（2026-10-07 用户拍板）
+### D17 权限模式三档映射与验收从简（2026-10-07 用户拍板，2026-10-11 修订帮我审批）
 
 feat09 的审批与执行范围跟随 KMH 会话权限模式，不再由插件自定审批策略：KMH Web 权限设置的原“工作区内修改”改为“请求审批”，新增“帮我审批”，“完全权限”沿用——三档对应官方 CLI 的同名模式。预设表经 kmh-web profile 配置（`presets` 各项的 `name` 字段，非 kebab 文案由客户端原样透传），无需改动 DSH 客户端。
 
 | KMH 权限模式 | 旋钮（sandbox + approval） | 官方 CLI 映射 | 审批行为 |
 | --- | --- | --- | --- |
 | 请求审批 | workspace-write + ask | workspace-write，审批请求经桥转用户 | 场景1–5 流程，单次请求授权 |
-| 帮我审批 | workspace-write + never | workspace-write，不询问 | 原生工具沙箱内自主执行 |
+| 帮我审批 | workspace-write + never | workspace-write + on-request + auto_review（对应 --approve-for-me） | 沙箱内允许的操作直接执行，额外权限请求交 Codex 自动审查 |
 | 完全权限 | danger-full-access + never | 完全访问，不经沙箱与审批 | 直接执行 |
 | 仅可查看 | read-only + ask | read-only | 保持只读 |
 
-插件经公开 `permissionPresets`/`sessionProjections` 读取会话生效档位，映射为进程 `-c` 参数；D15 的审批桥只在请求审批档生效（never 档官方不产生审批请求，与 KMH 侧 ask/never 语义一致）。
+插件经公开 `permissionPresets`/`sessionProjections` 读取会话生效档位，映射为进程 `-c` 参数。请求审批使用 `approval_policy=on-request` 与 `approvals_reviewer=user`；帮我审批使用 `on-request` 与 `auto_review`，KMH 的权限旋钮和会话事件保持原值。KMH 的 `never` 自动拒绝宿主审批请求；Codex 的 `never` 关闭审批询问，已有沙箱范围内允许的操作直接执行，需要额外批准的请求被拒绝。完全权限同时使用 `danger-full-access`，完整访问范围内的原生操作直接执行。
 
 同轮拍板：R1 确认（feat02 默认集合）；R3 图片尺寸从简——如实显示实际与要求尺寸、完成状态反映实际交付，撤销另存交付图方案，feat10 收敛为 3 场景。
 

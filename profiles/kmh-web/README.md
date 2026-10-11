@@ -31,7 +31,7 @@
     compressionThresholdBytes: 1024
 ```
 
-`webserver.config.port` 控制监听端口，`host` 支持 `127.0.0.1` 和 `0.0.0.0`。`web-runtime.config.openBrowser` 控制自动打开浏览器，`printUrl` 控制输出地址，`surfaceContext` 控制模型的 Web 环境信息，`trustedHosts` 声明受信任的访问域名；需要公布域名时，在 `web-runtime.config` 添加 `publicUrl: https://example.com/`。当前 profile 使用文件内的部署值；日常修改这些字段并运行 `pnpm web`。
+`webserver.config.port` 控制监听端口，`host` 支持 `127.0.0.1` 和 `0.0.0.0`。`web-runtime.config.openBrowser` 默认引用 `ctx.webStartup.openBrowser`，运行 `node scripts/kmh.mjs web --no-open` 会在本次启动关闭浏览器交接；`printUrl` 控制输出地址，`surfaceContext` 控制模型的 Web 环境信息，`trustedHosts` 声明受信任的访问域名。需要公布域名时，在 `web-runtime.config` 添加 `publicUrl: https://example.com/`。日常修改文件内的部署字段并运行 `pnpm web`。
 
 ## 插件实例与可配置字段
 
