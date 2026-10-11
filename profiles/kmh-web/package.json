@@ -9,12 +9,15 @@
     "@kmh/kmh-echo": "link:../../packages/kmh-echo",
     "@kmh/runtime-log": "link:../../packages/runtime-log",
     "@kmh/web-surface-zh": "link:../../packages/web-surface-zh",
-    "@kmh/zcode-cli": "link:../../packages/zcode-cli"
+    "@kmh/zcode-cli": "link:../../packages/zcode-cli",
+    "dsh-context": "^0.67.0"
   },
   "dsh": {
     "profile": {
       "bundles": [
-        "@kmh/dev-preset"
+        "@kmh/dev-preset",
+        "@deepseek-ai/dsh-experimental-inspector-profile",
+        "dsh-context"
       ]
     }
   }

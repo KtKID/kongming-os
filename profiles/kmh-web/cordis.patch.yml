@@ -635,6 +635,13 @@
       name: '@deepseek-ai/dsh-agent-preset-registry'
       config:
         default: standard
+    - id: mcp-openviking
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: openviking
+        transport: stdio
+        command: node
+        args: [ '/Users/kid/.openviking/agent-integrations/cursor/servers/mcp-proxy.mjs' ]
     - id: preset-standard
       name: '@deepseek-ai/dsh-agent-preset'
       config:
@@ -1254,6 +1261,25 @@
 - id: agent-default-model
   name: "@deepseek-ai/dsh-agent-default-model"
   config:
-    provider: codex-cli
-    model: gpt-6.1-sol
-    reasoningEffort: low
+    provider: zcode-cli
+    model: glm-5.3-flash
+    reasoningEffort: high
+- id: subagent-model-selection-settings
+  name: "@deepseek-ai/dsh-tool-subagent/model-selection-settings"
+  config:
+    enabled: true
+    allowedModels:
+      - provider: codex-cli
+        model: gpt-6.1-sol
+      - provider: codex-cli
+        model: gpt-6-luna
+      - provider: codex-cli
+        model: gpt-5.6-terra
+      - provider: zcode-cli
+        model: glm-5.3-flash
+      - provider: zcode-cli
+        model: glm-5.3
+- id: ui-theme
+  name: "@deepseek-ai/dsh-client-ui-theme"
+  config:
+    preference: dark
