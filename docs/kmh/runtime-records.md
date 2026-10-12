@@ -78,7 +78,7 @@ Agent 创建的项目文件由任务工作目录和工具参数决定。外部�
 
 | 输入 | 生效方式 |
 | --- | --- |
-| `KMH_HOME` | 直接选择应用数据目录；空值使用系统账户默认目录 |
+| `KMH_HOME` | 非空值直接选择应用数据目录；空值先读取仓库根 `.env.local`，再使用系统账户默认目录 |
 | `DSH_HOME` | 启动器覆盖为解析后的 `KMH_HOME` |
 | `ZCODE_DATA_BASE_DIR` | 启动器覆盖为 `KMH_HOME/zcode-cli` |
 | `TMPDIR`、`TMP`、`TEMP` | 启动器覆盖为 `KMH_HOME/tmp` |

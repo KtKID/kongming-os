@@ -1,7 +1,7 @@
 # Kongming Web 完整配置：base、Web 应用及所有预设已经展开。
 # 日常启动：pnpm web；profile 选择：根目录 launch.config.json。
 # 修改 webserver.config.port 设置端口；web-runtime.config.openBrowser 控制自动打开浏览器。
-# package.json 的 bundles 保持 []；此文件完整定义插件树。
+# package.json 的 dsh.profile.bundles 选择附加 bundle；本文件在这些 bundle 之后应用。
 # 上游原配置：upstream.cordis.yml；插件字段定义见 README.md。
 - insert:
     - id: runtime-log

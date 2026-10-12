@@ -31,7 +31,7 @@ KMH_HOME=~/.hm-mobile /absolute/path/to/kmh.sh dsh --profile kmh-mobile "只回�
 | `--profile` | 选择应用组合，见下表。 |
 | 任务文本 | 命令行最后一个位置参数；缺失或空白时进程拒绝运行并以退出码 1 结束。 |
 | `--patch <文件>` | 可重复的调用级 cordis overlay；完整组合层序与机器偏好位置见 [DSH 接入与升级](README.md#profile-与-bundle)。 |
-| 进程工作目录 | 底座以 cwd 为默认 workspace 根，并加载 cwd 的 `.env`（其中含调用方保留变量时会拒绝运行）。调用方必须使用隔离目录，不能指向带自身 `.env` 的项目根。 |
+| 进程工作目录 | 底座以 cwd 为默认 workspace 根，并读取该目录的 `.env`。项目 `.env` 可提供模型凭据；进程启动、代码加载和网络路由等保留变量仅允许从规定来源设置，命中受限变量时报错。调用方应选择实际任务目录；具体校验见 [DSH 环境加载](../../third_party/dsh/packages/boot/app-boot/src/index.ts)。 |
 
 可选 profile：
 
@@ -58,7 +58,7 @@ KMH_HOME=~/.hm-mobile /absolute/path/to/kmh.sh dsh --profile kmh-mobile --dump-c
 ## 机器前提
 
 - 仓库已完成 `pnpm install --frozen-lockfile`、`pnpm run setup`、`pnpm build`；未构建时启动器在拉起 CLI 前直接报错退出。
-- `zcode-cli` 提供方要求本机安装 ZCode.app 且桌面端已登录：凭据只读借用自桌面登录，CLI 经 PATH 发现。
+- `zcode-cli` 提供方需要可用的官方 ZCode CLI，默认经 PATH 发现。凭据优先读取插件 dataDir 中的登录资料，其次只读借用桌面端登录；插件支持自身登录流程，入口与凭据规则见 [包说明](../../packages/zcode-cli/README.md)。
 - `codex-cli` 提供方依赖 ChatGPT.app 自带的官方 CLI（可执行路径写在 profile 中）。该 CLI 随 App 自动更新，版本漂移可能使提供方暂时不可用，调用会以 `CODEX_SERVER_ERROR` 失败。
 
 ## 失败模式与边界

@@ -159,7 +159,7 @@ KMH_CODEX_TEST_TMP=/private/tmp/kmh-codex-retry-20261009 pnpm --filter @kmh/code
 ## 进一步探索
 
 - [需求与验收场景](../../docs/spec/codex-cli-provider/spec.md)——功能行为的唯一事实源，任务拆解在其 tasks/ 下。
-- [技术抉择时间线](../../docs/spec/codex-cli-provider/decisions.md)——开发过程的关键拍板（CODEX_HOME 反转、隔离形态、审批降级）及理由。
+- [生效技术决策](../../docs/spec/codex-cli-provider/decisions.md)——执行归属、共享登录、隔离、审批、进度与图片交付的最终决策及依据。
 - [运行记录](../../docs/kmh/runtime-records.md)——数据目录与日志路径的通用规则。
 - [Kongming 的 DSH 底座](../../docs/kmh/README.md)——自有插件与 profile 的装配关系。
 - [`@kmh/zcode-cli`](../zcode-cli/README.md)——相邻模型提供方，凭据体系与取舍的对照。
