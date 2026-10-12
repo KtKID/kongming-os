@@ -22,6 +22,11 @@
         command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
         cwd: !!js process.cwd()
         dataDir: !!js dshHomePath('codex-cli')
+    - id: kmh-team
+      name: '@kmh/kmh-team'
+      config:
+        contextMessageCount: 20
+        memberMaxParallel: 8
     - id: kmh-echo
       name: '@kmh/kmh-echo'
       config:

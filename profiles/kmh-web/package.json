@@ -10,7 +10,8 @@
     "@kmh/runtime-log": "link:../../packages/runtime-log",
     "@kmh/web-surface-zh": "link:../../packages/web-surface-zh",
     "@kmh/zcode-cli": "link:../../packages/zcode-cli",
-    "dsh-context": "^0.67.0"
+    "dsh-context": "^0.67.0",
+    "@kmh/kmh-team": "link:../../packages/kmh-team"
   },
   "dsh": {
     "profile": {

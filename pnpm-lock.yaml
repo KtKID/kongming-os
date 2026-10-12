@@ -131,6 +131,106 @@ importers:
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
 
+  packages/kmh-team:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../third_party/dsh/vendor/cordis
+        version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: link:../../third_party/dsh/packages/core/agent
+        version: link:../../third_party/dsh/packages/core/agent
+      '@deepseek-ai/dsh-api-session-controller':
+        specifier: link:../../third_party/dsh/packages/api/session-controller
+        version: link:../../third_party/dsh/packages/api/session-controller
+      '@deepseek-ai/dsh-brand':
+        specifier: link:../../third_party/dsh/packages/util/brand
+        version: link:../../third_party/dsh/packages/util/brand
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../third_party/dsh/packages/client/connection
+        version: link:../../third_party/dsh/packages/client/connection
+      '@deepseek-ai/dsh-client-locale':
+        specifier: link:../../third_party/dsh/packages/client/locale
+        version: link:../../third_party/dsh/packages/client/locale
+      '@deepseek-ai/dsh-client-ui-chat':
+        specifier: link:../../third_party/dsh/packages/client/ui-chat
+        version: link:../../third_party/dsh/packages/client/ui-chat
+      '@deepseek-ai/dsh-client-ui-conversation':
+        specifier: link:../../third_party/dsh/packages/client/ui-conversation
+        version: link:../../third_party/dsh/packages/client/ui-conversation
+      '@deepseek-ai/dsh-client-ui-input-trigger':
+        specifier: link:../../third_party/dsh/packages/client/ui-input-trigger
+        version: link:../../third_party/dsh/packages/client/ui-input-trigger
+      '@deepseek-ai/dsh-client-ui-layout':
+        specifier: link:../../third_party/dsh/packages/client/ui-layout
+        version: link:../../third_party/dsh/packages/client/ui-layout
+      '@deepseek-ai/dsh-client-ui-plugin-manager':
+        specifier: link:../../third_party/dsh/packages/client/ui-plugin-manager
+        version: link:../../third_party/dsh/packages/client/ui-plugin-manager
+      '@deepseek-ai/dsh-client-ui-primitives':
+        specifier: link:../../third_party/dsh/packages/client/ui-primitives
+        version: link:../../third_party/dsh/packages/client/ui-primitives
+      '@deepseek-ai/dsh-client-ui-renderer':
+        specifier: link:../../third_party/dsh/packages/client/ui-renderer
+        version: link:../../third_party/dsh/packages/client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-session':
+        specifier: link:../../third_party/dsh/packages/client/ui-session
+        version: link:../../third_party/dsh/packages/client/ui-session
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: link:../../third_party/dsh/packages/client/ui-sidebar
+        version: link:../../third_party/dsh/packages/client/ui-sidebar
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: link:../../third_party/dsh/packages/client/ui-slots
+        version: link:../../third_party/dsh/packages/client/ui-slots
+      '@deepseek-ai/dsh-client-ui-workspace':
+        specifier: link:../../third_party/dsh/packages/client/ui-workspace
+        version: link:../../third_party/dsh/packages/client/ui-workspace
+      '@deepseek-ai/dsh-llm':
+        specifier: link:../../third_party/dsh/packages/llm/llm
+        version: link:../../third_party/dsh/packages/llm/llm
+      '@deepseek-ai/dsh-session':
+        specifier: link:../../third_party/dsh/packages/core/session
+        version: link:../../third_party/dsh/packages/core/session
+      '@deepseek-ai/dsh-session-projection':
+        specifier: link:../../third_party/dsh/packages/session/session-projection
+        version: link:../../third_party/dsh/packages/session/session-projection
+      '@deepseek-ai/dsh-session-query':
+        specifier: link:../../third_party/dsh/packages/session-query/session-query
+        version: link:../../third_party/dsh/packages/session-query/session-query
+      '@deepseek-ai/dsh-settings':
+        specifier: link:../../third_party/dsh/packages/settings/settings
+        version: link:../../third_party/dsh/packages/settings/settings
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: link:../../third_party/dsh/packages/storage/storage-domain
+        version: link:../../third_party/dsh/packages/storage/storage-domain
+      '@deepseek-ai/dsh-subagent':
+        specifier: link:../../third_party/dsh/packages/subagent/subagent
+        version: link:../../third_party/dsh/packages/subagent/subagent
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../third_party/dsh/packages/core/tools
+        version: link:../../third_party/dsh/packages/core/tools
+      '@deepseek-ai/schemastery':
+        specifier: link:../../third_party/dsh/vendor/schemastery
+        version: link:../../third_party/dsh/vendor/schemastery
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.5
+      '@types/react':
+        specifier: ^18.3.31
+        version: 18.3.31
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.2
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/runtime-log:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -889,6 +989,9 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
   zod@4.6.5:
     resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
 
@@ -1490,5 +1593,7 @@ snapshots:
   word-wrap@1.2.5: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@4.4.3: {}
 
   zod@4.6.5: {}
