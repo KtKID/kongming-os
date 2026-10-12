@@ -1,0 +1,7 @@
+[
+  { "speaker": "user", "body": "A私有材料" },
+  {
+    "speaker": "team-owner",
+    "body": "### 完整回应\nA私有材料\n[成果链接](https://example.com/team-result)\n\n署名由团队保存。"
+  }
+]

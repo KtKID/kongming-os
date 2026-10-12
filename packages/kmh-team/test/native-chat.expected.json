@@ -1,0 +1,34 @@
+{
+  "inputs": [
+    {
+      "kind": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "普通消息"
+        }
+      ]
+    },
+    {
+      "kind": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "@开发者 完成任务"
+        }
+      ]
+    }
+  ],
+  "ownerReplay": null,
+  "member": {
+    "kind": "kmh-team-member",
+    "actor": "member",
+    "body": "## 完整结果\n\n```ts\nconst answer = 42;\n```\n\n[成果](./result.md)",
+    "blocks": [
+      {
+        "kind": "text",
+        "text": "## 完整结果\n\n```ts\nconst answer = 42;\n```\n\n[成果](./result.md)"
+      }
+    ]
+  }
+}
