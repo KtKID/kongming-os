@@ -1,0 +1,90 @@
+{
+  "base": "http://127.0.0.1:19388",
+  "teamId": "0fd25886-1fa3-4cad-908a-2e42acd3bc06",
+  "evidence": [
+    {
+      "name": "不可用模型和失效角色拒绝创建",
+      "details": {
+        "rejected": 2
+      }
+    },
+    {
+      "name": "建群去重与空团队可恢复",
+      "details": {
+        "teamId": "0fd25886-1fa3-4cad-908a-2e42acd3bc06",
+        "members": 1,
+        "working": []
+      }
+    },
+    {
+      "name": "仅 owner 团队",
+      "details": "3414fdc1-6bdf-463f-95b1-23196b82a37e"
+    },
+    {
+      "name": "默认20条含本次，重复提交只运行一次",
+      "details": {
+        "teamId": "0fd25886-1fa3-4cad-908a-2e42acd3bc06",
+        "windowCount": 20,
+        "firstPublicSeq": 6,
+        "lastPublicSeq": 25,
+        "model": "fixture-alternate"
+      }
+    },
+    {
+      "name": "提交窗口冻结且 owner 可继续接待",
+      "details": {
+        "countAtSubmit": 1,
+        "countAfterChange": 5,
+        "messages": 30
+      }
+    },
+    {
+      "name": "失败说明与重新点名入口",
+      "details": {
+        "notices": [
+          {
+            "taskId": "d7b1a838-bffb-4e2c-88cf-a4ca88666770",
+            "triggerMessageId": "5b2cc46d-1ed4-4722-a87a-5af58b614a9e",
+            "actor": {
+              "kind": "member",
+              "roleId": "a07d1746-b962-4560-ac7c-348114f7c56d"
+            },
+            "outcome": "failed",
+            "text": "成员回应失败，请调整要求后重新点名；内容过长时可精简消息或调小传递上下文数量。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "真实取消与确认结束",
+      "details": [
+        {
+          "taskId": "d7b1a838-bffb-4e2c-88cf-a4ca88666770",
+          "triggerMessageId": "5b2cc46d-1ed4-4722-a87a-5af58b614a9e",
+          "actor": {
+            "kind": "member",
+            "roleId": "a07d1746-b962-4560-ac7c-348114f7c56d"
+          },
+          "outcome": "failed",
+          "text": "成员回应失败，请调整要求后重新点名；内容过长时可精简消息或调小传递上下文数量。"
+        },
+        {
+          "taskId": "b56acaf4-997c-4a19-bda0-5745c0ae33b6",
+          "triggerMessageId": "d3ccd3fc-af64-4b88-9993-96ad3d0d2d70",
+          "actor": {
+            "kind": "member",
+            "roleId": "a07d1746-b962-4560-ac7c-348114f7c56d"
+          },
+          "outcome": "stopped",
+          "text": "回应已停止。"
+        }
+      ]
+    },
+    {
+      "name": "重复停止保持成果",
+      "details": {
+        "messages": 32
+      }
+    }
+  ]
+}

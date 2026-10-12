@@ -11,7 +11,7 @@
 | `launch.config.json` | 短命令对应的 profile 选择 | Kongming |
 | `profiles/` | profile 清单、应用配置和 Web 原版对照 | Kongming |
 | `bundles/kongming/` | headless/SDK 使用的产品 persona | Kongming |
-| `packages/` | 模型提供方、日志和提示词等自有插件，以及开发预设 bundle；按[插件索引](../kmh/plugin-index.md)查找入口 | Kongming |
+| `packages/` | 模型提供方、日志、提示词和团队等自有插件，以及开发预设 bundle；按[插件索引](../kmh/plugin-index.md)查找入口 | Kongming |
 | `tests/runtime/` 与自有包测试目录 | 启动、配置、插件和客户端测试，由根 package.json 的 test 入口收集 | Kongming |
 | `.githooks/` | 当前 Node 提交和推送检查 | Kongming |
 | `.kmh/` | 本地运行数据 | 本地状态，Git 忽略 |

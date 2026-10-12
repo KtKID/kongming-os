@@ -17,7 +17,7 @@ description: 在 Kongming 新增 Cordis 插件或纯 bundle 时需要登记的�
 | 根 `package.json` | 在 `build:kmh`、`typecheck:kmh`、`lint`、`format:check` 的 filter 列表登记有相应脚本的代码包 |
 | `profiles/<profile>/cordis.patch.yml` 或该 profile 选用的 bundle | 在目标作用域添加插件实例，声明 `id`、模块 `name`、配置与所需服务 |
 | `profiles/<profile>/package.json` | `dependencies` 登记 `@kmh/<name>` 的 `link:../../packages/<name>` 引用；位于 `bundles/` 的包使用相应路径 |
-| 根测试入口 | 放在 `tests/runtime/*.test.mjs` 的测试由根命令收集；包内测试目录需要在根 `package.json` 的 `test` 命令中显式登记，参考 Codex 包 |
+| 根测试入口 | 放在 `tests/runtime/*.test.mjs` 的测试由根命令收集；包内测试目录需要在根 `package.json` 的 `test` 命令中显式登记，参考 Codex 与团队包 |
 | 包 README | 记录配置、语义、失败处理、限制、扩展点与维护归属；能力导航链接到该 README |
 
 包源码顶部用中文说明功能，函数注释说明输入、输出与失败行为。自有插件消费 DSH 服务和事件时遵循其 API 与生命周期要求；参照 [Cordis 机制](../../third_party/dsh/docs/cordis-primer.zh.md)与[防御规则](../../third_party/dsh/docs/defensive-patterns.zh.md)。

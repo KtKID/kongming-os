@@ -6,18 +6,21 @@ description: 当前 Kongming 插件、自有客户端模块、预设与 DSH 能�
 
 Kongming 的 Web 基础插件树由 [profile patch](../../profiles/kmh-web/cordis.patch.yml)管理，附加 bundle 由 [profile 清单](../../profiles/kmh-web/package.json)选择。`pnpm config:web` 展示合成配置；实例是否激活还受依赖、平台条件和预设选择影响，可结合插件面板与[运行日志](runtime-records.md)核对。
 
+当前自有团队能力由 [`@kmh/kmh-team`](../../packages/kmh-team/README.md) 提供，Web profile 声明依赖并挂载 Host/Client；成员执行复用 subagent 的 spawn 服务。
+
 ## Kongming 自有包
 
 | 包 | 用途 | 维护入口 |
 | --- | --- | --- |
 | `@kmh/codex-cli` | 官方 Codex CLI 模型接入、账号配置与客户端展示 | [包说明](../../packages/codex-cli/README.md) |
 | `@kmh/zcode-cli` | ZCode CLI 模型接入、登录与客户端展示 | [包说明](../../packages/zcode-cli/README.md) |
+| `@kmh/kmh-team` | 固定角色与团队会话，成员执行复用 DSH subagent | [包说明](../../packages/kmh-team/README.md) |
 | `@kmh/runtime-log` | 将 Cordis 插件诊断保存到 KMH 数据目录 | [包说明](../../packages/runtime-log/README.md) |
 | `@kmh/kmh-echo` | 插件加载与回收的生命周期示例 | [包说明](../../packages/kmh-echo/README.md) |
 | `@kmh/web-surface-zh` | Web 环境系统提示词的中文替换 | [包说明](../../packages/web-surface-zh/README.md) |
 | `@kmh/dev-preset` | 开发模式预设 bundle | [清单](../../packages/kmh-dev-preset/package.json)、[配置](../../packages/kmh-dev-preset/cordis.patch.yml) |
 
-Codex 和 ZCode 包各自包含客户端源码，并通过 `./client` 导出接入 DSH Web。Web 外壳、通用 UI 服务和组件由 DSH 子模块提供。新增自有包的依赖、构建、profile 和测试登记见[包接入指南](adding-a-plugin-package.md)。
+Codex、ZCode 和团队包各自包含客户端源码，并通过 `./client` 导出接入 DSH Web。Web 外壳、通用 UI 服务和组件由 DSH 子模块提供。新增自有包的依赖、构建、profile 和测试登记见[包接入指南](adding-a-plugin-package.md)。
 
 ## DSH 能力导航
 

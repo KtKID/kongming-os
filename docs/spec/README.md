@@ -8,6 +8,7 @@ description: 当前 KMH 插件规格、实施记录和待评审方案的入口�
 
 | Spec | 状态 | 说明 |
 | --- | --- | --- |
+| [kmh-team-v0.1](./kmh-team-v0.1/spec.md) · [技术设计](./kmh-team-v0.1/tech-design.md) | 开发完成 | 功能规格与技术设计已确认；[任务交付记录](./kmh-team-v0.1/tasks/README.md)包含实现范围及场景证据 |
 | [kmh-mobile-butler-v0.1](./kmh-mobile-butler-v0.1/spec.md) | 待评审 | 移动端管家统一委派给 Codex 或 ZCode，遵循用户选择并接收执行报告 |
 | [Codex CLI provider](codex-cli-provider/spec.md) | 现行规格 | 提示与工具接入、原生能力、审批、进度与产物验收；使用方法见[包说明](../../packages/codex-cli/README.md) |
 | [ZCode CLI provider](zcode-cli-provider/spec.md) | 现行规格 | 模型接入、登录与验证；使用方法见[包说明](../../packages/zcode-cli/README.md) |
