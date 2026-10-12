@@ -6,7 +6,7 @@
 
 Web 使用已有构建产物，修改插件源码后手动构建；新产物通过 [Web 插件热更新](../../docs/kmh/README.md#web-插件热更新) 应用。HMR 的代码目录由启动器提供，配置文件继续由现有 profile 监听应用。
 
-`package.json` 的 `dsh.profile.bundles` 选择附加 bundle，当前选择 `@kmh/dev-preset`（开发模式预设，插件树与 standard 一致，见 `packages/kmh-dev-preset/cordis.patch.yml`）；完整插件树由 `cordis.patch.yml` 的 `insert` 加入。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
+[package.json](package.json) 的 `dsh.profile.bundles` 按顺序选择附加 bundle：`@kmh/dev-preset`、`@deepseek-ai/dsh-experimental-inspector-profile` 与 `dsh-context`。开发预设由[本地 bundle 配置](../../packages/kmh-dev-preset/cordis.patch.yml)提供，Inspector 与 dsh-context 分别由清单所选包提供；随后应用 `cordis.patch.yml` 的基础插件树与覆盖，再应用 home 和调用级 patch。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
 
 ## 计算机操作
 
@@ -14,7 +14,7 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 
 原生驱动随 npm 依赖安装，安装时保持 optional dependencies 启用，并向启动 Web 的宿主应用授予 macOS 辅助功能与屏幕录制权限。截图传给模型还要求模型声明图像输入能力。运行条件与限制见 [原生驱动说明](../../third_party/dsh/packages/experimental/computer-use-cua-driver-native/README.md)。
 
-修改依赖后结束现有 Web 进程，再运行 `pnpm web` 启动，到设置 → 内置插件 → 全局插件中确认两个实例的运行状态为“运行中”。启动日志出现 `failed to import` 时，核对本目录的依赖声明、对应 `node_modules` 链接和目标包的 `lib/index.js`；启动记录位于 `$KMH_HOME/logs/`，默认 `~/.kmh/logs/`。Kongming 维护此 profile 与包链接，DSH 子模块维护插件和原生 SDK 的版本。
+修改依赖后结束现有 Web 进程，再运行 `pnpm web` 启动，到设置 → 内置插件 → 全局插件中确认两个实例的运行状态为“运行中”。启动日志出现 `failed to import` 时，核对本目录的依赖声明、对应 `node_modules` 链接和目标包 exports 声明的构建产物；启动记录位于 `$KMH_HOME/logs/`，默认 `~/.kmh/logs/`。Kongming 维护此 profile 与包链接，DSH 子模块维护插件和原生 SDK 的版本。
 
 ## 启动设置
 
@@ -46,7 +46,7 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 
 此插件当前的完整配置定义只有 `welcomeNoticeVersion`，表示已经确认的欢迎提示版本，浏览器确认提示时会保存它。完整字段定义见 [ui-settings-general 源码](../../third_party/dsh/packages/client/ui-settings-general/src/index.ts)。其他插件分别在自己的源码中声明 `Config`；完整配置列出所有已组合的插件及配置，源码声明可选字段和默认值。
 
-当前固定版本的 DSH `--dump-config-schema` 对四个 agent 预设报告 `unrecognized Loader tree carrier`，原版 Web 与本 profile 的字段导出都存在此限制。可选字段以对应插件源码的 `Config` 为准；配置合成和实际 Web 启动已分别验证。
+配置树通过 `pnpm config:web` 查看，精确字段与默认值以对应插件源码的 `Config` 为准；插件激活状态结合插件面板与运行日志核对。
 
 ## 原版对照与升级
 

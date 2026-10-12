@@ -41,9 +41,9 @@ description: "Kongming 层技能（kmh-*）的清单、文件归属、与 DSH �
 
 ## 与 DSH 子模块的边界
 
-kmh 技能只规范 kongming-agent 层；`third_party/dsh` 内的开发遵循子模块的 AGENTS.md 与检查。需要深入 DSH 时，各 kmh 技能内已带有指向子模块原技能的参照链接（如 [dsh-pre-push-checks](../../third_party/dsh/.agents/skills/dsh-pre-push-checks/SKILL.md)），从那里进入子模块流程，不在 Kongming 层重复其内容。
+kmh 技能规范 kongming-agent 层的文件组织与工作流程；自有插件使用 DSH 服务和事件时遵循其公开 API、effect 生命周期及事件语义。`third_party/dsh` 内的开发遵循子模块的 AGENTS.md 与检查。需要深入 DSH 时，各 kmh 技能内带有指向子模块原技能的参照链接（如 [dsh-pre-push-checks](../../third_party/dsh/.agents/skills/dsh-pre-push-checks/SKILL.md)），按实际修改位置选择相应流程。
 
-本次未接入的 DSH 技能保留在子模块中，需要时直接参照其 `SKILL.md` 或自行建立符号链接：`dsh-archive-agent-notes`（Agent Notes 归档，DSH 特有机制）、`dsh-client-ui-ux`（DSH Web 客户端 UI 审查，Kongming 暂无自有 UI 源码）、`dsh-merging-stacked-prs`（栈式 PR，Kongming 不使用 gh stack）、`dsh-plugin-analyzer-publish-sync`（plugin-analyzer 独立发布仓，DSH 内部工具链）、`dsh-translate-docs`（双语 `.i18n.yaml` 配对翻译工作流；Kongming 文档为中文单语、无配对，翻译子模块文档时才需要它）。
+其余 DSH 技能保留在子模块中，需要时直接参照其 `SKILL.md`：`dsh-archive-agent-notes`（DSH Agent Notes 归档）、`dsh-client-ui-ux`（DSH 客户端 UI 审查，可参考其中适用于自有客户端插件的规则）、`dsh-merging-stacked-prs`（DSH 栈式 PR）、`dsh-plugin-analyzer-publish-sync`（DSH 独立发布工具链）、`dsh-translate-docs`（子模块的双语配对翻译工作流）。KMH 的 Codex 和 ZCode 包包含 `src/client/` 与 `./client` 导出；Web 外壳与通用 UI 组件由 DSH 提供。
 
 ## 符号链接与版本维护
 

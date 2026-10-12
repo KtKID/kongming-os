@@ -22,7 +22,7 @@ KMH_HOME=~/.kmh-dev
 
 ## 目录归属
 
-三个 KMH profile 将运行记录配置到同一个数据目录。表中的路径相对于 `KMH_HOME`。
+cli、web、sdk 短命令所选的三个 profile 将运行记录配置到同一个数据目录。表中的路径相对于 `KMH_HOME`。
 
 | 路径 | 内容与写入方 |
 | --- | --- |
@@ -43,7 +43,7 @@ KMH_HOME=~/.kmh-dev
 
 profile 的配置、依赖清单和安装协调状态仍由该 profile 拥有。链接后的 `package.json`、`cordis.patch.yml`、`node_modules/` 与 `.plugin-manager/run.json` 位于仓库 profile，安装锁由同一物理文件协调。不同数据目录访问同一份 profile 时共享这些配置和依赖。
 
-Agent 创建的项目文件由任务工作目录和工具参数决定。外部程序自己的用户文件、操作系统诊断与第三方服务记录各自由对应程序管理；官方 CLI 子进程自行在用户 home 保存运行日志与模型 I/O 记录，不写入 KMH 数据目录，路径与检索方式见 [zcode-cli 包说明](../../packages/zcode-cli/README.md)与 [codex-cli 包说明](../../packages/codex-cli/README.md)（`~/.codex/sessions` 会话记录）。home 级 patch 或 `--patch` 可显式覆盖表中服务的路径；上述表格描述三个 KMH profile 的默认配置。
+Agent 创建的项目文件由任务工作目录和工具参数决定。外部程序自己的用户文件、操作系统诊断与第三方服务记录各自由对应程序管理；官方 CLI 子进程自行在用户 home 保存运行日志与模型 I/O 记录，不写入 KMH 数据目录，路径与检索方式见 [zcode-cli 包说明](../../packages/zcode-cli/README.md)与 [codex-cli 包说明](../../packages/codex-cli/README.md)（`~/.codex/sessions` 会话记录）。home 级 patch 或 `--patch` 可显式覆盖表中服务的路径；上述表格描述 cli、web、sdk 短命令所选 profile 的默认配置。
 
 ## 日志与失败处理
 
@@ -86,7 +86,9 @@ Agent 创建的项目文件由任务工作目录和工具参数决定。外部�
 | `HOME` | 保留调用者值，供外部工具查找登录信息与自身配置；KMH 默认数据目录通过系统账户信息解析 |
 | 模型凭据 | DSH 按进程环境、工作目录 `.env`、数据目录 `.env` 的顺序读取，前层优先 |
 | `PATH`、`SHELL` | 影响外部程序与 Shell 的选择 |
-| 代理、TLS、Node 启动选项 | 影响联网与 Node 启动行为 |
+| `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY` 及其小写形式 | KMH 启动器统一设为空字符串，进程以直连方式访问网络；空值优先于数据目录 `.env`，防止代理被再次补入 |
+| `NODE_USE_ENV_PROXY` | KMH 启动器固定为 `0` |
+| TLS、其他 Node 启动选项 | 保留调用者设置，影响 TLS 信任与 Node 启动行为 |
 | `DSH_PERMISSION_MODE`、`DSH_TOOLS_MODE` | 继续由 DSH 配置读取；以最终 profile 展开与 Session 设置为准 |
 | `DSH_TELEMETRY_MODE`、`DSH_TELEMETRY_OTLP_URL`、`DSH_PRODUCT_ANALYTICS_OTLP_URL` | 影响遥测模式与接收端；运行记录的本地目录由 KMH 配置固定 |
 | `DSH_CLIENT_VERSION` | 影响 Web 客户端显示与遥测版本 |

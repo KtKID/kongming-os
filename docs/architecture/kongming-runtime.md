@@ -1,6 +1,6 @@
 # Kongming 当前运行架构
 
-当前 Kongming 使用完整 DeepSeek Harness（DSH）作为 Node 后端。Kongming 管理应用启动、profile、产品配置和自有 bundle；DSH 提供 Cordis 插件运行时、Agent 执行、模型接入、工具、会话与客户端能力。本文描述 2026-10-04 工作区的实际实现。
+当前 Kongming 使用完整 DeepSeek Harness（DSH）作为 Node 后端。Kongming 管理应用启动、profile、产品配置、自有 bundle 和业务插件；DSH 提供 Cordis 插件运行时、Agent 执行、模型接入、工具、会话与客户端能力。实现以本仓库及实际检出的 DSH 子模块源码为准。
 
 ## 目录与维护归属
 
@@ -11,12 +11,12 @@
 | `launch.config.json` | 短命令对应的 profile 选择 | Kongming |
 | `profiles/` | profile 清单、应用配置和 Web 原版对照 | Kongming |
 | `bundles/kongming/` | headless/SDK 使用的产品 persona | Kongming |
-| `packages/` | 自有插件；`kmh-echo` 将自身生命周期名字追加到本地文件 | Kongming |
-| `tests/runtime/` | Kongming 启动与底座接入集成测试，验证配置选择、目录链接和 SDK 交互 | Kongming |
+| `packages/` | 模型提供方、日志和提示词等自有插件，以及开发预设 bundle；按[插件索引](../kmh/plugin-index.md)查找入口 | Kongming |
+| `tests/runtime/` 与自有包测试目录 | 启动、配置、插件和客户端测试，由根 package.json 的 test 入口收集 | Kongming |
 | `.githooks/` | 当前 Node 提交和推送检查 | Kongming |
 | `.kmh/` | 本地运行数据 | 本地状态，Git 忽略 |
 
-Kongming 与 DSH 分别维护 pnpm 工作区和锁文件。根工作区包含自有 `bundles/*` 和后续 `packages/*`；DSH 在子模块内管理自己的 workspace 依赖。子模块当前版本为 `9de374a8f3ea3564c71eb8c9cd007c8ac563b452`，上游合入基线为 `5badb15009ae1756c3afe0ae0cef1faafc290ccc`。该版本包含插件安装诊断目录、Web 浏览器账号登录与用户停止时挂起待发送队列的原生语义。安装以 Git 记录的子模块提交为准。
+Kongming 与 DSH 分别维护 pnpm 工作区和锁文件。根工作区包含自有 `bundles/*` 和 `packages/*`；DSH 在子模块内管理自己的 workspace 依赖。安装以 Kongming Git 记录的子模块提交为准，工作区源码还可能包含各自未提交的修改；升级流程见 [DSH 接入与升级](../kmh/README.md#版本升级)。
 
 ## 启动链路
 
@@ -37,7 +37,7 @@ flowchart LR
 
 启动器读取 `launch.config.json`，默认将 `cli`、`web`、`sdk` 映射至 `kmh-headless`、`kmh-web`、`kmh-sdk`。它在 `$KMH_HOME/profiles/` 建立指向仓库 profile 的目录链接，为 profile 声明的本地 bundle 注册依赖链接，再启动 `third_party/dsh/apps/cli/lib/bin.js`。
 
-子进程继承调用者的工作目录和环境变量，退出状态返回给调用者。`cli` 使用一次性 headless 任务入口，`web` 使用 DSH Web 应用，`sdk` 使用标准输入输出上的 JSON-RPC 服务。当前 `pnpm web` 的前端由 DSH 子模块提供。
+子进程保留调用者的工作目录，环境变量按[数据目录与运行记录](../kmh/runtime-records.md#父进程影响)中的规则转发，退出状态返回给调用者。`cli` 使用一次性 headless 任务入口，`web` 使用 DSH Web 应用，`sdk` 使用标准输入输出上的 JSON-RPC 服务。当前 `pnpm web` 的前端由 DSH 子模块提供。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -56,15 +56,15 @@ pnpm sdk
 | --- | --- | --- |
 | headless | DSH base → headless → Kongming bundle → profile | `bundles/kongming/`、`profiles/kmh-headless/` |
 | SDK | DSH base → sdk-app → Kongming bundle → profile | `bundles/kongming/`、`profiles/kmh-sdk/` |
-| Web | 完整文件一次插入全部插件树，profile bundles 为 `[]` | `profiles/kmh-web/cordis.patch.yml` |
+| Web | 清单声明的附加 bundles → profile 基础配置 → home → 调用级 patch | `profiles/kmh-web/package.json`、`profiles/kmh-web/cordis.patch.yml` |
 
-Web 完整文件包含 base 服务、GUI/API、Web 承载、四个 Agent 预设和产品配置。原版展开保存于 `profiles/kmh-web/upstream.cordis.yml`，用于查阅和升级对照。`pnpm config:web` 展示最终配置。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 overlay 按顺序在 profile 配置之后应用。
+Web profile 文件包含 base 服务、GUI/API、Web 承载、standard/PTC/minimal/Cordis 基础预设和产品配置；附加 bundle 按清单顺序先于 profile patch 应用，开发预设也由 bundle 提供。原版展开保存于 `profiles/kmh-web/upstream.cordis.yml`，用于查阅和升级对照。`pnpm config:web` 展示最终配置。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 overlay 按顺序在 profile 配置之后应用。
 
 | 修改目标 | 配置位置 |
 | --- | --- |
 | 短命令使用哪个 profile | `launch.config.json` 的 `profiles` |
 | Web 监听地址与端口 | `webserver.config.host`、`webserver.config.port`，当前为 `127.0.0.1:3080` |
-| 自动打开浏览器 | `web-runtime.config.openBrowser`，当前为 `true` |
+| 自动打开浏览器 | `web-runtime.config.openBrowser` 引用启动选项；`--no-open` 关闭本次浏览器交接 |
 | Agent 预设默认选择 | `agent-preset-registry.config.default`，当前为 `standard` |
 | 某个 Web Agent 的 persona 和工具 | 对应 `preset-*.config.plugins` 中的条目 |
 | 欢迎提示确认版本 | `ui-settings-general.config.welcomeNoticeVersion` |
@@ -82,11 +82,11 @@ Web 完整文件包含 base 服务、GUI/API、Web 承载、四个 Agent 预设�
 | GUI 相关 | Connection、API Gateway 与 controllers | 连接图形客户端和宿主能力 |
 | GUI 共用 | 聊天、工具卡片、侧栏、设置、外观 | 组成用户界面，可供 Web/桌面表层复用 |
 | Web 承载 | Web 启动、HTTP 服务、地址公告 | 管理本应用的 Web 服务与浏览器入口 |
-| Agent 预设 | standard、ptc、minimal、cordis | 声明每个 Agent 的完整子插件组合 |
+| Agent 预设 | standard、ptc、minimal、cordis 与开发预设 | 声明每个 Agent 的子插件组合；开发预设由本地 bundle 提供 |
 
 `dsh-web` 是 Agent 的搜索与抓取服务，属于通用能力；`dsh-host-webserver` 在当前应用承担 HTTP 服务。Web 中部分顶层工具条目被禁用，所选预设在 Agent 作用域内加载对应工具。配置清单与实际激活状态分别核对，平台条件、服务依赖和预设选择都会影响加载。
 
-逐项功能与官方说明见 [插件索引](../kmh/plugin-index.md)。按五层本地 bundle 拆分配置的目录结构属于拟议方案，当前 Web 配置仍由一个完整文件管理。
+能力归属与官方说明见 [插件索引](../kmh/plugin-index.md)，实际实例、作用域和配置以合成后的 profile 为准。
 
 ## 状态与凭据
 

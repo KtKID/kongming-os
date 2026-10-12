@@ -39,9 +39,9 @@ DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作
 
 根目录 `launch.config.json` 指定 `cli`、`web`、`sdk` 短命令对应的 profile。`profiles/kmh-headless` 选择 DSH base + headless，`profiles/kmh-sdk` 选择 base + sdk-app，两者最后叠加 `@kmh/bundle-kongming`。bundle 清单中的 `dsh.bundle.patch` 指向自身的 `cordis.patch.yml`，profile 的 `dependencies` 使用 `link:../../bundles/kongming` 选择本地包。
 
-Web profile 的 bundles 为 `[]`，`profiles/kmh-web/cordis.patch.yml` 完整展开 base、Web、四个预设和 Kongming persona。编辑此文件管理 Web 的插件和部署配置：`webserver.config.port` 默认 `3080`，`web-runtime.config.openBrowser` 控制打开浏览器。原版配置保存在同目录 `upstream.cordis.yml`，字段说明见 [Web profile](../../profiles/kmh-web/README.md)。运行 `pnpm web` 启动，`pnpm config:web` 查看最终配置。
+Web profile 的 `package.json` 通过 `dsh.profile.bundles` 声明附加 bundle；`profiles/kmh-web/cordis.patch.yml` 展开 base、Web、standard/PTC/minimal/Cordis 基础预设和 Kongming persona。编辑 profile patch 管理插件实例和部署配置，附加 bundle 的选择与顺序在 profile 清单中管理：`webserver.config.port` 默认 `3080`，`web-runtime.config.openBrowser` 控制打开浏览器。原版配置保存在同目录 `upstream.cordis.yml`，实际 bundle 选择与字段说明见 [Web profile](../../profiles/kmh-web/README.md)。运行 `pnpm web` 启动，`pnpm config:web` 查看最终配置。
 
-headless/SDK 的共同应用配置编辑 `bundles/kongming/cordis.patch.yml`，模式覆盖编辑相应 `profiles/<name>/cordis.patch.yml`。DSH 的 overlay 对目标条目的 config 整体替换，配置修改需要保留该条目所需的字段。机器偏好放在 `$KMH_HOME/cordis.patch.yml`，调用级覆盖通过 `--patch /absolute/path.yml` 提供。headless/SDK 层顺序为 DSH bundles → Kongming bundle → profile → home → 调用级 patch；Web 层顺序为完整 profile → home → 调用级 patch。
+headless/SDK 的共同应用配置编辑 `bundles/kongming/cordis.patch.yml`，模式覆盖编辑相应 `profiles/<name>/cordis.patch.yml`。DSH 的 overlay 对目标条目的 config 整体替换，配置修改需要保留该条目所需的字段。机器偏好放在 `$KMH_HOME/cordis.patch.yml`，调用级覆盖通过 `--patch /absolute/path.yml` 提供。headless/SDK 层顺序为 DSH bundles → Kongming bundle → profile → home → 调用级 patch；Web 层顺序为清单声明的 bundles → profile → home → 调用级 patch。
 
 启动器在 `$KMH_HOME/profiles/<name>` 建立目录链接，运行数据目录由[KMH_HOME](runtime-records.md) 选择。profile 配置由 Kongming 版本控制，profile `node_modules` 和运行数据由 Git 忽略。已有同目标链接保持幂等；已有其他目录或目标时立即报错并保留原内容。运行 `dsh plugin --profile kmh-headless ...` 时，所选 profile 清单与 patch 的变化落在 Kongming，可按需审查和提交。
 

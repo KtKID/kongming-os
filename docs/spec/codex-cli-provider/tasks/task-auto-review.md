@@ -58,7 +58,7 @@ description: 将 KMH 的帮我审批接到 Codex 官方自动审查，并验证�
 - `packages/codex-cli/README.md`：权限行为。
 - `docs/spec/codex-cli-provider/spec.md`、`decisions.md`：feat09 与修订记录。
 - `tasks/task-approval-bridge/dev-checklist.md`：首次实现记录链接到当前映射。
-- `docs/spec/kmh-plugin-framework-v0.1/tasks/task-manual-plugin-build.md`：链接后续启动配置接线。
+- [Web 插件热更新](../../../kmh/README.md#web-插件热更新)：启动配置与手动构建后的重载方式。
 - 本任务文档：需求、测试与验证。
 
 ## ④ 验证结果
