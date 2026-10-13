@@ -18,13 +18,21 @@
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["node"],
-    "lib": ["ES2023"],
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2024"
+    ],
     "rewriteRelativeImportExtensions": true,
     "composite": true,
     "tsBuildInfoFile": "lib/host.tsbuildinfo",
     "noEmitOnError": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/client"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/client"
+  ]
 }

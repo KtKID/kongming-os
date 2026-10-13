@@ -8,7 +8,9 @@
     "lib/src",
     "lib/client.js",
     "README.md",
-    "lib/browser-types/**/*.d.ts"
+    "lib/browser-types/**/*.d.ts",
+    "vendor/codex/models.json",
+    "vendor/native-tools/*.json"
   ],
   "exports": {
     ".": {
@@ -48,7 +50,14 @@
     "@deepseek-ai/dsh-user-approval": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-user-questions": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-session-projection": "0.2.1-alpha.1",
-    "@deepseek-ai/dsh-permission-presets": "0.2.1-alpha.1"
+    "@deepseek-ai/dsh-permission-presets": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-cli-tools": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-settings": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-util-values": "0.2.1-alpha.1",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.6-alpha.1",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-brand": "0.2.1-alpha.1"
   },
   "dependencies": {
     "zod": "^4.4.3"
@@ -80,13 +89,22 @@
     "@deepseek-ai/dsh-user-approval": "link:../../third_party/dsh/packages/interaction/user-approval",
     "@deepseek-ai/dsh-user-questions": "link:../../third_party/dsh/packages/interaction/user-questions",
     "@deepseek-ai/dsh-session-projection": "link:../../third_party/dsh/packages/session/session-projection",
-    "@deepseek-ai/dsh-permission-presets": "link:../../third_party/dsh/packages/interaction/permission-presets"
+    "@deepseek-ai/dsh-permission-presets": "link:../../third_party/dsh/packages/interaction/permission-presets",
+    "@deepseek-ai/dsh-cli-tools": "link:../../third_party/dsh/packages/llm/cli-tools",
+    "@deepseek-ai/dsh-tools": "link:../../third_party/dsh/packages/core/tools",
+    "@deepseek-ai/dsh-settings": "link:../../third_party/dsh/packages/settings/settings",
+    "@deepseek-ai/dsh-util-values": "link:../../third_party/dsh/packages/util/values",
+    "@deepseek-ai/cordis-plugin-loader": "link:../../third_party/dsh/vendor/loader",
+    "@deepseek-ai/dsh-client-ui-chat": "link:../../third_party/dsh/packages/client/ui-chat",
+    "@deepseek-ai/dsh-brand": "link:../../third_party/dsh/packages/util/brand"
   },
   "dsh": {
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-plugin-manager"
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-conversation"
       ],
       "platform": "web"
     }

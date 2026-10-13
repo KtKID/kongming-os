@@ -147,6 +147,7 @@ export const DynamicNamespaceSpec = z.object({
 });
 /** thread/start 请求参数。 */
 export const ThreadStartParams = z.object({
+  experimentalRawEvents: z.boolean().optional(),
   model: z.string().optional(),
   ephemeral: z.boolean().optional(),
   cwd: z.string().optional(),
@@ -451,3 +452,16 @@ export const ErrorNotificationParams = z
     turnId: z.string().optional(),
   })
   .passthrough();
+
+/** 官方 thread/fork 的回合位置；两个切点字段互斥。 */
+export const ThreadForkParams = z
+  .object({
+    threadId: z.string(),
+    lastTurnId: z.string().optional(),
+    beforeTurnId: z.string().optional(),
+  })
+  .refine(
+    (value) =>
+      value.lastTurnId === undefined || value.beforeTurnId === undefined,
+    "fork positions are mutually exclusive",
+  );

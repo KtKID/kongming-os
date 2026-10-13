@@ -1,6 +1,26 @@
 /** 官方 Codex CLI 执行、存储与超时限制的部署配置。 */
+import { ToolSelectionSchema } from "@deepseek-ai/dsh-cli-tools";
 import schema from "@deepseek-ai/schemastery";
 import { isAbsolute } from "node:path";
+// 共享 schema 保持选择类型；联动检查可在配置 schema 传到客户端后独立执行。
+const codexToolSelection = schema.intersect([
+  ToolSelectionSchema,
+  schema.transform(ToolSelectionSchema, (value) => {
+    if (value === undefined) return value;
+    const commands = ["exec_command", "write_stdin", "shell_command"];
+    const enabled = commands.map(
+      (name) =>
+        value.native?.find(
+          (row) => row.source === "codex/native" && row.name === name,
+        )?.enabled ?? false,
+    );
+    if (new Set(enabled).size > 1)
+      throw new Error(
+        "CODEX_NATIVE_LINKED_CHOICES_CONFLICT: exec_command, write_stdin, shell_command",
+      );
+    return value;
+  }),
+]);
 const absolute = schema
   .transform(schema.string().required(), (value) => {
     if (!isAbsolute(value))
@@ -33,6 +53,7 @@ export const Config = schema.object({
   graceMs: schema.natural().min(1).max(2147483647).default(1500),
   // 原生 Codex 工具与技能开关：默认关闭，模型只见 KMH 的工具与技能。
   nativeToolsEnabled: schema.boolean().default(false),
+  toolSelection: codexToolSelection.volatile(),
   env: schema.dict(schema.string()).default({}),
 });
 /** 校验后的 CLI 设置。 */

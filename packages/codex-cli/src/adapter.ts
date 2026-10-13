@@ -7,11 +7,17 @@ import {
   type LlmResolvedModelInfo,
   type StreamChunk,
 } from "@deepseek-ai/dsh-llm";
-import { diffIncrement, snapshotAt } from "./cursor.ts";
-import { fieldOf } from "./protocol.ts";
+import {
+  diffIncrement,
+  snapshotAt,
+  emptySnapshot,
+  type CursorSnapshot,
+  type Increment,
+} from "./cursor.ts";
+import type { BindingRecord } from "./session-store.ts";
 import type { CodexCli } from "./index.ts";
 import { resolveLlmModel, toLlmModels } from "./models.ts";
-import { toolDeclarationNote, toolFingerprintOf } from "./tool-registry.ts";
+import { toolDeclarationNote } from "./tool-registry.ts";
 import type { CodexTurn, TurnStartInput } from "./turn.ts";
 
 /**
@@ -111,11 +117,12 @@ export class CodexAdapter extends LlmAdapter {
         ? "kmh-codex-anonymous"
         : String(options.sessionId);
     const signal = options.signal ?? new AbortController().signal;
+    const preparedPolicy = this.runtime.toolPolicy?.forStream(options);
     const startInput: Omit<TurnStartInput, "text"> = {
+      policyFingerprint: preparedPolicy?.fingerprint,
       model: options.model,
-      // 逐项选择按当前值传入：进行中的回合沿用其启动时的进程参数，
-      // 下一回合开始时重新读取（feat02 场景4/场景8 语义）。
-      selection: this.runtime.settings.selection,
+      // 业务工具使用创建时选择，独立技能由策略按本回合读取。
+      selection: preparedPolicy?.native ?? this.runtime.settings.selection,
       // 会话身份与权限档（D17/feat09）：审批桥取活跃 Agent、-c 映射档位。
       sessionId: options.sessionId,
       permission: this.runtime.resolvePermission(options.sessionId),
@@ -131,84 +138,59 @@ export class CodexAdapter extends LlmAdapter {
         inputSchema: tool.parameters,
       })),
     };
-    // 差分以待核对工作队列为输入：历史 assistant 消息核对/指纹推进时出队，
-    // 余量随分支对账回 turn，本回合新块入队并随游标持久化（跨进程续用）。
-    const increment = diffIncrement(options.messages, {
+    const record = await this.runtime.bindingRecord(sessionKey);
+    const source =
+      record?.threadId === undefined
+        ? await this.runtime.sourceBinding(options.sessionId)
+        : undefined;
+    let plan: ForkPlan | undefined;
+    let increment = diffIncrement(options.messages, {
       fingerprints: turn.cursor.fingerprints,
       delivered: turn.pendingDigests,
     });
-    if (increment.kind === "baseline-lost") {
-      // 编辑/重发/历史改写：等同从该点分叉——fork 或新建并注入重建历史。
-      yield* this.rebuildFromBinding(
-        turn,
-        options,
-        startInput,
-        sessionKey,
-        signal,
-      );
-      return;
+    if (source?.threadId !== undefined) {
+      plan = forkPlanOf(source, options.messages);
+      increment = plan.increment;
+    } else if (increment.kind === "baseline-lost") {
+      if (
+        record?.threadId === undefined ||
+        !["prefix-mismatch", "history-shrunk", "history-rewritten"].includes(
+          increment.reason,
+        )
+      ) {
+        throw new Error(`CODEX_SESSION_HISTORY_MISMATCH: ${increment.reason}`);
+      }
+      plan = forkPlanOf(record, options.messages);
+      increment = plan.increment;
     }
-    // 差分已消费的历史 assistant 消息从待核对队列出队；余量随分支对账回
-    // turn 上（见各分支注释），本回合新产出的块继续入队并随游标持久化。
     if (increment.kind === "new-input") {
       if (turn.pendingCallIds().length > 0)
         throw new Error("CODEX_TOOL_PENDING");
-      const record = await this.runtime.bindingRecord(sessionKey);
-      // D13 目录变化检测（feat03 场景9）：绑定记录带指纹且与当前目录不符时，
-      // 跳过 resume/fork（两者都继承旧工具集），新建 thread 重新声明工具并
-      // 按既有历史重建规则恢复上下文；旧记录无指纹表示裸名旧 thread，照常续用。
-      const fingerprint = toolFingerprintOf(startInput.tools);
-      if (
-        record !== undefined &&
-        record.toolFingerprint !== undefined &&
-        record.toolFingerprint !== fingerprint
-      ) {
-        yield* this.rebuildFromBinding(
-          turn,
-          options,
+      if (plan !== undefined) {
+        await turn.dispose();
+        turn.cursor = plan.cursor;
+        turn.pendingDigests = [...plan.cursor.delivered];
+        turn.lastCompletedTurnId = plan.turns.at(-1)?.turnId;
+        await turn.rebuild(
           startInput,
-          sessionKey,
+          plan.source,
+          increment.text,
           signal,
-          { fresh: true },
+          async () => this.runtime.recordBinding(sessionKey, turn, plan?.turns),
         );
-        return;
+      } else {
+        await turn.start(
+          { text: increment.text, ...startInput },
+          record?.threadId,
+          signal,
+          async () => this.runtime.recordBinding(sessionKey, turn),
+        );
       }
-      await turn.start(
-        { text: increment.text, ...startInput },
-        record?.threadId,
-        signal,
-      );
-      // start 的 reopen 清空了队列：差分余量（历史尚未消费的摘要）在队头
-      // 恢复，本回合新块随后追加。
       turn.pendingDigests = [...increment.delivered, ...turn.pendingDigests];
       yield* turn.pump(signal);
     } else {
-      // resume 路径不重开队列：直接以差分余量为基准。
       turn.pendingDigests = [...increment.delivered];
-      let resumed = false;
-      try {
-        yield* turn.resumeWithToolResults(increment.results, signal);
-        resumed = true;
-      } catch (error) {
-        // 挂起表丢失（会话状态重建把带挂起工具的 turn 换掉，线上表现为
-        // CODEX_NO_PENDING_TOOL 回合失败且旧进程泄漏等待回执）：按基线
-        // 失效同样的恢复语义重建续推。其余失配继续抛出。
-        if (
-          !(error instanceof Error) ||
-          error.message !== "CODEX_NO_PENDING_TOOL"
-        )
-          throw error;
-      }
-      if (!resumed) {
-        yield* this.rebuildFromBinding(
-          turn,
-          options,
-          startInput,
-          sessionKey,
-          signal,
-        );
-        return;
-      }
+      yield* turn.resumeWithToolResults(increment.results, signal);
     }
     turn.cursor = snapshotAt(
       options.messages,
@@ -218,88 +200,51 @@ export class CodexAdapter extends LlmAdapter {
     await this.runtime.recordBinding(sessionKey, turn);
     if (turn.terminated) this.runtime.releaseSession(turn);
   }
-  /**
-   * 按绑定记录重建绑定线程并续推：优先 fork 到 lastTurnId 边界（未决的
-   * 当前 turn 不进 fork），失败或无源时新建 thread 并注入重建历史。
-   * @param turn - 待重建的 turn（其连接与挂起状态已被视为失效）。
-   * @param mode.fresh - 目录变化路径：跳过 fork（fork 继承旧工具集），
-   *   直接新建 thread 重新声明当前工具；失败时报错含重新建立会话的出路。
-   */
-  private async *rebuildFromBinding(
-    turn: CodexTurn,
-    options: GenerateOptions,
-    startInput: Omit<TurnStartInput, "text">,
-    sessionKey: string,
-    signal: AbortSignal,
-    mode: { fresh: boolean } = { fresh: false },
-  ): AsyncGenerator<StreamChunk> {
-    await turn.dispose();
-    const source =
-      mode.fresh === true
-        ? undefined
-        : await this.runtime.bindingRecord(sessionKey);
-    try {
-      await turn.rebuild(
-        startInput,
-        source === undefined
-          ? undefined
-          : {
-              threadId: source.threadId,
-              ...(source.lastTurnId !== undefined
-                ? { lastTurnId: source.lastTurnId }
-                : {}),
-            },
-        rebuildTextOf(options.messages),
-        signal,
-      );
-    } catch (error) {
-      // feat03 场景9：恢复失败给出明确原因与出路（重试或新建会话重建绑定）。
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `CODEX_TOOL_CATALOG_REBUILD_FAILED: 工具目录变化后重建会话失败（${reason}）；可重试本回合，或新建会话以重建绑定`,
-      );
-    }
-    yield* turn.pump(signal);
-    // 快照在 pump 之后：重建 turn 期间产出的块摘要（delivered）才能随
-    // 游标落盘，后续轮次的边界核对才有据可依（实测先快照会丢失摘要）。
-    turn.cursor = snapshotAt(
-      options.messages,
-      options.messages.length,
-      turn.pendingDigests,
-    );
-    await this.runtime.recordBinding(sessionKey, turn);
-    this.runtime.releaseSession(turn);
-  }
 }
-/** 每段重建摘要的截断长度。 */
-const REBUILD_SNIPPET_LIMIT = 600;
-/**
- * 把 KMH 对话历史序列化为一条重建输入（fork 后新 thread 的首个 turn）。
- * 用户消息保留原文；助手与工具往返折叠为摘要，避免重建输入膨胀。
- */
-export function rebuildTextOf(messages: GenerateOptions["messages"]): string {
-  const lines: string[] = [
-    "以下是本会话此前的对话记录重建。请把它作为上下文继续对话，不要重复回答已回答过的内容。",
-  ];
-  for (const message of messages) {
-    const content = fieldOf(message, "content");
-    const texts: string[] = [];
-    for (const block of Array.isArray(content) ? content : [])
-      if (fieldOf(block, "type") === "text") {
-        const text = fieldOf(block, "text");
-        if (typeof text === "string") texts.push(text);
-      }
-    const joined = texts.join("\n").slice(0, REBUILD_SNIPPET_LIMIT);
-    if (message.role === "user") lines.push(`用户：${joined}`);
-    else if (message.role === "assistant") {
-      const name = fieldOf(message, "toolCallId");
-      if (typeof name === "string")
-        lines.push(`助手调用了工具，结果摘要：${joined}`);
-      else lines.push(`助手：${joined}`);
-    } else if (message.role === "tool")
-      lines.push(`（工具结果已并入上文摘要）`);
+
+interface ForkPlan {
+  source: { threadId: string; lastTurnId?: string; beforeTurnId?: string };
+  cursor: CursorSnapshot;
+  turns: NonNullable<BindingRecord["turns"]>;
+  increment: Extract<Increment, { kind: "new-input" }>;
+}
+/** 根据源回合已接受的消息位置选择精确的原生回合切点。 */
+function forkPlanOf(
+  record: BindingRecord,
+  messages: GenerateOptions["messages"],
+): ForkPlan {
+  const threadId = record.threadId;
+  if (threadId === undefined) throw new Error("CODEX_FORK_SOURCE_MISSING");
+  const turns = record.turns ?? [];
+  for (let index = turns.length - 1; index >= 0; index--) {
+    const turn = turns[index];
+    if (turn === undefined) continue;
+    const cursor = {
+      fingerprints: turn.fingerprints,
+      delivered: turn.delivered,
+    };
+    const increment = diffIncrement(messages, cursor);
+    if (increment.kind === "new-input")
+      return {
+        source: { threadId, lastTurnId: turn.turnId },
+        cursor,
+        turns: turns.slice(0, index + 1),
+        increment,
+      };
   }
-  return lines.join("\n\n");
+  const cursor = emptySnapshot();
+  const increment = diffIncrement(messages, cursor);
+  const first = turns[0];
+  if (increment.kind === "new-input" && first !== undefined)
+    return {
+      source: { threadId, beforeTurnId: first.turnId },
+      cursor,
+      turns: [],
+      increment,
+    };
+  throw new Error(
+    "CODEX_FORK_BOUNDARY_UNSUPPORTED: exact native turn position is unavailable",
+  );
 }
 /** 提取请求的系统提示：循环请求的系统消息或一次性调用的 system 字段。 */
 function systemPromptOf(options: GenerateOptions): string | undefined {

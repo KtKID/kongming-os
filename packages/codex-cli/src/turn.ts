@@ -26,6 +26,7 @@ import {
   McpToolCallProgressParams,
   ReasoningDeltaParams,
   ThreadResult,
+  ThreadForkParams,
   TokenUsageParams,
   TurnCompletedParams,
   TurnDiffUpdatedParams,
@@ -70,6 +71,8 @@ import { fieldOf } from "./protocol.ts";
 
 /** turn 启动所需请求侧信息。 */
 export interface TurnStartInput {
+  /** 完整冻结工具策略参与 thread 复用。 */
+  policyFingerprint?: string | undefined;
   text: string;
   model: string;
   reasoningEffort?: string | undefined;
@@ -247,12 +250,14 @@ export class CodexTurn {
    * @param input - 用户文本、模型与工具目录。
    * @param threadId - 已有绑定的 thread；缺省时创建新 thread。
    * @param signal - 取消信号。
+   * @param onBound - 收到编号后、发送任务前等待的保存操作；失败时停止发送。
    * @returns 新建或恢复后的 threadId。
    */
   async start(
     input: TurnStartInput,
     threadId: string | undefined,
     signal: AbortSignal,
+    onBound?: (id: string) => Promise<void>,
   ): Promise<string> {
     this.reopen();
     this.lastUserText = input.text;
@@ -280,13 +285,14 @@ export class CodexTurn {
     this.installHandlers();
     await verifyIsolation(connection, plan, signal);
     // D13：统一 kmh- 前缀声明（含范围与碰撞校验），回执按声明表解析。
-    const registry = buildToolRegistry(input.tools);
+    const registry = buildToolRegistry(input.tools, input.policyFingerprint);
     this.toolRegistry = registry;
     if (threadId === undefined) {
       const raw: unknown = await connection.request(
         "thread/start",
         {
           model: input.model,
+          experimentalRawEvents: true,
           cwd: this.cwd,
           baseInstructions: input.baseInstructions,
           developerInstructions: input.developerInstructions,
@@ -309,7 +315,10 @@ export class CodexTurn {
         signal,
       );
       this.threadId = ThreadResult.parse(raw).thread.id;
+      if (this.threadId !== threadId)
+        throw new Error("CODEX_SESSION_ID_MISMATCH");
     }
+    await onBound?.(this.threadId);
     const turn: unknown = await connection.request(
       "turn/start",
       TurnStartParams.parse({
@@ -326,23 +335,23 @@ export class CodexTurn {
   }
 
   /**
-   * 基线失效或原生会话缺失时重建绑定：优先从既有 thread fork（含到
-   * lastTurnId 为止的历史），失败或无源时新建 thread；随后把重建文本作为
-   * 首 turn 输入投递。
-   * @param input - 模型与工具目录。
-   * @param source - 既有绑定（threadId 与 fork 边界）；缺省新建。
-   * @param rebuildText - KMH 侧历史序列化后的重建输入。
+   * 原生分叉继承已选位置的历史，仅提交新增输入；失败保留源会话。
+   * @param input - 源会话工具与本次模型、权限选择。
+   * @param source - 原生父会话及完成回合前后的位置。
+   * @param text - 完整新增或编辑后的输入。
    * @param signal - 取消信号。
-   * @returns 重建后的 threadId。
+   * @param onBound - 新编号保存操作；发送输入前等待完成。
+   * @returns 原生分叉创建的会话编号。
    */
   async rebuild(
     input: Omit<TurnStartInput, "text">,
-    source: { threadId: string; lastTurnId?: string } | undefined,
-    rebuildText: string,
+    source: { threadId: string; lastTurnId?: string; beforeTurnId?: string },
+    text: string,
     signal: AbortSignal,
+    onBound?: (id: string) => Promise<void>,
   ): Promise<string> {
     this.reopen();
-    this.lastUserText = rebuildText;
+    this.lastUserText = text;
     this.sessionId = input.sessionId;
     this.approvalAbort = new AbortController();
     const plan = await prepareIsolation(this.ctx, this.config, {
@@ -366,52 +375,25 @@ export class CodexTurn {
     this.connection = connection;
     this.installHandlers();
     await verifyIsolation(connection, plan, signal);
-    // D13：重建（含目录变化）一律重新声明带前缀工具；fork 分支继承源线程
-    // 的既有工具集，目录变化场景由 adapter 直接走 fresh 分支（source=undefined）。
-    const registry = buildToolRegistry(input.tools);
+    const registry = buildToolRegistry(input.tools, input.policyFingerprint);
     this.toolRegistry = registry;
-    let forked = false;
-    if (source !== undefined) {
-      try {
-        const params: Record<string, unknown> = { threadId: source.threadId };
-        if (source.lastTurnId !== undefined)
-          params.lastTurnId = source.lastTurnId;
-        const raw: unknown = await connection.request(
-          "thread/fork",
-          params,
-          signal,
-        );
-        this.threadId = ThreadResult.parse(raw).thread.id;
-        forked = true;
-      } catch {
-        // 原生会话缺失或 fork 被拒：回落全新 thread 与全量重建。
-        forked = false;
-      }
-    }
-    if (!forked) {
-      const raw: unknown = await connection.request(
-        "thread/start",
-        {
-          model: input.model,
-          cwd: this.cwd,
-          baseInstructions: input.baseInstructions,
-          dynamicTools: input.tools.map((tool) => ({
-            name: registry.kmhToDeclared.get(tool.name),
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          })),
-        },
-        signal,
-      );
-      this.threadId = ThreadResult.parse(raw).thread.id;
-    }
+    const params = ThreadForkParams.parse(source);
+    const raw: unknown = await connection.request(
+      "thread/fork",
+      params,
+      signal,
+    );
+    this.threadId = ThreadResult.parse(raw).thread.id;
+    if (this.threadId === source.threadId)
+      throw new Error("CODEX_FORK_ID_MISMATCH");
+    await onBound?.(this.threadId);
     const threadId = this.threadId;
     if (threadId === undefined) throw new Error("CODEX_REBUILD_THREAD_MISSING");
     const turn: unknown = await connection.request(
       "turn/start",
       TurnStartParams.parse({
         threadId,
-        input: [{ type: "text", text: rebuildText }],
+        input: [{ type: "text", text }],
         model: input.model,
         effort: input.reasoningEffort,
         summary: this.config.reasoningSummary,
@@ -439,6 +421,10 @@ export class CodexTurn {
     if (connection === undefined) return;
     connection.onNotification((method, params) => {
       try {
+        if (method === "rawResponseItem/completed")
+          this.ctx
+            .get("codexCli")
+            ?.toolPolicy?.observeNative(this.sessionId, params);
         this.handleNotification(method, params);
       } catch (error) {
         this.push({
@@ -681,6 +667,7 @@ export class CodexTurn {
         if (this.turnId !== undefined && completed.turn.id !== this.turnId)
           return;
         this.terminalStatus = completed.turn.status;
+        this.lastCompletedTurnId = completed.turn.id;
         // 缺结束确认的调用补记待确认（场景5/6），再补算未闭合块摘要。
         this.closeUnsettledNativeNotes();
         this.digestOpenBlocks();

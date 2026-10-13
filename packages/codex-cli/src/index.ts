@@ -1,4 +1,5 @@
 /** Independently distributable KMH provider for the official Codex CLI app-server. */
+import { brandString } from "@deepseek-ai/dsh-brand";
 import { Service, type Context } from "@deepseek-ai/cordis";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
@@ -6,6 +7,7 @@ import { join } from "node:path";
 import { addAbortListener } from "node:events";
 import type { SessionLiveState } from "./live-state.ts";
 export type { SessionLiveState } from "./live-state.ts";
+import { CodexToolPolicy } from "./tool-policy.ts";
 import { CodexAccount } from "./account.ts";
 import { mountWeb } from "./web.ts";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
@@ -25,6 +27,7 @@ import {
   cursorToRecord,
   recordToCursor,
   type BindingRecord,
+  type SavedToolPolicy,
 } from "./session-store.ts";
 import {
   prepareIsolation,
@@ -50,6 +53,7 @@ export const inject = [
   "approval",
   "userQuestions",
   "attachments",
+  "tools",
 ];
 declare module "@deepseek-ai/cordis" {
   interface Context {
@@ -103,6 +107,8 @@ export class CodexCli extends Service {
   readonly account: CodexAccount;
   /** 详情页可变设置；逐项选择立即保存、下一回合生效。 */
   readonly settings: RuntimeSettings;
+  /** 由 profile 插件挂载的 Config 策略与执行守卫。 */
+  toolPolicy: CodexToolPolicy | undefined;
 
   constructor(
     ctx: Context,
@@ -123,13 +129,25 @@ export class CodexCli extends Service {
   }
   /** 保存逐项选择：原子落盘后立即生效于下一回合（进行中回合不受影响）。 */
   async saveSelection(selection: NativeSelection): Promise<void> {
-    this.settings.selection = selectionOf(selection);
+    const accepted = selectionOf(selection);
+    if (this.toolPolicy !== undefined) {
+      for (const key of [
+        "commandExecution",
+        "fileChange",
+        "viewImage",
+        "webSearch",
+      ] as const) {
+        if (accepted[key] !== this.settings.selection[key])
+          throw new Error("CODEX_TOOLS_REQUIRE_PROFILE_CONFIG");
+      }
+    }
     await mkdir(this.config.dataDir, { recursive: true, mode: 0o700 });
     const file = join(this.config.dataDir, "codex-settings.json");
     const temp = `${file}.tmp`;
-    const body: SettingsFile = { selection: this.settings.selection };
+    const body: SettingsFile = { selection: accepted };
     await writeFile(temp, JSON.stringify(body));
     await rename(temp, file);
+    this.settings.selection = accepted;
   }
 
   /** 解析请求会话的工作目录；查不到时回落插件配置 cwd。 */
@@ -194,25 +212,89 @@ export class CodexCli extends Service {
     })();
     return this.catalogCache;
   }
-  /** 读取会话的 thread 绑定。 */
-  /** 读取会话的持久化绑定记录。 */
+  /**
+   * 读取会话的持久化绑定记录。
+   * @param sessionKey - KMH 会话标识。
+   * @returns 独立记录副本；尚未创建时为空，保存文件损坏时抛错。
+   */
   async bindingRecord(sessionKey: string): Promise<BindingRecord | undefined> {
     return await this.store.get(sessionKey);
   }
-  /** 持久化会话绑定：thread、差分游标、fork 边界与工具声明版本一并落盘。 */
-  async recordBinding(sessionKey: string, turn: CodexTurn): Promise<void> {
+  /**
+   * 读取分叉的源会话绑定。
+   * @param sessionId - KMH 会话标识。
+   * @returns 父会话记录；普通会话或父记录缺失时为空。
+   */
+  async sourceBinding(
+    sessionId: GenerateOptions["sessionId"],
+  ): Promise<BindingRecord | undefined> {
+    const parent =
+      sessionId === undefined
+        ? undefined
+        : this.ctx.get("sessions")?.get(sessionId)?.header.parentSession;
+    return parent === undefined ? undefined : this.store.get(parent);
+  }
+  /**
+   * 保存创建时工具信息；保留已经接受的原生编号和消息处理位置。
+   * @param sessionKey - KMH 会话标识。
+   * @param toolPolicy - 创建时的完整工具选择与目录。
+   */
+  async saveToolPolicy(
+    sessionKey: string,
+    toolPolicy: SavedToolPolicy,
+  ): Promise<void> {
+    const previous = await this.store.get(sessionKey);
+    await this.store.put(sessionKey, {
+      ...previous,
+      fingerprints: previous?.fingerprints ?? [],
+      toolPolicy,
+    });
+  }
+  /**
+   * 持久化会话绑定并保留创建时的工具信息。
+   * @param sessionKey - KMH 会话标识。
+   * @param turn - 持有原生编号及消息处理位置的回合。
+   * @param inheritedTurns - 原生分叉实际继承的完成回合；缺省保留原记录。
+   */
+  async recordBinding(
+    sessionKey: string,
+    turn: CodexTurn,
+    inheritedTurns?: NonNullable<BindingRecord["turns"]>,
+  ): Promise<void> {
     if (turn.threadId === undefined) return;
     const state = this.sessions.get(sessionKey);
     if (state !== undefined) state.threadId = turn.threadId;
-    const record = cursorToRecord(
-      turn.threadId,
-      turn.cursor,
-      turn.lastCompletedTurnId,
-    );
-    // D13：声明版本随目录指纹变化递增；同指纹沿用旧版本号（feat03 场景9）。
+    const previous = await this.store.get(sessionKey);
+    const record = {
+      ...previous,
+      ...cursorToRecord(turn.threadId, turn.cursor, turn.lastCompletedTurnId),
+    };
+    const turns = inheritedTurns ?? previous?.turns ?? [];
+    record.turns = [...turns];
+    if (
+      turn.lastCompletedTurnId !== undefined &&
+      record.turns.at(-1)?.turnId !== turn.lastCompletedTurnId
+    ) {
+      record.turns.push({
+        turnId: brandString<
+          NonNullable<BindingRecord["turns"]>[number]["turnId"]
+        >(turn.lastCompletedTurnId),
+        fingerprints: [...turn.cursor.fingerprints],
+        delivered: [...turn.pendingDigests],
+      });
+    }
+    if (
+      previous?.threadId !== undefined &&
+      previous.threadId !== turn.threadId
+    ) {
+      record.previousThreadIds = [
+        ...(previous.previousThreadIds ?? []),
+        previous.threadId,
+      ];
+    }
+    // 固定声明的名称对应关系随原绑定一起保存。
     const registry = turn.toolRegistry;
     if (registry !== undefined) {
-      const previous = await this.store.get(sessionKey);
       record.toolFingerprint = registry.fingerprint;
       record.toolMap = Object.fromEntries(registry.declaredToKmh);
       record.toolsVersion =
@@ -529,6 +611,7 @@ export { emptySnapshot };
 export function apply(ctx: Context, config: Config): void {
   const runtime = new CodexCli(ctx, config);
   ctx.codexCli = runtime;
+  runtime.toolPolicy = new CodexToolPolicy(ctx, runtime);
   ctx.llm.registerAdapter(["codex-cli"], new CodexAdapter(runtime));
   ctx.inject(["connection"], (web) => mountWeb(web, runtime));
 }

@@ -1,6 +1,7 @@
 /** 工具与技能隔离：允许清单式裁剪模型目录、按选择关闭原生能力、生成进程 -c 覆盖。 */
 import type { Context } from "@deepseek-ai/cordis";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -255,8 +256,11 @@ export async function prepareIsolation(
     ...prunedFields,
   }));
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
-  const catalogPath = join(config.dataDir, "kmh-models.json");
-  await writeFile(catalogPath, JSON.stringify(pruned));
+  const body = JSON.stringify(pruned);
+  const catalogPath = join(config.dataDir, `models-${createHash("sha256").update(body).digest("hex")}.json`);
+  const pendingPath = `${catalogPath}.${randomUUID()}.tmp`;
+  await writeFile(pendingPath, body, { mode: 0o600 });
+  await rename(pendingPath, catalogPath);
   // 禁止修改任何 Codex 配置文件：隔离全部经进程 -c 参数注入，只影响本次调用。
   // CODEX_HOME 沿用用户默认（~/.codex）：登录共享、无需额外登录；
   // 用户配置的 MCP 设备随之可见（已拍板接受）。

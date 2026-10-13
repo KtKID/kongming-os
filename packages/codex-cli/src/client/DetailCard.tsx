@@ -265,33 +265,36 @@ export function CodexCard(props: CodexCardProps): JSX.Element {
           </>
         )}
       </Row>
+      <p style={noteStyle}>{t("toolSelectionScope")}</p>
       <Row label={t("capabilitiesLabel")}>
         <span style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {status.capabilities.map((capability) => (
-            <span key={capability.id} style={capabilityRowStyle}>
-              <Switch
-                checked={status.selection[capability.id] === true}
-                onChange={(next) => {
-                  act("config", {
-                    selection: { ...status.selection, [capability.id]: next },
-                  }).catch(() => undefined);
-                }}
-                label={capability.label}
-              />
-              <span style={capabilityTextStyle}>
-                <span style={valueStyle}>
-                  <span style={capabilityTitleStyle}>{capability.label}</span>
-                  {!capability.available && (
-                    <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
+          {status.capabilities
+            .filter((capability) => capability.id === "skills")
+            .map((capability) => (
+              <span key={capability.id} style={capabilityRowStyle}>
+                <Switch
+                  checked={status.selection[capability.id] === true}
+                  onChange={(next) => {
+                    act("config", {
+                      selection: { ...status.selection, [capability.id]: next },
+                    }).catch(() => undefined);
+                  }}
+                  label={capability.label}
+                />
+                <span style={capabilityTextStyle}>
+                  <span style={valueStyle}>
+                    <span style={capabilityTitleStyle}>{capability.label}</span>
+                    {!capability.available && (
+                      <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
+                    )}
+                  </span>
+                  <span style={detailStyle}>{capability.description}</span>
+                  {!capability.available && capability.reason !== undefined && (
+                    <span style={detailStyle}>{capability.reason}</span>
                   )}
                 </span>
-                <span style={detailStyle}>{capability.description}</span>
-                {!capability.available && capability.reason !== undefined && (
-                  <span style={detailStyle}>{capability.reason}</span>
-                )}
               </span>
-            </span>
-          ))}
+            ))}
         </span>
       </Row>
       <p style={noteStyle}>{t("capabilityNextTurn")}</p>

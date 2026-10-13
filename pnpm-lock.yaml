@@ -44,18 +44,30 @@ importers:
       '@deepseek-ai/cordis':
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: link:../../third_party/dsh/vendor/loader
+        version: link:../../third_party/dsh/vendor/loader
       '@deepseek-ai/dsh-agent':
         specifier: link:../../third_party/dsh/packages/core/agent
         version: link:../../third_party/dsh/packages/core/agent
       '@deepseek-ai/dsh-attachment':
         specifier: link:../../third_party/dsh/packages/attachment/attachment
         version: link:../../third_party/dsh/packages/attachment/attachment
+      '@deepseek-ai/dsh-brand':
+        specifier: link:../../third_party/dsh/packages/util/brand
+        version: link:../../third_party/dsh/packages/util/brand
+      '@deepseek-ai/dsh-cli-tools':
+        specifier: link:../../third_party/dsh/packages/llm/cli-tools
+        version: link:../../third_party/dsh/packages/llm/cli-tools
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../third_party/dsh/packages/client/connection
         version: link:../../third_party/dsh/packages/client/connection
       '@deepseek-ai/dsh-client-locale':
         specifier: link:../../third_party/dsh/packages/client/locale
         version: link:../../third_party/dsh/packages/client/locale
+      '@deepseek-ai/dsh-client-ui-chat':
+        specifier: link:../../third_party/dsh/packages/client/ui-chat
+        version: link:../../third_party/dsh/packages/client/ui-chat
       '@deepseek-ai/dsh-client-ui-conversation':
         specifier: link:../../third_party/dsh/packages/client/ui-conversation
         version: link:../../third_party/dsh/packages/client/ui-conversation
@@ -89,15 +101,24 @@ importers:
       '@deepseek-ai/dsh-session-projection':
         specifier: link:../../third_party/dsh/packages/session/session-projection
         version: link:../../third_party/dsh/packages/session/session-projection
+      '@deepseek-ai/dsh-settings':
+        specifier: link:../../third_party/dsh/packages/settings/settings
+        version: link:../../third_party/dsh/packages/settings/settings
       '@deepseek-ai/dsh-subprocess':
         specifier: link:../../third_party/dsh/packages/subprocess/subprocess
         version: link:../../third_party/dsh/packages/subprocess/subprocess
+      '@deepseek-ai/dsh-tools':
+        specifier: link:../../third_party/dsh/packages/core/tools
+        version: link:../../third_party/dsh/packages/core/tools
       '@deepseek-ai/dsh-user-approval':
         specifier: link:../../third_party/dsh/packages/interaction/user-approval
         version: link:../../third_party/dsh/packages/interaction/user-approval
       '@deepseek-ai/dsh-user-questions':
         specifier: link:../../third_party/dsh/packages/interaction/user-questions
         version: link:../../third_party/dsh/packages/interaction/user-questions
+      '@deepseek-ai/dsh-util-values':
+        specifier: link:../../third_party/dsh/packages/util/values
+        version: link:../../third_party/dsh/packages/util/values
       '@deepseek-ai/schemastery':
         specifier: link:../../third_party/dsh/vendor/schemastery
         version: link:../../third_party/dsh/vendor/schemastery

@@ -1,5 +1,9 @@
 /** 详情卡片文案（中英）。 */
 export type LocaleKey =
+  | "toolDisabled"
+  | "toolRunning"
+  | "toolCompleted"
+  | "preparationWaiting"
   | "title"
   | "liveTitle"
   | "liveGreen"
@@ -28,6 +32,7 @@ export type LocaleKey =
   | "capabilitiesLabel"
   | "capabilityUnavailable"
   | "capabilityNextTurn"
+  | "toolSelectionScope"
   | "openAuthorize"
   | "signIn"
   | "cancelLogin"
@@ -36,6 +41,10 @@ export type LocaleKey =
   | "logoutNote";
 
 export const zh: Record<LocaleKey, string> = {
+  toolDisabled: "工具已关闭",
+  toolRunning: "执行中",
+  toolCompleted: "执行完成",
+  preparationWaiting: "工具准备待重试",
   title: "Codex CLI",
   liveTitle: "Codex CLI 连接状态",
   liveGreen: "通信正常",
@@ -61,10 +70,12 @@ export const zh: Record<LocaleKey, string> = {
   probeNever: "未测试",
   probePass: "通过",
   probeFail: "失败",
-  capabilitiesLabel: "原生能力",
+  capabilitiesLabel: "原生技能",
   capabilityUnavailable: "不可用",
   capabilityNextTurn:
-    "调整立即保存并下一回合生效；进行中的回合保持原选择。原生技能独立选择，默认由 KMH 技能体系接管。",
+    "原生技能调整后下一回合生效；进行中的回合保留原选择。默认由 KMH 技能体系接管。",
+  toolSelectionScope:
+    "工具开关仅对普通新建会话生效；已有会话保留创建时的工具。",
   openAuthorize: "打开官方授权页",
   signIn: "登录",
   cancelLogin: "取消登录",
@@ -74,6 +85,10 @@ export const zh: Record<LocaleKey, string> = {
 };
 
 export const en: Record<LocaleKey, string> = {
+  toolDisabled: "Tool disabled",
+  toolRunning: "Running",
+  toolCompleted: "Completed",
+  preparationWaiting: "Tool preparation awaiting retry",
   title: "Codex CLI",
   liveTitle: "Codex CLI connection",
   liveGreen: "Connected",
@@ -100,10 +115,12 @@ export const en: Record<LocaleKey, string> = {
   probeNever: "Never tested",
   probePass: "Passed",
   probeFail: "Failed",
-  capabilitiesLabel: "Native capabilities",
+  capabilitiesLabel: "Native skills",
   capabilityUnavailable: "Unavailable",
   capabilityNextTurn:
-    "Changes save immediately and apply from the next turn; turns in flight keep their selections. Native skills are selected separately and default to KMH skills.",
+    "Native skill changes apply from the next turn; turns in flight keep their selections. KMH skills remain the default.",
+  toolSelectionScope:
+    "Tool switches apply only to newly created conversations; existing conversations keep their original tools.",
   openAuthorize: "Open authorization page",
   signIn: "Sign in",
   cancelLogin: "Cancel sign-in",

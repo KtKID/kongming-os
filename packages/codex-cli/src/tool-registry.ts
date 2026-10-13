@@ -17,19 +17,19 @@ export interface ToolRegistry {
   readonly declaredToKmh: ReadonlyMap<string, string>;
   /** KMH 注册名 → 声明名。 */
   readonly kmhToDeclared: ReadonlyMap<string, string>;
-  /** 目录指纹：声明名与描述序列化的摘要，任何目录/展示变化都会改变。 */
+  /** 目录指纹：声明名、描述和参数序列化的摘要，任何目录/展示变化都会改变。 */
   readonly fingerprint: string;
 }
 /**
- * 计算工具目录指纹（声明名 + 描述，按键排序后摘要）。
+ * 计算工具目录指纹（声明名、描述和参数，按名称排序后摘要）。
  * @param tools - KMH 工具表。
  * @returns 十六进制摘要；空目录也有稳定指纹。
  */
-export function toolFingerprintOf(tools: readonly ToolEntry[]): string {
+export function toolFingerprintOf(tools: readonly ToolEntry[], policyFingerprint?: string): string {
   const declared = tools
-    .map((tool) => [KMH_TOOL_PREFIX + tool.name, tool.description] as const)
+    .map((tool) => [KMH_TOOL_PREFIX + tool.name, tool.description, tool.inputSchema] as const)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return createHash("sha256").update(JSON.stringify(declared)).digest("hex");
+  return createHash("sha256").update(JSON.stringify([declared, policyFingerprint])).digest("hex");
 }
 /**
  * 从 KMH 工具表构建声明表：统一加 kmh- 前缀并做范围与碰撞校验。
@@ -38,7 +38,7 @@ export function toolFingerprintOf(tools: readonly ToolEntry[]): string {
  * @throws CODEX_TOOL_NAME_INVALID 前缀后名称超出官方接受范围。
  * @throws CODEX_TOOL_NAME_COLLISION 声明名相互重复。
  */
-export function buildToolRegistry(tools: readonly ToolEntry[]): ToolRegistry {
+export function buildToolRegistry(tools: readonly ToolEntry[], policyFingerprint?: string): ToolRegistry {
   const declaredToKmh = new Map<string, string>();
   const kmhToDeclared = new Map<string, string>();
   for (const tool of tools) {
@@ -55,7 +55,7 @@ export function buildToolRegistry(tools: readonly ToolEntry[]): ToolRegistry {
   return {
     declaredToKmh,
     kmhToDeclared,
-    fingerprint: toolFingerprintOf(tools),
+    fingerprint: toolFingerprintOf(tools, policyFingerprint),
   };
 }
 /**
