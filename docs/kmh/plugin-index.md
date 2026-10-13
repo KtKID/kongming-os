@@ -19,6 +19,8 @@ Kongming 的 Web 基础插件树由 [profile patch](../../profiles/kmh-web/cordi
 | `@kmh/kmh-echo` | 插件加载与回收的生命周期示例 | [包说明](../../packages/kmh-echo/README.md) |
 | `@kmh/web-surface-zh` | Web 环境系统提示词的中文替换 | [包说明](../../packages/web-surface-zh/README.md) |
 | `@kmh/dev-preset` | 开发模式预设 bundle | [清单](../../packages/kmh-dev-preset/package.json)、[配置](../../packages/kmh-dev-preset/cordis.patch.yml) |
+| `@kmh/bundle-mobile-assistant` | 移动助手 preset、精选技能与精简工具 | [包说明](../../bundles/mobile-assistant/README.md) |
+| `@kmh/mobile-assistant-runtime` | 助手 SDK、持久会话恢复与审批转发 | [包说明](../../packages/mobile-assistant-runtime/README.md) |
 
 Codex、ZCode 和团队包各自包含客户端源码，并通过 `./client` 导出接入 DSH Web。Web 外壳、通用 UI 服务和组件由 DSH 子模块提供。新增自有包的依赖、构建、profile 和测试登记见[包接入指南](adding-a-plugin-package.md)。
 
