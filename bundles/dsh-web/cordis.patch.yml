@@ -17,6 +17,8 @@
       disabled: !!js '!ctx.get(''profileContext'')'
       config:
         root: !!js JSON.parse(process.env.KMH_PLUGIN_WATCH_ROOTS || '[]')
+    - id: cli-tools
+      name: '@deepseek-ai/dsh-cli-tools'
     - id: llm
       name: '@deepseek-ai/dsh-llm'
     - id: deepseek-llm-api-extensions
