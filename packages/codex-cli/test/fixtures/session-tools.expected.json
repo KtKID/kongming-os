@@ -1,0 +1,20 @@
+{
+  "original": [
+    "kmh-fixture_a",
+    "kmh-fixture_b",
+    "kmh-fixture_c"
+  ],
+  "after_edit": [
+    "kmh-fixture_a",
+    "kmh-fixture_b",
+    "kmh-fixture_c"
+  ],
+  "after_all_closed": [
+    "kmh-fixture_a",
+    "kmh-fixture_b",
+    "kmh-fixture_c"
+  ],
+  "fresh": [],
+  "resumed_same_id": true,
+  "fresh_different_id": true
+}

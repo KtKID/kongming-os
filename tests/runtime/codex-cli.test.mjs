@@ -223,7 +223,7 @@ test("tool fingerprint changes with catalog, description or order-stable", () =>
   const echo = [{ name: "kmh_echo", description: "Echo", inputSchema: {} }];
   const echoGlob = [...echo, { name: "kmh_glob", description: "Glob", inputSchema: {} }];
   const echoRetitled = [{ name: "kmh_echo", description: "Echo v2", inputSchema: {} }];
-  // 目录增删与描述变化都会改变指纹（展示方式变化 → 重建，feat03 场景9）。
+  // 指纹反映目录内容；现有会话使用创建时保存的指纹。
   assert.notEqual(toolFingerprintOf(echo), toolFingerprintOf(echoGlob));
   assert.notEqual(toolFingerprintOf(echo), toolFingerprintOf(echoRetitled));
   // 顺序无关：同一目录不同顺序指纹一致。
@@ -311,6 +311,7 @@ test("plugin entry declares the services the approval bridge forwards to", () =>
     "approval",
     "userQuestions",
     "attachments",
+    "tools",
   ]);
 });
 import {
@@ -873,6 +874,7 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
   mkdirSync(cwd, { recursive: true });
   // 鸭子类型宿主：subprocess 服务用裸 child_process 实现同等语义。
   const fakeCtx = {
+    get: () => undefined,
     subprocess: {
       resolveExecutable: async (command) => command,
       spawn: ({ argv, cwd: dir, env, stdio }) => {
@@ -923,7 +925,10 @@ test("bridge round trip through the real CLI with isolated tools", { skip: !find
     'model_provider="fixture"',
     `model_providers.fixture={name="Bridge fixture",base_url="${fixture.base}",env_key="KMH_CODEX_SMOKE_KEY",wire_api="responses",requires_openai_auth=false,supports_websockets=false}`,
   ];
+  const codexHome = join(root, "codex-home");
+  mkdirSync(codexHome, { mode: 0o700 });
   config.env = {
+    CODEX_HOME: codexHome,
     KMH_CODEX_SMOKE_KEY: "fixture-key",
     HTTP_PROXY: "",
     HTTPS_PROXY: "",
@@ -1042,9 +1047,12 @@ function makeBridgeHarness(fixture, script, hooks = {}) {
   const root = mkdtempSync(join(tmpdir(), `kmh-codex-${script}-`));
   const cwd = join(root, "workspace");
   mkdirSync(cwd, { recursive: true });
+  const codexHome = join(root, "codex-home");
+  mkdirSync(codexHome, { mode: 0o700 });
   /** 每次拉起 CLI 的完整 argv（允许清单断言用）。 */
   const spawnArgv = [];
   const fakeCtx = {
+    get: () => undefined,
     subprocess: {
       resolveExecutable: async (command) => command,
       spawn: ({ argv, cwd: dir, env, stdio }) => {
@@ -1093,6 +1101,7 @@ function makeBridgeHarness(fixture, script, hooks = {}) {
     cancelReceiptTimeoutMs: 5000,
     cleanupTimeoutMs: 5000,
     env: {
+      CODEX_HOME: codexHome,
       KMH_CODEX_SMOKE_KEY: "fixture-key",
       HTTP_PROXY: "",
       HTTPS_PROXY: "",
@@ -1144,6 +1153,7 @@ function makeAdapterHarness(parts) {
     toolFingerprint: undefined,
     toolMap: undefined,
     toolsVersion: undefined,
+    turns: [],
   };
   let turn = new parts.CodexTurn(
     parts.fakeCtx,
@@ -1169,14 +1179,22 @@ function makeAdapterHarness(parts) {
     resolveCwd: () => parts.cwd,
     bindingRecord: async () =>
       binding.threadId === undefined ? undefined : { ...binding },
-    recordBinding: async (_key, t) => {
+    sourceBinding: async () => undefined,
+    recordBinding: async (_key, t, inheritedTurns) => {
       if (t.threadId === undefined) return;
       binding.threadId = t.threadId;
       binding.fingerprints = [...t.cursor.fingerprints];
       binding.delivered = [...(t.cursor.delivered ?? [])];
       binding.lastTurnId = t.lastCompletedTurnId;
+      if (inheritedTurns !== undefined) binding.turns = [...inheritedTurns];
+      if (t.lastCompletedTurnId !== undefined && binding.turns.at(-1)?.turnId !== t.lastCompletedTurnId)
+        binding.turns.push({
+          turnId: t.lastCompletedTurnId,
+          fingerprints: [...t.cursor.fingerprints],
+          delivered: [...t.pendingDigests],
+        });
       // 与真实 recordBinding 一致：声明字段随 turn.toolRegistry 落盘，
-      // 目录指纹变化递增版本（feat03 场景9 的 adapter 判据）。
+      // 原会话固定声明随绑定保存。
       const registry = t.toolRegistry;
       if (registry !== undefined) {
         const sameFingerprint = binding.toolFingerprint === registry.fingerprint;
@@ -1283,13 +1301,13 @@ test("parallel tool calls suspend one at a time and resume to final text", { ski
   }
 });
 
-test("adapter recovers from lost pending tools by rebuilding the thread", { skip: !findCodexBinary() }, async () => {
+test("adapter reports lost pending tools and preserves the original binding", { skip: !findCodexBinary() }, async () => {
   const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
   const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
   const fixture = await startFixtureServer({ script: "parallel" });
   const { fakeCtx, config, cwd, fixtureOverrides } = makeBridgeHarness(fixture, "recovery");
   const signal = AbortSignal.timeout(180000);
-  const { runtime, replaceTurn, getTurn } = makeAdapterHarness({
+  const { runtime, replaceTurn, getTurn, binding } = makeAdapterHarness({
     CodexTurn,
     fakeCtx,
     config,
@@ -1317,12 +1335,16 @@ test("adapter recovers from lost pending tools by rebuilding the thread", { skip
     // KMH 侧执行第一个工具后历史推进。
     history.push(call("call_kmh", "kmh_echo", { text: "hello" }));
     history.push(tool("call_kmh", "hello from KMH", false));
-    // 生产事故模拟：会话状态重建丢弃带挂起工具的 turn（stateOf 替换），
-    // 新 turn 从绑定恢复游标，挂起表为空——结果回传必须走恢复路径而非报错。
+    // 进程退出后挂起的 RPC 回执已经丢失，明确失败并保留原编号。
+    const originalThread = binding.threadId;
+    const acceptedRequests = fixture.requests.length;
     await replaceTurn();
-    const second = await collectStream(adapter, { ...base, messages: [...history] });
-    assert.equal(second.text, "BRIDGE_OK");
-    assert.ok(second.finishes.includes("stop"));
+    await assert.rejects(
+      collectStream(adapter, { ...base, messages: [...history] }),
+      /CODEX_NO_PENDING_TOOL/,
+    );
+    assert.equal(binding.threadId, originalThread);
+    assert.equal(fixture.requests.length, acceptedRequests);
   } finally {
     await getTurn().dispose();
     await fixture.close();
@@ -1416,7 +1438,7 @@ const globToolSpec = [
   },
 ];
 
-test("tool catalog change redeclares tools on a fresh thread with rebuilt history", { skip: !findCodexBinary() }, async () => {
+test("tool catalog changes preserve the original thread declarations and history", { skip: !findCodexBinary() }, async () => {
   const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
   const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
   const fixture = await startFixtureServer({});
@@ -1450,32 +1472,18 @@ test("tool catalog change redeclares tools on a fresh thread with rebuilt histor
     history.push(assistantText("BRIDGE_OK"));
     const threadBefore = binding.threadId;
     assert.equal(binding.toolsVersion, 1);
-    // 第二轮：目录新增 glob → 指纹不符 → 跳过 resume/fork（两者继承旧工具集），
-    // 新建 thread 重新声明工具并注入重建历史。
+    // 目录新增工具后继续原线程，Codex 保留首轮声明与原生历史。
     history.push(user("第二轮的问题"));
     const s3 = await collectStream(adapter, { ...base, tools: globToolSpec, messages: [...history] });
     assert.equal(s3.text, "BRIDGE_OK");
-    assert.ok(s3.finishes.includes("stop"));
-    assert.notEqual(binding.threadId, threadBefore);
-    assert.equal(binding.toolsVersion, 2);
-    assert.equal(binding.toolMap["kmh-kmh_glob"], "kmh_glob");
-    assert.ok(fixtureInputText(fixture).includes("对话记录重建"));
-    assert.ok(
-      JSON.stringify(fixture.requests.at(-1)?.body.tools ?? []).includes("kmh-kmh_glob"),
-    );
-    // 第三轮：目录不变 → 指纹一致 → 正常 resume：thread 不再更换、版本
-    // 不再递增、新输入以原文（而非重建序列化）投递。
-    const threadAfterRebuild = binding.threadId;
-    history.push(assistantText("BRIDGE_OK"));
-    history.push(user("第三轮的问题"));
+    assert.equal(binding.threadId, threadBefore);
+    assert.equal(fixtureInputText(fixture).includes("对话记录重建"), false);
+    assert.equal(JSON.stringify(fixture.requests.at(-1)?.body.tools ?? []).includes("kmh-kmh_glob"), false);
+    history.push(assistantText("BRIDGE_OK"), user("第三轮的问题"));
     const s4 = await collectStream(adapter, { ...base, tools: globToolSpec, messages: [...history] });
     assert.equal(s4.text, "BRIDGE_OK");
-    assert.ok(s4.finishes.includes("stop"));
-    assert.equal(binding.threadId, threadAfterRebuild);
-    assert.equal(binding.toolsVersion, 2);
-    const lastInput = fixtureInputText(fixture);
-    assert.ok(lastInput.includes("第三轮的问题"));
-    assert.ok(!lastInput.includes("用户：第三轮的问题"));
+    assert.equal(binding.threadId, threadBefore);
+    assert.ok(fixtureInputText(fixture).includes("第三轮的问题"));
   } finally {
     await getTurn().dispose();
     await fixture.close();
@@ -1788,7 +1796,7 @@ test("codex native compaction notification keeps bridge and diff stable", { skip
   }
 });
 
-test("editing history rebuilds the binding and continues linearly", { skip: !findCodexBinary() }, async () => {
+test("editing history forks the original native thread and sends edited input once", { skip: !findCodexBinary() }, async () => {
   const { CodexTurn } = await import("../../packages/codex-cli/lib/src/turn.js");
   const { CodexAdapter } = await import("../../packages/codex-cli/lib/src/adapter.js");
   const fixture = await startFixtureServer({});
@@ -1821,13 +1829,14 @@ test("editing history rebuilds the binding and continues linearly", { skip: !fin
     assert.ok(s2.finishes.includes("stop"));
     const firstThread = binding.threadId;
     assert.ok(firstThread !== undefined);
-    // 编辑重发：改写用户消息，基线失效 → fork 或新建 thread 并注入重建历史。
+    // 编辑首轮用户输入：按原生首回合之前的位置分叉。
     const edited = [user("改写后的问题")];
     await replaceTurn();
     const s3 = await collectStream(adapter, { ...base, messages: [...edited] });
     assert.ok(s3.finishes.includes("stop"));
     const rebuildText = fixtureInputText(fixture);
-    assert.ok(rebuildText.includes("以下是本会话此前的对话记录重建"));
+    assert.equal(rebuildText.includes("对话记录重建"), false);
+    assert.equal(rebuildText.includes("原始问题"), false);
     assert.ok(rebuildText.includes("改写后的问题"));
     assert.notEqual(binding.threadId, firstThread);
     // 重建后的新基线上，下一轮恢复增量投递。
@@ -1836,8 +1845,8 @@ test("editing history rebuilds the binding and continues linearly", { skip: !fin
     const s4 = await collectStream(adapter, { ...base, messages: [...edited] });
     assert.equal(s4.text, "BRIDGE_OK");
     const linearText = fixtureInputText(fixture);
-    // 恢复的是重建线程：历史合法含一次重建文本；断言无新增重建且原文投递。
-    assert.equal(linearText.split("以下是本会话此前的对话记录重建").length - 1, 1);
+    // 继续原生分叉得到的线程，编辑后的输入保持单份。
+    assert.equal(linearText.includes("对话记录重建"), false);
     assert.equal(linearText.split("改写后的问题").length - 1, 1);
     assert.ok(linearText.includes("重建后的下一轮"));
   } finally {
@@ -1856,7 +1865,7 @@ import {
   recordToCursor,
 } from "../../packages/codex-cli/lib/src/session-store.js";
 
-test("session store round-trips bindings and survives corruption", async () => {
+test("session store round-trips bindings and reports corruption while preserving the file", async () => {
   const dir = mkdtempSync2(join2(tmpdir2(), "kmh-codex-store-"));
   const store = new CodexSessionStore(dir);
   await store.put(
@@ -1878,12 +1887,12 @@ test("session store round-trips bindings and survives corruption", async () => {
   assert.equal(await store.get("missing"), undefined);
   await store.delete("sess-1");
   assert.equal(await store.get("sess-1"), undefined);
-  // 损坏文件：读取回落空存储，写入可恢复。
-  writeFileSync2(join2(dir, "codex-bindings.json"), "{not json");
+  const file = join2(dir, "codex-bindings.json");
+  writeFileSync2(file, "{not json");
   const store2 = new CodexSessionStore(dir);
-  assert.equal(await store2.get("sess-1"), undefined);
-  await store2.put("sess-2", cursorToRecord("thread-2", { fingerprints: [] }));
-  assert.equal((await store2.get("sess-2")).threadId, "thread-2");
+  await assert.rejects(store2.get("sess-1"), /CODEX_SESSION_STATE_CORRUPT/);
+  await assert.rejects(store2.put("sess-2", cursorToRecord("thread-2", { fingerprints: [] })), /CODEX_SESSION_STATE_CORRUPT/);
+  assert.equal(await readFile(file, "utf8"), "{not json");
 });
 
 test("binding records round-trip tool declaration fields and keep legacy entries", async () => {
@@ -1912,7 +1921,7 @@ test("binding records round-trip tool declaration fields and keep legacy entries
   assert.equal(modern.toolsVersion, 3);
   assert.equal(modern.toolFingerprint, "abc123");
   assert.deepEqual(modern.toolMap, { "kmh-kmh_echo": "kmh_echo" });
-  // 可选工具字段非法：剥除该字段保留记录（绑定本体仍可按裸名旧 thread 续用）。
+  // 文件内工具字段非法时明确拒绝读取，保留原文件。
   writeFileSync2(
     file,
     JSON.stringify({
@@ -1920,9 +1929,8 @@ test("binding records round-trip tool declaration fields and keep legacy entries
     }),
   );
   const store2 = new CodexSessionStore(dir);
-  const bad = await store2.get("bad");
-  assert.equal(bad.threadId, "t");
-  assert.equal(bad.toolMap, undefined);
+  await assert.rejects(store2.get("bad"), /CODEX_SESSION_STATE_CORRUPT/);
+  assert.match(await readFile(file, "utf8"), /"x":1/);
 });
 
 // ---- 会话底部状态小球（client dock 注册与渲染） ----
@@ -1967,6 +1975,7 @@ test("client registers the live ball dock and renders the three states", () => {
   let dockComponent;
   const injected = [];
   client.apply({
+    inject: () => () => {},
     effect: (setup) => setup(),
     locale: {
       bind: () => (key) => copy.zh[key],

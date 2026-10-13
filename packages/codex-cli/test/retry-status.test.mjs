@@ -64,6 +64,8 @@ test("retry and failure reasons are visible in the dock", () => {
   );
   let dictionaries;
   client.apply({
+    // 本用例只验证 dock；可选会话展示服务未加载。
+    inject: () => () => {},
     effect: (setup) => setup(),
     locale: {
       bind: () => (key) => dictionaries.zh[key],

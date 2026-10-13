@@ -90,6 +90,7 @@ export async function harness(t, name, options = {}) {
     let remainder = "";
     child.stdout.on("data", (buffer) => {
       appendFileSync(join(root, "app-server.stdout.jsonl"), buffer);
+      if (spec.argv.includes('--version')) return;
       remainder += buffer.toString();
       const lines = remainder.split("\n");
       remainder = lines.pop();

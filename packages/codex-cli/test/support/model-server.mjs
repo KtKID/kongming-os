@@ -37,6 +37,7 @@ export async function startModelServer(
         ).toString(),
       );
       requests.push(body);
+      options.onRequest?.(body);
       appendFileSync(
         requestLog,
         JSON.stringify({ at: Date.now(), body }) + "\n",
@@ -59,6 +60,18 @@ export async function startModelServer(
       if (options.holdFirst) await first.promise;
       const send = (event) =>
         response.write(`data: ${JSON.stringify(event)}\n\n`);
+      const forced = options.toolCallFor?.(body, sequence) ?? (sequence === 1 ? options.toolCall : undefined);
+      if (forced) {
+      const suffix = options.toolCallFor === undefined ? '' : '-' + sequence;
+      const call = { id: 'forced-tool' + suffix, call_id: 'forced-call' + suffix, ...forced };
+        response.writeHead(200, { 'content-type': 'text/event-stream' });
+        send({ type: 'response.created', response: { id: 'forced-response', status: 'in_progress', output: [] } });
+        send({ type: 'response.output_item.added', output_index: 0, item: call });
+        send({ type: 'response.output_item.done', output_index: 0, item: call });
+        send({ type: 'response.completed', response: { id: 'forced-response', status: 'completed', output: [call], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } });
+        response.end();
+        return;
+      }
       const summaryEnabled =
         body.reasoning?.summary && body.reasoning.summary !== "none";
       const reasoning = {
