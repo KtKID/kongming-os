@@ -8,7 +8,7 @@ description: 在 Kongming 新增 Cordis 插件或纯 bundle 时需要登记的�
 
 ## Cordis 插件接入
 
-以 [runtime-log](../../packages/runtime-log/package.json)作为单入口参考；同时提供 Host/Client 的包参考 [codex-cli](../../packages/codex-cli/package.json)。导出路径随本包实际构建目录确定。
+以 [runtime-log](../../packages/runtime-log/package.json)作为单入口参考；同时提供 Host/Client 的包参考 [codex-cli](../../packages/codex-cli/package.json)。导出路径随本包实际构建目录确定。包含 Web 界面的插件必须遵循[插件 Web 界面规范](web-ui.md)：复用 DSH 的 ui-primitives 组件与主题 token，保持与宿主风格一致。
 
 | 文件 | 登记内容 |
 | --- | --- |
