@@ -41,7 +41,7 @@ pnpm web
 
 模型请求走 CLI 原生会话协议，与官方桌面同构：每个 KMH 会话绑定一条专属 CLI 会话与一条专属 app-server 进程（连接空闲超过 `sessionIdleMs` 自动回收，**在途回合免回收**、悬挂回合由请求总超时兜底；下一回合按绑定 `session/resume` 续用；绑定持久化在 `dataDir/session-bindings.json`）。同一绑定内每回合只发送新增的用户文本（增量发送），CLI 自持完整上下文并命中其原生前缀缓存；绑定丢失或会话不可恢复时重建会话，历史以纯文本 `importedHistory` 导入（工具调用链不进入，见已知限制）。模型与思考等级经 `modelSelection` 随每条发送透传。
 
-回合事件按官方信封订阅（`session/event` 通知）：思考增量（`reasoning_delta`）与正文增量（`text_delta`）实时投影为 KMH 流式块，回合完成时折算不相交口径的 token 用量（`inputTokens` 已扣除缓存命中并单列 `cacheReadTokens`）。CLI 侧工具活动不投影为 KMH 内容块（避免宿主重复执行）；`interaction/requestPermission` 与 `interaction/requestUserInput` 经插件桥接映射 KMH 审批与用户问题服务，不支持的反向请求以「客户端无此能力」回执（CLI 按能力缺失降级，官方 MCP 等不受影响）。不支持的反向请求若以其他错误码回执会被 CLI 当作交互硬失败，因此插件将「不支持」固定降级为 -32601。
+回合事件按官方信封订阅（`session/event` 通知）：思考增量（`reasoning_delta`）与正文增量（`text_delta`）实时投影为 KMH 流式块；开始事件携带的首段内容和直接从增量开始的续传均完整保留。回合完成时折算不相交口径的 token 用量（`inputTokens` 已扣除缓存命中并单列 `cacheReadTokens`）。CLI 侧工具活动不投影为 KMH 内容块（避免宿主重复执行）；`interaction/requestPermission` 与 `interaction/requestUserInput` 经插件桥接映射 KMH 审批与用户问题服务，不支持的反向请求以「客户端无此能力」回执（CLI 按能力缺失降级，官方 MCP 等不受影响）。不支持的反向请求若以其他错误码回执会被 CLI 当作交互硬失败，因此插件将「不支持」固定降级为 -32601。
 
 ### 会话权限
 
