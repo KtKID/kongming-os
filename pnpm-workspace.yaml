@@ -3,3 +3,6 @@ packages:
   - bundles/*
   - packages/*
   - '!third_party/**'
+
+allowBuilds:
+  esbuild: true
