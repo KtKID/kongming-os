@@ -29,7 +29,7 @@ DSH HMR 监听已加载插件的 `lib/` 文件，手动构建更新文件后，�
 
 启动器把自有包中已存在的绝对 `lib/` 目录通过 `KMH_PLUGIN_WATCH_ROOTS` 提供给 Web profile 的 HMR；该变量由启动器管理。新增包并构建后，重新启动 Web 以发现新目录。此前已开启源码自动编译的运行进程通过一次 `./kmh.sh restart` 释放旧监听。DSH 源码开发与依赖版本升级沿用对应流程。
 
-DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作区包含 `bundles/*` 与自有 `packages/*`，DSH 的 Cordis、基础包、native 和构建配置归子模块所有。
+DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作区包含 `bundles/*` 与自有 `packages/*`，DSH 的 Cordis、基础包、native 和构建配置归子模块所有。 Kongming 根工作区通过 `pnpm-workspace.yaml` 的 `allowBuilds.esbuild` 允许 esbuild 执行构建脚本；新增带构建脚本的依赖时，逐项声明构建许可。
 
 ## DSH 技能
 
