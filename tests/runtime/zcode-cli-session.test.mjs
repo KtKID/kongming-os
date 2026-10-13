@@ -460,6 +460,47 @@ test("projector streams reasoning and text blocks with disjoint usage and stop",
   assert.deepEqual(chunks[7].reason, { kind: "stop" });
   assert.equal(projector.finished, true);
 });
+test("projector preserves the first fragment in a start event and in a resumed delta-only stream", () => {
+  for (const type of ["text", "reasoning"]) {
+    for (const first of ["start", "delta"]) {
+      const projector = new TurnEventProjector();
+      const chunks = [
+        ...projector.push({
+          type: "model.streaming",
+          kind: `${type}_${first}`,
+          delta: "ORD",
+        }),
+        ...projector.push({
+          type: "model.streaming",
+          kind: `${type}_delta`,
+          delta: "INARY_NATIVE_OK",
+        }),
+        ...projector.push({ type: "model.streaming", kind: `${type}_end` }),
+        ...projector.push({
+          type: "turn.completed",
+          resultType: "success",
+          response: "ORDINARY_NATIVE_OK",
+        }),
+      ];
+      assert.equal(
+        chunks
+          .filter((chunk) => chunk.type === `${type}-delta`)
+          .map((chunk) => chunk.text)
+          .join(""),
+        "ORDINARY_NATIVE_OK",
+      );
+      assert.deepEqual(
+        chunks.find((chunk) => chunk.type === "block-end").block,
+        { type, text: "ORDINARY_NATIVE_OK" },
+      );
+      if (type === "text")
+        assert.equal(
+          chunks.filter((chunk) => chunk.type === "text-delta").length,
+          2,
+        );
+    }
+  }
+});
 test("projector backfills the response text when a turn has no deltas", () => {
   // 真机丢文本形态：整回合零增量，正文只出现在 turn.completed.response。
   const flat = new TurnEventProjector();
