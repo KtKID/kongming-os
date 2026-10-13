@@ -191,27 +191,29 @@ export class TurnEventProjector {
   private pushStreaming(event: z.infer<typeof streamingEvent>): StreamChunk[] {
     const chunks: StreamChunk[] = [];
     const delta = event.delta ?? "";
-    if (event.kind === "reasoning_start" || event.kind === "text_start") {
-      const type = event.kind === "text_start" ? "text" : "reasoning";
-      chunks.push(...this.closeOne(type));
-      const index = this.nextIndex++;
-      this.open.set(type, { index, type, text: "" });
-      chunks.push({ type: "block-start", index, blockType: type });
-      return chunks;
-    }
-    if (event.kind === "reasoning_delta" || event.kind === "text_delta") {
-      const type = event.kind === "text_delta" ? "text" : "reasoning";
-      const block = this.open.get(type);
+    if (
+      event.kind === "reasoning_start" ||
+      event.kind === "text_start" ||
+      event.kind === "reasoning_delta" ||
+      event.kind === "text_delta"
+    ) {
+      const type =
+        event.kind === "text_delta" || event.kind === "text_start"
+          ? "text"
+          : "reasoning";
+      if (event.kind === "reasoning_start" || event.kind === "text_start")
+        chunks.push(...this.closeOne(type));
+      let block = this.open.get(type);
       if (block === undefined) {
-        // 无 start 的增量（事件流续传场景）：补开一个块。
+        // start 可以携带首段内容；续传也可能直接从 delta 开始。
         const index = this.nextIndex++;
-        this.open.set(type, { index, type, text: "" });
+        block = { index, type, text: "" };
+        this.open.set(type, block);
         chunks.push({ type: "block-start", index, blockType: type });
-        return chunks;
       }
       block.text += delta;
-      this.sawContent = true;
       if (delta !== "") {
+        this.sawContent = true;
         // 思考增量不代表正文已投：回填判据只认文本增量。
         if (type === "text") this.textProjected = true;
         chunks.push({
