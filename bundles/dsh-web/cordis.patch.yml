@@ -1,0 +1,1233 @@
+# KMH 当前采用的 DSH 基础服务、Web 与四个 Agent 预设。
+# 原版对照与升级说明见 README.md；部署覆盖由 kmh-web profile 管理。
+- insert:
+    # == upstream.cordis.yml
+    - id: tool-plugin-manager
+      name: '@deepseek-ai/dsh-plugin-manager/tools'
+      disabled: true
+    - id: plugin-manager
+      name: '@deepseek-ai/dsh-plugin-manager'
+      config:
+        logRoot: !!js dshHomePath('logs', 'plugin-manager', 'kmh-web')
+      disabled: !!js '!ctx.get(''profileContext'')'
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+    - id: hmr
+      name: '@deepseek-ai/dsh-hmr'
+      disabled: !!js '!ctx.get(''profileContext'')'
+      config:
+        root: !!js JSON.parse(process.env.KMH_PLUGIN_WATCH_ROOTS || '[]')
+    - id: llm
+      name: '@deepseek-ai/dsh-llm'
+    - id: deepseek-llm-api-extensions
+      name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'
+    - id: session
+      name: '@deepseek-ai/dsh-session'
+    - id: session-log-deepseek
+      name: '@deepseek-ai/dsh-session-log-deepseek'
+    - id: typert
+      name: '@deepseek-ai/dsh-typert-registry'
+    - id: typert-loader
+      name: '@deepseek-ai/dsh-typert-loader'
+    - id: typert-gateway
+      name: '@deepseek-ai/dsh-api-gateway'
+    - id: session-title
+      name: '@deepseek-ai/dsh-session-title'
+      config:
+        fallbackMaxWords: 5
+        fallbackMaxBytes: 40
+        maxTitleBytes: 80
+    - id: session-title-llm
+      name: '@deepseek-ai/dsh-session-title-first-prompt-llm'
+      config:
+        targetWords: 5
+        targetCjkCharacters: 10
+        maxInputBytes: 4096
+        maxOutputTokens: 64
+        timeoutMs: 60000
+    - id: user-questions
+      name: '@deepseek-ai/dsh-user-questions'
+    - id: agent
+      name: '@deepseek-ai/dsh-agent'
+    - id: plugin-package-inventory-deepseek
+      name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'
+    - id: agent-default-model
+      name: '@deepseek-ai/dsh-agent-default-model'
+      config:
+        provider: deepseek-official
+        model: deepseek-flash
+    - id: jobs
+      name: '@deepseek-ai/dsh-jobs-local'
+    - id: llm-retry
+      name: '@deepseek-ai/dsh-llm-retry'
+    - id: config-editor
+      name: '@deepseek-ai/dsh-config-editor'
+      disabled: !!js '!ctx.get(''profileContext'')'
+    - id: settings
+      name: '@deepseek-ai/dsh-settings'
+      disabled: !!js '!ctx.get(''profileContext'')'
+    - id: authorization
+      name: '@deepseek-ai/dsh-authorization'
+    - id: deepseek-account
+      name: '@deepseek-ai/dsh-deepseek-account-platform'
+      config:
+        desktopPlatform: !!js >-
+          ctx.get('profileContext')?.name === 'desktop' && ['darwin',
+          'win32'].includes(process.platform) ? process.platform : null
+    - id: credentials
+      name: '@deepseek-ai/dsh-credentials-local'
+    - id: llm-pi-ai
+      name: '@deepseek-ai/dsh-llm-pi-ai'
+    - id: session-persistence-jsonl
+      name: '@deepseek-ai/dsh-session-persistence-jsonl'
+      config:
+        root: !!js dshHomePath('sessions')
+    - id: attachment-local
+      name: '@deepseek-ai/dsh-attachment-local'
+    - id: session-query-sqlite
+      name: '@deepseek-ai/dsh-session-query-sqlite'
+      config:
+        path: ':memory:'
+        openAt: never
+    - id: session-projection
+      name: '@deepseek-ai/dsh-session-projection'
+    - id: storage
+      name: '@deepseek-ai/dsh-storage'
+    - id: storage-json
+      name: '@deepseek-ai/dsh-storage-json'
+      config:
+        root: !!js dshHomePath('storages')
+    - id: storage-domain
+      name: '@deepseek-ai/dsh-storage-domain'
+      config:
+        backend: json
+    - id: session-projection-cache
+      name: '@deepseek-ai/dsh-session-projection-cache'
+      config:
+        writeEveryEvents: 200
+        writeIntervalMs: 5000
+    - id: otel
+      name: '@deepseek-ai/dsh-otel'
+    - id: session-telemetry-otel
+      name: '@deepseek-ai/dsh-session-telemetry-otel'
+      config:
+        mode: !!js process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'
+        shutdownTimeoutMillis: 3000
+        maxRequestBytes: 4000000
+        exporter:
+          url: !!js >-
+            process.env.DSH_TELEMETRY_OTLP_URL ??
+            'https://dsh-otel-collector.deepseeksvc.com/v1/logs'
+          compression: gzip
+          timeoutMillis: 1000
+        processor:
+          scheduledDelayMillis: 10000
+          maxQueueSize: 2048
+          maxExportBatchSize: 2048
+          exportTimeoutMillis: 1500
+    - id: subprocess
+      name: '@deepseek-ai/dsh-subprocess-local'
+    - id: sandbox
+      name: '@deepseek-ai/dsh-sandbox-local'
+    - id: sandbox-policy
+      name: '@deepseek-ai/dsh-sandbox-policy'
+      config:
+        mode: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
+        workspaceRoot: !!js process.cwd()
+    - id: bash-sandbox
+      name: '@deepseek-ai/dsh-bash-sandbox'
+      disabled: !!js process.platform === 'win32'
+      config:
+        timeoutMs: 60000
+    - id: pwsh-sandbox
+      name: '@deepseek-ai/dsh-pwsh-sandbox'
+      disabled: !!js process.platform !== 'win32'
+    - id: approval
+      name: '@deepseek-ai/dsh-user-approval'
+      config:
+        policy: !!js >-
+          (process.env.DSH_PERMISSION_MODE ?? 'workspace-write') ===
+          'danger-full-access' ? 'never' : 'ask'
+    - id: permission
+      name: '@deepseek-ai/dsh-permission-presets'
+      config:
+        presets:
+          read-only:
+            sandbox: read-only
+            approval: ask
+            name: 仅可查看
+            description: 只读沙箱；写操作前请求审批。
+          workspace-write:
+            sandbox: workspace-write
+            approval: ask
+            # D17：原“工作区内修改”改为“请求审批”——Codex CLI 插件的
+            # 原生审批跟随本档（审批请求桥转 KMH 用户，单次请求授权）。
+            name: 请求审批
+            description: 工作区沙箱；越界与原生工具操作请求用户审批。
+          workspace-write-auto:
+            sandbox: workspace-write
+            approval: never
+            # Codex 原生权限请求交官方自动审查；KMH 工具沿用宿主策略。
+            name: 帮我审批
+            description: 工作区沙箱；Codex 自动审查原生操作的额外权限请求。
+          danger-full-access:
+            sandbox: danger-full-access
+            approval: never
+            name: 完全权限
+            description: 不经沙箱与审批直接执行（含敏感操作）。
+    - id: shell-env
+      name: '@deepseek-ai/dsh-shell-env'
+    - id: tool-bash
+      name: '@deepseek-ai/dsh-tool-bash'
+      disabled: true
+    - id: tool-pwsh
+      name: '@deepseek-ai/dsh-tool-pwsh'
+      disabled: true
+    - id: tool-jobs
+      name: '@deepseek-ai/dsh-tool-jobs'
+      disabled: true
+    - id: fs-observation-policy
+      name: '@deepseek-ai/dsh-fs-observation-policy'
+    - id: tool-fs
+      name: '@deepseek-ai/dsh-tool-fs'
+      disabled: true
+    - id: tool-fs-search
+      name: '@deepseek-ai/dsh-tool-fs-search'
+      config:
+        sampleOverCapGlobResults: false
+      disabled: true
+    - id: agent-instructions
+      name: '@deepseek-ai/dsh-agent-instructions'
+      config:
+        maxBytes: 65536
+      disabled: true
+    - id: skill
+      name: '@deepseek-ai/dsh-skill'
+    - id: skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      disabled: true
+    - id: skill-badge
+      name: '@deepseek-ai/dsh-skill-badge'
+      disabled: true
+    - id: tool-skill
+      name: '@deepseek-ai/dsh-tool-skill'
+      disabled: true
+    - id: commands
+      name: '@deepseek-ai/dsh-commands'
+    - id: command-feedback
+      name: '@deepseek-ai/dsh-command-feedback'
+    - id: goal
+      name: '@deepseek-ai/dsh-goal'
+    - id: goal-round-driver
+      name: '@deepseek-ai/dsh-goal-round-driver'
+    - id: command-goal
+      name: '@deepseek-ai/dsh-command-goal'
+      disabled: true
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+      config:
+        section: >
+          你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan
+          mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束
+          plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
+
+
+          先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
+
+
+          工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode
+          规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用 todo_write
+          追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
+
+
+          通过自行查看解决可发现的事实。ask_user_question
+          只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
+
+
+          让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema
+          与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
+
+
+          准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让 exit_plan_mode
+          成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或
+          ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持 plan mode
+          并请用户手动切换模式；不要继续执行实现。
+      disabled: true
+    - id: token-meter
+      name: '@deepseek-ai/dsh-token-meter'
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+      disabled: true
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+      disabled: true
+    - id: subagent
+      name: '@deepseek-ai/dsh-subagent'
+    - id: subagent-spawn-in-process
+      name: '@deepseek-ai/dsh-subagent-spawn-in-process'
+      config:
+        providerName: spawn
+    - id: subagent-fork-in-process
+      name: '@deepseek-ai/dsh-subagent-fork-in-process'
+      config:
+        providerName: fork
+    - id: tool-subagent-control
+      name: '@deepseek-ai/dsh-tool-subagent-control'
+      disabled: true
+    - id: tool-subagent-list-agents
+      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+      disabled: true
+    - id: tool-subagent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent
+        backgroundMode: continuable
+      disabled: true
+    - id: tool-subagent-fork
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: fork
+        toolName: subagent_fork
+        backgroundMode: one-shot
+      disabled: true
+    - id: ptc-runtime
+      name: '@deepseek-ai/dsh-ptc-runtime-node'
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
+      config:
+        provider: spawn
+      disabled: true
+    - id: tool-workflow
+      name: '@deepseek-ai/dsh-tool-workflow'
+      disabled: true
+    - id: timeout-policy
+      name: '@deepseek-ai/dsh-tool-call-timeout-policy'
+    - id: spill-local
+      name: '@deepseek-ai/dsh-spill-local'
+      config:
+        root: !!js dshHomePath('spill')
+    - id: spill-policy
+      name: '@deepseek-ai/dsh-spill-policy'
+      config:
+        maxInlineTokens: 12500
+    - id: session-checkpoint-policy
+      name: '@deepseek-ai/dsh-session-checkpoint-policy'
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
+      disabled: true
+    - id: image-offload
+      name: '@deepseek-ai/dsh-compaction-image-offload'
+    - id: tool-todo
+      name: '@deepseek-ai/dsh-tool-todo'
+      config:
+        allowParallelInProgress: true
+      disabled: true
+    - id: tool-goal
+      name: '@deepseek-ai/dsh-tool-goal'
+      disabled: true
+    - id: tool-ralph
+      name: '@deepseek-ai/dsh-tool-ralph'
+      disabled: true
+      config:
+        subagentProvider: spawn
+        maxRounds: 64
+    - id: repeat-tool-reminder
+      name: '@deepseek-ai/dsh-repeat-tool-reminder'
+      config:
+        thresholds:
+          - 3
+          - 5
+          - 8
+        argumentsPreviewChars: 500
+    - id: web
+      name: '@deepseek-ai/dsh-web'
+      config:
+        searchProvider: deepseek-official
+        fetchProvider: http
+    - id: web-search-deepseek
+      name: '@deepseek-ai/dsh-web-search-deepseek'
+      config:
+        apiKeyEnv: DEEPSEEK_API_KEY
+    - id: web-fetch-http
+      name: '@deepseek-ai/dsh-web-fetch-http'
+    - id: tool-web
+      name: '@deepseek-ai/dsh-tool-web'
+      config:
+        fetch: true
+        searchTimeoutMs: 60000
+      disabled: true
+    - id: mcp-resources
+      name: '@deepseek-ai/dsh-mcp-resources'
+    - id: tools
+      name: '@deepseek-ai/dsh-tools'
+      config:
+        mode: !!js process.env.DSH_TOOLS_MODE
+    # == upstream.cordis.yml, patched by Kongming persona
+    - id: system-prompt
+      name: '@deepseek-ai/dsh-system-prompt'
+      config:
+        includeHarnessIdentity: false
+        personaPrefix: 你是 Kongming，一个运行在 kongming-agent harness 上、由 {{model}} 模型驱动的编程智能体。
+        personaSuffix: 你的工作目录是 {{cwd}}。
+    # == upstream.cordis.yml
+    - id: agent-loop
+      name: '@deepseek-ai/dsh-agent-loop'
+      config:
+        agents: []
+    - id: fs-sandbox
+      name: '@deepseek-ai/dsh-fs-sandbox'
+    - id: llm-deepseek
+      name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+    - id: llm-deepseek-account
+      name: '@deepseek-ai/dsh-llm-deepseek-account'
+    - id: desktop-product-telemetry
+      name: '@deepseek-ai/dsh-host-product-telemetry-otel'
+      disabled: !!js ctx.get('profileContext')?.name !== 'desktop'
+      config:
+        scheduledDelayMillis: 30000
+        timeoutMillis: 15000
+        exportTimeoutMillis: 20000
+        shutdownTimeoutMillis: 2000
+        serviceName: deepseek-harness-desktop
+        serviceVersion: !!js process.env.DSH_CLIENT_VERSION
+        endpoint: !!js process.env.DSH_PRODUCT_ANALYTICS_OTLP_URL
+    - id: product-analytics
+      name: '@deepseek-ai/dsh-client-product-analytics'
+      disabled: !!js ctx.get('profileContext')?.name !== 'desktop'
+      config:
+        enabled: true
+        appVersion: !!js process.env.DSH_CLIENT_VERSION
+    - id: subagent-model-selection-settings
+      name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
+    - id: message-feedback
+      name: '@deepseek-ai/dsh-message-feedback'
+      config:
+        maxNoteBytes: 8192
+    - id: session-log-download
+      name: '@deepseek-ai/dsh-session-log-export'
+    - id: open-in-app
+      name: '@deepseek-ai/dsh-host-open-in-app'
+      config:
+        probeTimeoutMs: 10000
+        iconTimeoutMs: 10000
+        launchWatchMs: 1000
+    - id: ui-open-in-app
+      name: '@deepseek-ai/dsh-client-ui-open-in-app'
+    - id: workspace
+      name: '@deepseek-ai/dsh-workspace'
+    - id: session-reference
+      name: '@deepseek-ai/dsh-session-reference'
+    - id: file-reference-local
+      name: '@deepseek-ai/dsh-file-reference-local'
+    - id: session-stats
+      name: '@deepseek-ai/dsh-session-stats'
+    - id: session-turn-outline
+      name: '@deepseek-ai/dsh-session-turn-outline'
+    - id: directory-picker
+      name: '@deepseek-ai/dsh-host-directory-picker-auto'
+    - id: plugin-inventory
+      name: '@deepseek-ai/dsh-host-plugin-inventory'
+    - id: session-controller
+      name: '@deepseek-ai/dsh-api-session-controller'
+    - id: job-controller
+      name: '@deepseek-ai/dsh-api-job-controller'
+    - id: terminal-controller
+      name: '@deepseek-ai/dsh-api-terminal-controller'
+    - id: workspace-files
+      name: '@deepseek-ai/dsh-api-workspace-files'
+    - id: schedule
+      name: '@deepseek-ai/dsh-schedule'
+    - id: ui-settings-account
+      name: '@deepseek-ai/dsh-client-ui-settings-account'
+      config:
+        activateInWebBrowser: true
+    - id: account-controller
+      name: '@deepseek-ai/dsh-api-account-controller'
+    - id: settings-controller
+      name: '@deepseek-ai/dsh-api-settings-controller'
+    - id: workspace-controller
+      name: '@deepseek-ai/dsh-api-workspace-controller'
+    - id: cordis-host-runner
+      name: '@deepseek-ai/dsh-cordis-host-runner'
+    - id: cordis-inspect-providers
+      name: '@deepseek-ai/dsh-tool-cordis/host'
+    - id: web-startup
+      name: '@deepseek-ai/dsh-web-app/startup'
+    # == upstream.cordis.yml, patched by Kongming Web deployment
+    - id: webserver
+      name: '@deepseek-ai/dsh-host-webserver'
+      inject:
+        - webStartup
+      config:
+        host: 127.0.0.1
+        port: 3080
+        compression: gzip
+        compressionLevel: 1
+        compressionThresholdBytes: 1024
+    - id: web-runtime
+      name: '@deepseek-ai/dsh-web-app'
+      inject:
+        - webStartup
+      config:
+        openBrowser: !!js ctx.webStartup.openBrowser
+        printUrl: true
+        surfaceContext: true
+        trustedHosts: []
+    # == upstream.cordis.yml
+    - id: client-hmr
+      name: '@deepseek-ai/dsh-client-hmr'
+    - id: modules
+      name: '@deepseek-ai/dsh-client-modules'
+    - id: connection
+      name: '@deepseek-ai/dsh-client-connection'
+      inject:
+        - webRuntime
+      config:
+        trustedHosts: !!js ctx.webRuntime.trustedHosts
+    - id: file-upload
+      name: '@deepseek-ai/dsh-client-file-upload'
+    - id: api-remotes
+      name: '@deepseek-ai/dsh-api-remotes'
+    - id: cordis-client-runner
+      name: '@deepseek-ai/dsh-cordis-client-runner'
+    - id: ui-theme
+      name: '@deepseek-ai/dsh-client-ui-theme'
+    - id: locale
+      name: '@deepseek-ai/dsh-client-locale'
+    - id: shortcuts
+      name: '@deepseek-ai/dsh-client-shortcuts'
+    - id: ui-shortcuts
+      name: '@deepseek-ai/dsh-client-ui-shortcuts'
+    - id: ui-layout
+      name: '@deepseek-ai/dsh-client-ui-layout'
+    - id: ui-renderer
+      name: '@deepseek-ai/dsh-client-ui-renderer'
+    - id: ui-session
+      name: '@deepseek-ai/dsh-client-ui-session'
+    - id: resources
+      name: '@deepseek-ai/dsh-client-resources'
+    - id: ui-sidebar
+      name: '@deepseek-ai/dsh-client-ui-sidebar'
+    - id: ui-sidebar-right
+      name: '@deepseek-ai/dsh-client-ui-sidebar-right'
+    - id: office-to-pdf
+      name: '@deepseek-ai/dsh-office-to-pdf'
+    - id: ui-sidebar-documentpreview
+      name: '@deepseek-ai/dsh-client-ui-sidebar-documentpreview'
+    - id: ui-sidebar-browser
+      name: '@deepseek-ai/dsh-client-ui-sidebar-browser'
+      disabled: !!js ctx.get('profileContext')?.name !== 'desktop'
+    - id: ui-sidebar-terminal
+      name: '@deepseek-ai/dsh-client-ui-sidebar-terminal'
+    - id: ui-sidebar-files
+      name: '@deepseek-ai/dsh-client-ui-sidebar-files'
+    - id: ui-settings
+      name: '@deepseek-ai/dsh-client-ui-settings'
+    # == upstream.cordis.yml, patched by Kongming welcome preference
+    - id: ui-settings-general
+      name: '@deepseek-ai/dsh-client-ui-settings-general'
+      config:
+        welcomeNoticeVersion: 2026-09-28.1
+    # == upstream.cordis.yml
+    - id: ui-settings-models
+      name: '@deepseek-ai/dsh-client-ui-settings-models'
+    - id: ui-plugin-manager
+      name: '@deepseek-ai/dsh-client-ui-plugin-manager'
+    - id: ui-settings-plugin-inventory
+      name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+    - id: ui-conversation
+      name: '@deepseek-ai/dsh-client-ui-conversation'
+    - id: ui-approval
+      name: '@deepseek-ai/dsh-client-ui-approval'
+    - id: ui-chat
+      name: '@deepseek-ai/dsh-client-ui-chat'
+    - id: ui-brand-official
+      name: '@deepseek-ai/dsh-client-ui-brand-official'
+    - id: ui-attachment
+      name: '@deepseek-ai/dsh-client-ui-attachment'
+    - id: ui-tool
+      name: '@deepseek-ai/dsh-client-ui-tool'
+    - id: ui-cordis
+      name: '@deepseek-ai/dsh-client-ui-cordis'
+    - id: ui-deliverables
+      name: '@deepseek-ai/dsh-client-ui-deliverables'
+    - id: workspace-changes
+      name: '@deepseek-ai/dsh-workspace-changes'
+    - id: ui-workspace
+      name: '@deepseek-ai/dsh-client-ui-workspace'
+    - id: ui-workflow-run
+      name: '@deepseek-ai/dsh-client-ui-workflow-run'
+    - id: ui-input-trigger
+      name: '@deepseek-ai/dsh-client-ui-input-trigger'
+    - id: ui-commands
+      name: '@deepseek-ai/dsh-client-ui-commands'
+    - id: ui-skill
+      name: '@deepseek-ai/dsh-client-ui-skill'
+    - id: ui-subagent
+      name: '@deepseek-ai/dsh-client-ui-subagent'
+    - id: ui-reference
+      name: '@deepseek-ai/dsh-client-ui-reference'
+    - id: ui-jobs
+      name: '@deepseek-ai/dsh-client-ui-jobs'
+    - id: ui-schedule
+      name: '@deepseek-ai/dsh-client-ui-schedule'
+    - id: ui-goal
+      name: '@deepseek-ai/dsh-client-ui-goal'
+    - id: ui-message-feedback
+      name: '@deepseek-ai/dsh-client-ui-message-feedback'
+    - id: ui-model-selection
+      name: '@deepseek-ai/dsh-client-ui-model-selection'
+    - id: ui-permission
+      name: '@deepseek-ai/dsh-client-ui-permission-presets'
+    - id: ui-agent-preset
+      name: '@deepseek-ai/dsh-client-ui-agent-preset'
+    - id: ui-settings-session-log
+      name: '@deepseek-ai/dsh-client-ui-settings-session-log'
+    - id: ui-settings-plugins
+      name: '@deepseek-ai/dsh-client-ui-settings-plugins'
+    - id: ui-settings-shell
+      name: '@deepseek-ai/dsh-client-ui-settings-shell'
+    - id: ui-settings-agent-loop
+      name: '@deepseek-ai/dsh-client-ui-settings-agent-loop'
+    - id: ui-settings-subagent
+      name: '@deepseek-ai/dsh-client-ui-settings-subagent'
+    - id: ui-settings-web-search
+      name: '@deepseek-ai/dsh-client-ui-settings-web-search'
+    - id: ui-plan
+      name: '@deepseek-ai/dsh-client-ui-plan'
+    - id: ui-user-questions
+      name: '@deepseek-ai/dsh-client-ui-user-questions'
+    - id: ui-trajectory
+      name: '@deepseek-ai/dsh-client-ui-trajectory'
+    - id: agent-preset-registry
+      name: '@deepseek-ai/dsh-agent-preset-registry'
+      config:
+        default: standard
+    - id: mcp-openviking
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: openviking
+        transport: stdio
+        command: node
+        args: [ '/Users/kid/.openviking/agent-integrations/cursor/servers/mcp-proxy.mjs' ]
+    - id: preset-standard
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: standard
+        order: 1
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              suffix: 你的工作目录是 {{cwd}}。
+              prefix: 你是 Kongming，一个运行在 kongming-agent harness 上、由 {{model}} 模型驱动的编程智能体。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: tool-schedule
+            name: '@deepseek-ai/dsh-tool-schedule'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: command-goal
+            name: '@deepseek-ai/dsh-command-goal'
+          - id: tool-goal
+            name: '@deepseek-ai/dsh-tool-goal'
+          - id: planning
+            name: cordis:group
+            group: true
+            isolate:
+              planMode: true
+            config:
+              - id: plan-mode
+                name: '@deepseek-ai/dsh-plan-mode'
+                config:
+                  section: >
+                    你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan
+                    mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束
+                    plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
+
+
+                    先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
+
+
+                    工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode
+                    规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用
+                    todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
+
+
+                    通过自行查看解决可发现的事实。ask_user_question
+                    只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
+
+
+                    让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema
+                    与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
+
+
+                    准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让
+                    exit_plan_mode
+                    成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或
+                    ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持
+                    plan mode 并请用户手动切换模式；不要继续执行实现。
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+              - id: tool-subagent-list-agents
+                name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  modelSelectionSettings: true
+                  backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
+              - id: tool-subagent-fork
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: fork
+                  toolName: subagent_fork
+                  backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
+              - id: tool-subagent-codex
+                name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: true
+                config:
+                  provider: codex
+                  toolName: subagent_codex
+                  backgroundMode: one-shot
+                  maxDepth: provider-managed
+              - id: tool-subagent-claude-code
+                name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: true
+                config:
+                  provider: claude-code
+                  toolName: subagent_claude_code
+                  backgroundMode: one-shot
+                  maxDepth: provider-managed
+              - id: workflow-ptc
+                name: '@deepseek-ai/dsh-workflow-ptc'
+                config:
+                  provider: spawn
+              - id: tool-workflow
+                name: '@deepseek-ai/dsh-tool-workflow'
+              - id: tool-ralph
+                name: '@deepseek-ai/dsh-tool-ralph'
+                disabled: true
+                config:
+                  subagentProvider: spawn
+                  maxRounds: 64
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: present
+            name: '@deepseek-ai/dsh-tool-present'
+          - id: tool-plugin-manager
+            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            disabled: true
+    - id: preset-ptc
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: ptc
+        order: 2
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              suffix: 你的工作目录是 {{cwd}}。
+              prefix: 你是 Kongming，一个运行在 kongming-agent harness 上、由 {{model}} 模型驱动的编程智能体。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: tool-schedule
+            name: '@deepseek-ai/dsh-tool-schedule'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: command-goal
+            name: '@deepseek-ai/dsh-command-goal'
+          - id: tool-goal
+            name: '@deepseek-ai/dsh-tool-goal'
+          - id: planning
+            name: cordis:group
+            group: true
+            isolate:
+              planMode: true
+            config:
+              - id: plan-mode
+                name: '@deepseek-ai/dsh-plan-mode'
+                config:
+                  section: >
+                    你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan
+                    mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束
+                    plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
+
+
+                    先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
+
+
+                    工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode
+                    规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用
+                    todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
+
+
+                    通过自行查看解决可发现的事实。ask_user_question
+                    只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
+
+
+                    让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema
+                    与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
+
+
+                    准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让
+                    exit_plan_mode
+                    成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或
+                    ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持
+                    plan mode 并请用户手动切换模式；不要继续执行实现。
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+              - id: tool-subagent-list-agents
+                name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  modelSelectionSettings: true
+                  backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
+              - id: tool-subagent-fork
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: fork
+                  toolName: subagent_fork
+                  backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
+              - id: tool-subagent-codex
+                name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: true
+                config:
+                  provider: codex
+                  toolName: subagent_codex
+                  backgroundMode: one-shot
+                  maxDepth: provider-managed
+              - id: tool-subagent-claude-code
+                name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: true
+                config:
+                  provider: claude-code
+                  toolName: subagent_claude_code
+                  backgroundMode: one-shot
+                  maxDepth: provider-managed
+              - id: workflow-ptc
+                name: '@deepseek-ai/dsh-workflow-ptc'
+                disabled: true
+                config:
+                  provider: spawn
+              - id: tool-workflow
+                name: '@deepseek-ai/dsh-tool-workflow'
+                disabled: true
+              - id: tool-ralph
+                name: '@deepseek-ai/dsh-tool-ralph'
+                disabled: true
+                config:
+                  subagentProvider: spawn
+                  maxRounds: 64
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: tool-presentation
+            name: '@deepseek-ai/dsh-agent-tool-presentation'
+            config:
+              mode: ptc
+          - id: present
+            name: '@deepseek-ai/dsh-tool-present'
+          - id: tool-plugin-manager
+            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            disabled: true
+    - id: preset-minimal
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: minimal
+        order: 3
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: 你是一名乐于助人的软件工程助手。
+              complete: true
+              includeRuntimeContext: false
+          - id: persistent-shell
+            name: cordis:group
+            group: true
+            isolate:
+              terminals: true
+            config:
+              - id: pty
+                name: '@deepseek-ai/dsh-terminal'
+              - id: terminal-bash
+                name: '@deepseek-ai/dsh-terminal-bash'
+                disabled: !!js process.platform === 'win32'
+                config:
+                  timeoutMs: 300000
+              - id: persistent-bash
+                name: '@deepseek-ai/dsh-tool-bash-persistent'
+                disabled: !!js process.platform === 'win32'
+                config:
+                  timeoutMs: 300000
+                  description: >-
+                    Run commands in a bash shell
+
+                    * When invoking this tool, the contents of the "command"
+                    parameter does NOT need to be XML-escaped.
+
+                    * Network access depends on the task environment. Prefer
+                    configured mirrors/proxies when they are available.
+
+                    * State is persistent across command calls and discussions
+                    with the user.
+
+                    * To inspect a particular line range of a file, e.g. lines
+                    10-25, try 'sed -n 10,25p /path/to/the/file'.
+
+                    * Please avoid commands that may produce a very large amount
+                    of output.
+
+                    * Please run long lived commands in the background, e.g.
+                    'sleep 10 &' or start a server in the background.
+              - id: terminal-pwsh
+                name: '@deepseek-ai/dsh-terminal-bash'
+                disabled: !!js process.platform !== 'win32'
+                config:
+                  shellDialect: pwsh
+                  timeoutMs: 300000
+              - id: persistent-pwsh
+                name: '@deepseek-ai/dsh-tool-pwsh-persistent'
+                disabled: !!js process.platform !== 'win32'
+                config:
+                  timeoutMs: 300000
+                  description: >-
+                    Run commands in a PowerShell shell
+
+                    * When invoking this tool, the contents of the "command"
+                    parameter does NOT need to be XML-escaped.
+
+                    * You don't have access to the internet via this tool.
+
+                    * State is persistent across command calls and discussions
+                    with the user.
+
+                    * Use native Windows paths (C:\...) and $env:NAME variables;
+                    this is PowerShell, not bash.
+
+                    * Please avoid commands that may produce a very large amount
+                    of output.
+
+                    * Please run long lived commands in the background, e.g.
+                    'Start-Job' or start a server with Start-Process.
+    - id: preset-cordis
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: cordis
+        order: 4
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              suffix: 你的工作目录是 {{cwd}}。
+              prefix: 你是 Kongming，一个运行在 kongming-agent harness 上、由 {{model}} 模型驱动的编程智能体。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: tool-schedule
+            name: '@deepseek-ai/dsh-tool-schedule'
+          - id: command-goal
+            name: '@deepseek-ai/dsh-command-goal'
+          - id: tool-goal
+            name: '@deepseek-ai/dsh-tool-goal'
+          - id: planning
+            name: cordis:group
+            group: true
+            isolate:
+              planMode: true
+            config:
+              - id: plan-mode
+                name: '@deepseek-ai/dsh-plan-mode'
+                config:
+                  section: >
+                    你正处于 plan mode。在 exit_plan_mode 成功或用户切换会话模式之前，保持处于 plan
+                    mode。要求实现改动的祈使语气意味着规划该实现，而不是执行它。用户在对话中的同意——包括对你所提问题的确认回答——不批准任何内容，也不会结束
+                    plan mode；把已确认的决定纳入计划，并通过 exit_plan_mode 提交。
+
+
+                    先探索。使用非变更性的读取、搜索、静态分析和检查，让计划立足于实际仓库。不要编辑或写入文件、更改配置、运行会重写受跟踪文件的格式化工具或代码生成、提交，或以其他方式执行该计划。优先使用现有函数和模式，而不是新造机制。
+
+
+                    工具目录在各模式间保持不变，以保证请求缓存的稳定性。这些 plan mode
+                    规则覆盖任何后续暗示使用变更工具的工具描述或指引；那些工具仍然列出，只是为了保持请求形状稳定。不要用
+                    todo_write 追踪这个规划阶段：它追踪计划获批后的实现，而计划本身属于 exit_plan_mode。
+
+
+                    通过自行查看解决可发现的事实。ask_user_question
+                    只用于该由用户决定的选项或查看无法回答的实质性歧义。当你自己能查明时，不要问用户代码在哪里或当前行为如何运作。
+
+
+                    让计划决策完备：陈述目标与成功标准；按子系统分组实现改动；识别公共 API、schema
+                    与数据流变更；覆盖边界情况、失败模式、测试、验收标准和显式假设。保持精简到便于审查，又详细到另一位工程师无需再做设计决策即可实现。
+
+
+                    准备就绪后，调用 exit_plan_mode 并附上完整的计划 markdown，以 # 标题开头。让
+                    exit_plan_mode
+                    成为该条助手响应中唯一且最后的工具调用：它呈现计划以供批准，实现只在批准之后的后续步骤开始。不要把最终计划当作普通回复粘贴，也不要通过正文或
+                    ask_user_question 询问“是否继续？”。如果审查拒绝，吸收反馈后再次呈现。如果审查通道不可用或中止，保持
+                    plan mode 并请用户手动切换模式；不要继续执行实现。
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+              - id: tool-subagent-list-agents
+                name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  modelSelectionSettings: true
+                  backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
+              - id: tool-subagent-fork
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: fork
+                  toolName: subagent_fork
+                  backgroundMode: continuable
+                  toolFilter:
+                    deny:
+                      - schedule_create
+                      - schedule_delete
+                      - schedule_list
+                      - schedule_update
+              - id: tool-subagent-codex
+                name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: true
+                config:
+                  provider: codex
+                  toolName: subagent_codex
+                  backgroundMode: one-shot
+                  maxDepth: provider-managed
+              - id: tool-subagent-claude-code
+                name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: true
+                config:
+                  provider: claude-code
+                  toolName: subagent_claude_code
+                  backgroundMode: one-shot
+                  maxDepth: provider-managed
+              - id: workflow-ptc
+                name: '@deepseek-ai/dsh-workflow-ptc'
+                config:
+                  provider: spawn
+              - id: tool-workflow
+                name: '@deepseek-ai/dsh-tool-workflow'
+              - id: tool-ralph
+                name: '@deepseek-ai/dsh-tool-ralph'
+                disabled: true
+                config:
+                  subagentProvider: spawn
+                  maxRounds: 64
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: tool-cordis
+            name: '@deepseek-ai/dsh-tool-cordis'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              customSkillDirs:
+                - !!js >-
+                  process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@deepseek-ai/dsh-agent-preset/package.json')),
+                  'skills')
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: present
+            name: '@deepseek-ai/dsh-tool-present'
+          - id: tool-plugin-manager
+            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            disabled: !!js '!ctx.get(''profileContext'')'
+    - id: computer-use
+      name: '@deepseek-ai/dsh-computer-use'
+    - id: computer-use-cua-driver-native
+      name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'

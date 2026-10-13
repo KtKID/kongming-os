@@ -11,14 +11,16 @@
     "@kmh/web-surface-zh": "link:../../packages/web-surface-zh",
     "@kmh/zcode-cli": "link:../../packages/zcode-cli",
     "dsh-context": "^0.67.0",
-    "@kmh/kmh-team": "link:../../packages/kmh-team"
+    "@kmh/kmh-team": "link:../../packages/kmh-team",
+    "@kmh/bundle-dsh-web": "link:../../bundles/dsh-web"
   },
   "dsh": {
     "profile": {
       "bundles": [
         "@kmh/dev-preset",
         "@deepseek-ai/dsh-experimental-inspector-profile",
-        "dsh-context"
+        "dsh-context",
+        "@kmh/bundle-dsh-web"
       ]
     }
   }
