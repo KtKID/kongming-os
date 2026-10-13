@@ -1,0 +1,21 @@
+{
+  "name": "@kmh/profile-mobile-assistant",
+  "private": true,
+  "dependencies": {
+    "@deepseek-ai/dsh-cli-tools": "link:../../third_party/dsh/packages/llm/cli-tools",
+    "@kmh/bundle-mobile-assistant": "link:../../bundles/mobile-assistant",
+    "@kmh/codex-cli": "link:../../packages/codex-cli",
+    "@kmh/mobile-assistant-runtime": "link:../../packages/mobile-assistant-runtime",
+    "@kmh/runtime-log": "link:../../packages/runtime-log",
+    "@kmh/zcode-cli": "link:../../packages/zcode-cli"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-sdk-app",
+        "@kmh/bundle-mobile-assistant"
+      ]
+    }
+  }
+}

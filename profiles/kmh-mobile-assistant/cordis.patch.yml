@@ -1,0 +1,128 @@
+- insert:
+    - id: cli-tools
+      name: '@deepseek-ai/dsh-cli-tools'
+    - id: kmh-zcode-cli
+      name: '@kmh/zcode-cli'
+      config:
+        command: !!js process.env.KMH_ZCODE_COMMAND || 'zcode'
+        providerId: account:bigmodel-individual-coding-plan
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('zcode-cli')
+    - id: kmh-codex-cli
+      name: '@kmh/codex-cli'
+      config:
+        command: !!js >-
+          process.env.KMH_CODEX_COMMAND || (process.platform === 'darwin' ?
+          '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex'
+          : 'codex')
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('codex-cli')
+        toolSelection:
+          version: 1
+          harness:
+            - source: '["include:plan-mode","@deepseek-ai/dsh-plan-mode"]'
+              name: kmh-exit_plan_mode
+              enabled: true
+            - source: '["include:tool-subagent-control","@deepseek-ai/dsh-tool-subagent-control"]'
+              name: kmh-send_message
+              enabled: true
+            - source: '["include:tool-subagent-control","@deepseek-ai/dsh-tool-subagent-control"]'
+              name: kmh-interrupt_agent
+              enabled: true
+            - source: '["include:tool-subagent-list-agents","@deepseek-ai/dsh-tool-subagent-control/list-agents"]'
+              name: kmh-list_agents
+              enabled: true
+            - source: '["include:tool-goal","@deepseek-ai/dsh-tool-goal"]'
+              name: kmh-get_goal
+              enabled: true
+            - source: '["include:tool-goal","@deepseek-ai/dsh-tool-goal"]'
+              name: kmh-create_goal
+              enabled: true
+            - source: '["include:tool-goal","@deepseek-ai/dsh-tool-goal"]'
+              name: kmh-update_goal
+              enabled: true
+            - source: '["include:tool-subagent","@deepseek-ai/dsh-tool-subagent"]'
+              name: kmh-subagent
+              enabled: true
+            - source: '["include:tool-subagent-fork","@deepseek-ai/dsh-tool-subagent"]'
+              name: kmh-subagent_fork
+              enabled: true
+            - source: '["include:tool-workflow","@deepseek-ai/dsh-tool-workflow"]'
+              name: kmh-workflow
+              enabled: true
+            - source: '["include:tool-plugin-manager","@deepseek-ai/dsh-plugin-manager/tools"]'
+              name: kmh-plugin_manager
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-fs","@deepseek-ai/dsh-tool-fs"]'
+              name: kmh-read
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-fs","@deepseek-ai/dsh-tool-fs"]'
+              name: kmh-write
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-fs","@deepseek-ai/dsh-tool-fs"]'
+              name: kmh-edit
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-fs-search","@deepseek-ai/dsh-tool-fs-search"]'
+              name: kmh-glob
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-fs-search","@deepseek-ai/dsh-tool-fs-search"]'
+              name: kmh-grep
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-jobs","@deepseek-ai/dsh-tool-jobs"]'
+              name: kmh-job_output
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-jobs","@deepseek-ai/dsh-tool-jobs"]'
+              name: kmh-job_list
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-jobs","@deepseek-ai/dsh-tool-jobs"]'
+              name: kmh-job_kill
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-web","@deepseek-ai/dsh-tool-web"]'
+              name: kmh-web_search
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-web","@deepseek-ai/dsh-tool-web"]'
+              name: kmh-web_fetch
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-bash","@deepseek-ai/dsh-tool-bash"]'
+              name: kmh-bash
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-fs","@deepseek-ai/dsh-tool-fs"]'
+              name: kmh-read_image
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-skill","@deepseek-ai/dsh-tool-skill"]'
+              name: kmh-skill
+              enabled: true
+            - source: '["include:agent-preset-registry:tool-todo","@deepseek-ai/dsh-tool-todo"]'
+              name: kmh-todo_write
+              enabled: true
+          native:
+            - source: codex/native
+              name: exec_command
+              enabled: false
+            - source: codex/native
+              name: write_stdin
+              enabled: false
+            - source: codex/native
+              name: apply_patch
+              enabled: false
+            - source: codex/native
+              name: view_image
+              enabled: false
+            - source: codex/native
+              name: shell_command
+              enabled: false
+    - id: runtime-log
+      name: '@kmh/runtime-log'
+      config:
+        file: !!js dshHomePath('logs', 'plugins', `runtime-${process.pid}.jsonl`)
+- id: sdk-app-startup
+  config:
+    profile: kmh-mobile-assistant
+- id: plugin-manager
+  config:
+    logRoot: !!js dshHomePath('logs', 'plugin-manager', 'kmh-mobile-assistant')
+- id: agent-default-model
+  config:
+    provider: codex-cli
+    model: gpt-6.1-sol
+    reasoningEffort: medium

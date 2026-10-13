@@ -1,0 +1,41 @@
+{
+  "skills": [
+    "conversation-memory",
+    "dev-ts",
+    "feynman-learn",
+    "fnos",
+    "interactive-teaching",
+    "khazix-writer",
+    "mademe-save",
+    "my-cloud-server",
+    "pain-analysis",
+    "pdf",
+    "x-adversarial-risk",
+    "x-cr",
+    "x-dev",
+    "x-dev-rag-call",
+    "x-explore",
+    "x-fix",
+    "x-health",
+    "x-infra-tools",
+    "x-music-mcp",
+    "x-paper-baseread",
+    "x-paper-reader",
+    "x-qa-gate",
+    "x-qdev",
+    "x-req",
+    "x-spec",
+    "x-tech-design",
+    "x-verify-spec",
+    "x-verify-tech",
+    "x-video-aitech",
+    "x-vidkit",
+    "x-writer",
+    "xmusic-recommend"
+  ],
+  "sourcePaths": {
+    "x-adversarial-risk": "dev_preset/x-adversarial-risk",
+    "x-dev-rag-call": "dev_preset/x-dev-rag-call",
+    "x-qa-gate": "dev_preset/x-qa-gate"
+  }
+}

@@ -1,0 +1,91 @@
+# 文件与精选技能工具由 preset 提供；协作、规划和插件管理沿用基础服务。
+- id: tool-plugin-manager
+  disabled: false
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-fs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: skill-filesystem
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-web
+  disabled: true
+- id: sdk-jsonrpc-server
+  disabled: true
+- insert:
+    - id: agent-preset-registry
+      name: '@deepseek-ai/dsh-agent-preset-registry'
+      config:
+        default: mobile-assistant
+    - id: mobile-assistant-runtime
+      name: '@kmh/mobile-assistant-runtime'
+      inject: [sdkAppStartup, loader, agentPresets, sessionPersistence]
+      config:
+        preset: mobile-assistant
+    - id: preset-mobile-assistant
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: mobile-assistant
+        name: 乌萨奇
+        description: 用户的私人agent助手，负责和用户持续沟通、用户思考碎片记录、想法整理、文件整理、homelab管理和部分开发任务。
+        order: 6
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: >-
+                你是 Kongming 移动助手乌萨奇，由 {{model}} 模型驱动。你的主要任务是持续沟通、整理文件、记录想法、检索已有资料和查看设备及服务状态。
+                优先使用现有技能与专用文件工具。根据用户明确要求执行操作，保存后核对目标文件和实际内容；查询设备状态时注明目标设备、采样时间和证据。
+                涉及删除、覆盖重要资料、停止服务或修改设备配置时明确操作对象与影响。homelab管理和infra管理。遵循当前权限和审批结果。
+                开发任务按用户明确指定的范围执行。回答简洁直接，保留关键事实、结果路径与未完成事项。
+                用大白话沟通，但不要啰嗦。
+                遵从第一性原理思考，不知道的事情不要猜测和捏造，可以去找证据说明，犯错了要承认。
+                当用户要了解某些知识点时，要用费曼学习法解释，用比喻和大白话把知识点讲清楚。
+              suffix: 你的工作目录是 {{cwd}}。
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: false
+          - id: mobile-skills
+            name: cordis:group
+            group: true
+            isolate:
+              skills: true
+            config:
+              - id: skill
+                name: '@deepseek-ai/dsh-skill'
+              - id: skill-filesystem
+                name: '@deepseek-ai/dsh-skill-filesystem'
+                config:
+                  includeDefaultRoots: false
+                  customSkillDirs:
+                    - !!js process.env.KMH_MOBILE_SKILL_DIR || dshHomePath('skills', 'mobile-assistant')
+              - id: tool-skill
+                name: '@deepseek-ai/dsh-tool-skill'

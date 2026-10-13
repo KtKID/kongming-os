@@ -31,6 +31,8 @@ importers:
 
   bundles/mini: {}
 
+  bundles/mobile-assistant: {}
+
   packages/codex-cli:
     dependencies:
       zod:
@@ -230,6 +232,52 @@ importers:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
+
+  packages/mobile-assistant-runtime:
+    dependencies:
+      '@deepseek-ai/dsh-agent':
+        specifier: link:../../third_party/dsh/packages/core/agent
+        version: link:../../third_party/dsh/packages/core/agent
+      '@deepseek-ai/dsh-agent-preset-registry':
+        specifier: link:../../third_party/dsh/packages/preset/agent-preset-registry
+        version: link:../../third_party/dsh/packages/preset/agent-preset-registry
+      '@deepseek-ai/dsh-attachment':
+        specifier: link:../../third_party/dsh/packages/attachment/attachment
+        version: link:../../third_party/dsh/packages/attachment/attachment
+      '@deepseek-ai/dsh-brand':
+        specifier: link:../../third_party/dsh/packages/util/brand
+        version: link:../../third_party/dsh/packages/util/brand
+      '@deepseek-ai/dsh-llm':
+        specifier: link:../../third_party/dsh/packages/llm/llm
+        version: link:../../third_party/dsh/packages/llm/llm
+      '@deepseek-ai/dsh-scope':
+        specifier: link:../../third_party/dsh/packages/core/scope
+        version: link:../../third_party/dsh/packages/core/scope
+      '@deepseek-ai/dsh-sdk-jsonrpc-server':
+        specifier: link:../../third_party/dsh/packages/sdk/server
+        version: link:../../third_party/dsh/packages/sdk/server
+      '@deepseek-ai/dsh-sdk-protocol':
+        specifier: link:../../third_party/dsh/packages/sdk/protocol
+        version: link:../../third_party/dsh/packages/sdk/protocol
+      '@deepseek-ai/dsh-session':
+        specifier: link:../../third_party/dsh/packages/core/session
+        version: link:../../third_party/dsh/packages/core/session
+      '@deepseek-ai/dsh-session-persistence':
+        specifier: link:../../third_party/dsh/packages/session/session-persistence
+        version: link:../../third_party/dsh/packages/session/session-persistence
+      '@deepseek-ai/dsh-user-approval':
+        specifier: link:../../third_party/dsh/packages/interaction/user-approval
+        version: link:../../third_party/dsh/packages/interaction/user-approval
+      '@deepseek-ai/schemastery':
+        specifier: link:../../third_party/dsh/vendor/schemastery
+        version: link:../../third_party/dsh/vendor/schemastery
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../third_party/dsh/vendor/cordis
+        version: link:../../third_party/dsh/vendor/cordis
 
   packages/runtime-log:
     dependencies:

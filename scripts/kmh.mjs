@@ -4,8 +4,9 @@
  * profile 配置由 Kongming 版本控制；会话、凭据和日志写入 KMH_HOME（默认 ~/.kmh）。
  * readLaunchProfiles 读取 launch.config.json 中短命令对应的 profile，并验证目录。
  */
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, lstatSync, statSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { resolveKmhHome, runtimeEnvironment } from './runtime-home.mjs';
@@ -46,6 +47,22 @@ export function prepareProfiles(home) {
       if (spec.startsWith('link:')) linkDirectory(join(directory, 'node_modules', name), resolve(directory, spec.slice(5)));
     }
     linkDirectory(join(home, 'profiles', entry.name), directory);
+  }
+}
+
+/** 为移动助手链接已有技能；输入运行目录与环境，缺失技能或链接冲突时明确报错。 */
+export function prepareMobileSkills(home, env = process.env) {
+  if (env.KMH_MOBILE_SKILL_DIR) {
+    if (!isAbsolute(env.KMH_MOBILE_SKILL_DIR) || !statSync(env.KMH_MOBILE_SKILL_DIR).isDirectory()) throw new Error('KMH_MOBILE_SKILL_DIR 必须是绝对路径的技能目录');
+    return;
+  }
+  const source = env.KMH_MOBILE_SKILL_SOURCE || join(homedir(), '.agents', 'skills');
+  if (!isAbsolute(source)) throw new Error('KMH_MOBILE_SKILL_SOURCE 必须是绝对路径');
+  const catalog = JSON.parse(readFileSync(join(root, 'bundles/mobile-assistant/skills.json'), 'utf8'));
+  for (const name of catalog.skills) {
+    const target = join(source, catalog.sourcePaths?.[name] ?? name);
+    if (!existsSync(join(target, 'SKILL.md'))) throw new Error(`移动助手技能缺失：${target}/SKILL.md；请设置 KMH_MOBILE_SKILL_SOURCE`);
+    linkDirectory(join(home, 'skills', 'mobile-assistant', name), target);
   }
 }
 
@@ -113,6 +130,7 @@ export async function main(args = process.argv.slice(2)) {
       .map(entry => join(packages, entry.name, 'lib'))
     : []);
   const cliArgs = command === 'dsh' ? forwarded : ['--profile', profiles[command], ...forwarded];
+  if (cliArgs.includes('kmh-mobile-assistant')) prepareMobileSkills(home, env);
   const result = await runLogged(process.execPath, [bin, ...cliArgs], {
     home, label: command === 'dsh' ? 'dsh' : profiles[command], cwd: process.cwd(), env,
   });
