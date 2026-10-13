@@ -1543,10 +1543,11 @@ test("normal KMH Web keeps the ZCode insertion and four preset definitions prese
   // 只确认 zcode-cli 插入行、四个预设定义与历史迁移约束仍然成立。
   const current = readFileSync("profiles/kmh-web/cordis.patch.yml", "utf8");
   assert.ok(current.includes(insertion));
-  const document = parseDocument(current, {
+  const document = parseDocument(readFileSync("bundles/dsh-web/cordis.patch.yml", "utf8"), {
     customTags: [{ tag: "tag:yaml.org,2002:js", resolve: value => value }],
   });
   assert.equal(document.errors.length, 0);
+  assert.ok(document.toJS()[0].insert.every(row => row.name.startsWith("@deepseek-ai/")));
   const presets = document.toJS()[0].insert.filter(row => row.name === "@deepseek-ai/dsh-agent-preset");
   assert.equal(presets.length, 4);
   assert.equal(existsSync("profiles/kmh-zcode"), false);

@@ -27,6 +27,7 @@ test('profile 注册保持仓库配置，bundle 解析到 Kongming 目录，重�
   prepareProfiles(home);
   assert.equal(realpathSync(join(home, 'profiles/kmh-headless')), join(root, 'profiles/kmh-headless'));
   assert.equal(realpathSync(join(home, 'profiles/kmh-headless/node_modules/@kmh/bundle-kongming')), join(root, 'bundles/kongming'));
+  assert.equal(realpathSync(join(home, 'profiles/kmh-web/node_modules/@kmh/bundle-dsh-web')), join(root, 'bundles/dsh-web'));
   writeFileSync(patch, '# 用户保留的配置\n[]\n');
   prepareProfiles(home);
   assert.equal(readFileSync(patch, 'utf8'), '# 用户保留的配置\n[]\n');
@@ -78,12 +79,20 @@ for (const mode of ['cli', 'web', 'sdk']) {
   });
 }
 
-test('Web 完整配置中编辑端口和欢迎版本后，真实 CLI 使用新值', t => {
+test('Web 部署覆盖调整端口和欢迎版本后，真实 CLI 保留 Bundle 中的基础预设', t => {
   const home = mkdtempSync(join(tmpdir(), 'kmh-web-config-'));
-  const patch = join(root, 'profiles/kmh-web/cordis.patch.yml');
-  const original = readFileSync(patch, 'utf8');
-  t.after(() => { writeFileSync(patch, original); rmSync(home, { recursive: true, force: true }); });
-  writeFileSync(patch, original.replace('port: 3080', 'port: 49173').replace('welcomeNoticeVersion: 2026-09-28.1', 'welcomeNoticeVersion: test-edited'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  writeFileSync(join(home, 'cordis.patch.yml'), `- id: webserver
+  config:
+    host: 127.0.0.1
+    port: 49173
+    compression: gzip
+    compressionLevel: 1
+    compressionThresholdBytes: 1024
+- id: ui-settings-general
+  config:
+    welcomeNoticeVersion: test-edited
+`);
   const result = launch(['web', '--dump-config'], home);
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stderr, /not found|mismatch|skip/i);

@@ -42,7 +42,8 @@ test('保存源码保持现有代码，手动构建后 Web 连续热重载并更
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'kmh-web-hmr-')));
   const home = join(dir, 'home');
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  for (const name of ['scripts', 'third_party', 'packages', 'profiles']) mkdirSync(join(dir, name));
+  for (const name of ['scripts', 'third_party', 'packages', 'profiles', 'bundles']) mkdirSync(join(dir, name));
+  cpSync(join(root, 'bundles/dsh-web'), join(dir, 'bundles/dsh-web'), { recursive: true });
   symlinkSync(join(root, 'third_party/dsh'), join(dir, 'third_party/dsh'), 'dir');
   symlinkSync(join(root, 'node_modules'), join(dir, 'node_modules'), 'dir');
   for (const name of ['kmh.mjs', 'runtime-home.mjs', 'runtime-logs.mjs']) cpSync(join(root, 'scripts', name), join(dir, 'scripts', name));
@@ -62,13 +63,13 @@ test('保存源码保持现有代码，手动构建后 Web 连续热重载并更
     const target = join(dir, 'profiles', name);
     mkdirSync(target);
     const manifest = name === 'kmh-web' ? JSON.parse(readFileSync(join(root, 'profiles/kmh-web/package.json'), 'utf8')) : { name: `@kmh/${name}`, dependencies: {} };
-    manifest.dsh = { profile: { bundles: [] } };
+    manifest.dsh = { profile: { bundles: name === 'kmh-web' ? ['@kmh/bundle-dsh-web'] : [] } };
     delete manifest.dependencies['dsh-context'];
     writeFileSync(join(target, 'package.json'), JSON.stringify(manifest));
     writeFileSync(join(target, 'cordis.yml'), '[]\n');
     writeFileSync(join(target, 'cordis.patch.yml'), name === 'kmh-web' ? readFileSync(join(root, 'profiles/kmh-web/cordis.patch.yml'), 'utf8').replace('port: 3080', `port: ${port}`) : '[]\n');
   }
-  const webRuntime = loadOverlayPatches('test', join(dir, 'profiles/kmh-web/cordis.patch.yml')).flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'web-runtime');
+  const webRuntime = loadOverlayPatches('test', join(dir, 'bundles/dsh-web/cordis.patch.yml')).flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'web-runtime');
   assert.equal(webRuntime.config.openBrowser.__jsExpr, 'ctx.webStartup.openBrowser', 'Web 配置必须接收 --no-open 的启动值');
   const echoSource = join(dir, 'packages/kmh-echo/src/index.ts');
   const echo = readFileSync(echoSource, 'utf8');
