@@ -32,7 +32,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 
 ### 工具选择
 
-可选的 `@deepseek-ai/dsh-harness-cli-tools-selector` 层通过 Web profile 接入；启用它需要在 profile 清单选择该 Bundle，并使用包含共享 CLI 工具服务的 DSH 版本。Codex 详情显示 KMH 与原生两列，按实际名称排序，各自全选和逐项切换，列表支持内部滚动与折叠。可视化编辑通过共享 Settings 写入 Codex 条目的 `config.toolSelection`。关闭选择器后，Codex 继续执行保存的策略。
+工具选择由本包自行管理：profile Config 的 `toolSelection` 记录 KMH（harness）与原生（native）两列的逐项开关；本包读取该配置，在拉起官方 CLI 时只把选中的 KMH 工具交给 Codex，原生工具按选择经 `-c` 隔离参数注入。Codex 详情卡片当前展示原生技能开关并写回 `/api/codex-cli/config`；完整开关清单的可视化由独立的 `cli-tools-selector` 插件提供（优先适配本包），为后续工作。KMH 工具按名称识别：公开工具注册表不暴露插件来源，新写入的 harness 行 `source` 固定为 `harness`，旧配置中的其他来源 id 按名称回退匹配。
 
 首次使用会把已有 `codex-settings.json` 粗粒度工具选择导入 profile Config；原生技能保留原来的独立设置。新增工具默认关闭，暂时移除的工具保留已保存身份。工具开关仅对普通新建会话生效，已有会话保留创建时选择。准备失败或版本冲突明确报错；修正运行条件后可重试原会话，调整工具选择后普通新建会话。
 
@@ -92,7 +92,7 @@ Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.1
 
 本节解释该包如何实现上述行为；可观察约定已在[使用本包](#use-this-package)中说明。
 
-数据流：Codex 在现有 `agent/created` 通知中保存创建时的工具选择、来源和完整声明，首条消息前也保留这份记录。只有选中的 Harness 工具进入请求；同一快照控制直接、桥接和嵌套调用。`cli-tools/turn-prepared` 记录已接受声明，`cli-tools/tool-observed` 记录原生或已禁用调用的来源及结果。默认选择修改后，已有会话继续读取自己的记录；普通新建会话读取新默认。`session-store.ts` 保存原工具、Codex 编号、消息处理位置和原生回合切点，收到编号后先保存再发送业务输入。记录损坏、原会话缺失或原工具信息缺失时明确报错并保留原记录。
+数据流：Codex 在现有 `agent/created` 通知中保存创建时的工具选择、来源和完整声明，首条消息前也保留这份记录。只有选中的 Harness 工具进入请求：适配器发起请求时按会话快照准备本回合策略（`tool-policy.ts` 的 `prepare`），过滤 `options.tools` 后再交给 Codex；同一快照经公开的 `tools.guard` 控制直接、桥接和嵌套调用，参数漂移或未选中的调用返回 `TOOL_DISABLED`。默认选择修改后，已有会话继续读取自己的记录；普通新建会话读取新默认。`session-store.ts` 保存原工具、Codex 编号、消息处理位置和原生回合切点，收到编号后先保存再发送业务输入。记录损坏、原会话缺失或原工具信息缺失时明确报错并保留原记录。
 
 隔离在进程启动时经 `-c` 参数和按策略生成的模型目录注入。`0.162.0-alpha.17.2` 的 `exec_command`、`write_stdin`、`shell_command` 共用命令控制并联动；`apply_patch`、`view_image` 独立调整。`update_plan` 保持 CLI 固定状态，`web_search` 和 MCP 保留既有 CLI 控制并显示原因。其他版本的控制显示待核实，准备失败明确返回错误；任务重试使用原会话选择。
 

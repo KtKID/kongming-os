@@ -4,7 +4,7 @@ kongming-os 用于构建可组合的 Agent 运行环境，当前应用层沿用 
 
 ## 当前依赖状态
 
-当前 Codex CLI 与 Web Bundle 依赖 DSH 的 `cli-tools` 扩展，固定子模块提交尚缺该包。完整安装、构建与启动验收需要包含该扩展的 DSH 版本；以下流程列出依赖齐备后的安装入口。当前 KMH 的启动、配置与维护说明见 [底座接入](docs/kmh/README.md)。
+Codex CLI 与 Web Bundle 只依赖固定子模块提交中的 DSH 公开包，不需要额外的 DSH 扩展；Codex 工具开关由 `@kmh/codex-cli` 自行读取配置并在拉起官方 CLI 时过滤工具。当前 KMH 的启动、配置与维护说明见 [底座接入](docs/kmh/README.md)。
 
 ## 安装与启动
 
@@ -22,6 +22,8 @@ pnpm web
 ```
 
 `cli` 使用 DSH 的一次性 headless 任务入口，`web` 使用 DSH 自带 Web，`sdk` 使用 DSH JSON-RPC 入口。模型凭据可放在忽略的 `.env` 中，也可通过环境变量提供；DSH 官方模型使用 `DEEPSEEK_API_KEY`。自有客户端插件通过 `./client` 导出接入 DSH Web，当前能力见[插件索引](docs/kmh/plugin-index.md)。
+
+`pnpm run setup` 在 Git 子模块布局下会停在 DSH 根 `postinstall` 的 lefthook 安装（报 `core.worktree` 与 `extensions.worktreeConfig` 冲突）；此时依赖已装齐，lefthook 只是 DSH 自己的 Git 钩子。在 `third_party/dsh` 内运行 `pnpm install --frozen-lockfile --ignore-scripts` 补齐安装状态后继续 `pnpm run build`。Web profile 清单里的注册表 Bundle（如 `dsh-context`）由 `pnpm dsh plugin --profile kmh-web install` 安装到 `profiles/kmh-web/node_modules`，缺失时启动日志报 `cannot resolve profile bundle`。
 
 ## 目录归属
 

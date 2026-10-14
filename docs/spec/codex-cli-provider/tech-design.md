@@ -208,7 +208,7 @@ spec 路径：`docs/spec/codex-cli-provider/spec.md`；SHA-256：`edcb81f838d0c9
 | R6 具名配置 | 适用，沿用请求/清理超时 | [config.ts](../../../packages/codex-cli/src/config.ts) | 既有毫秒配置、默认值与使用位置沿用；删除文本截断，相关类型和包测试待运行 |
 | R7 异步和恢复 | 适用，保存、请求和重启有先后顺序 | [新建与恢复](#session-resume)、[失败处理](#recovery-failure) | 原有 `withSession` 排队、回收和写入串行；保存失败、冷启动测试待运行 |
 | 项目类型与公开接口 | 适用，自有插件接入 | [KMH AGENTS](../../../AGENTS.md)、[配置编辑](#selector-edit) | 严格类型、跨调用 ID 使用品牌类型、注册用 effect/on，包检查待实施 |
-| 模型输入与日志 | 适用，工具影响请求 | [工具执行](#tools-execute) | 现有 `cli-tools/turn-prepared` 记录实际提供工具，日志回放核对待实施 |
+| 模型输入与日志 | 适用，工具影响请求 | [工具执行](#tools-execute) | 实际提供的工具由适配器按会话快照过滤后进入 Codex 请求，日志回放核对待实施 |
 | 持久字段与文档 | 适用，保存字段和生效提示变化 | [保存记录](#binding-data)、[配置编辑](#selector-edit) | 字段变更补持久类型及升级说明，README/JSDoc 同步，客户端提示走本地化；待实施 |
 
 本轮 `python3` 文档检查通过：spec 基线一致，8 个设计编号和 10 个测试编号保留，27 个定位唯一，40 个内部链接和 12 个文件链接有效；`git diff --no-index --check` 无格式错误。技术建议已确认；本轮业务测试结果由新任务的开发报告记录。实现后按相关源码改动运行包测试、类型检查、真实恢复请求与 UI 提示检查，分别记录实际结果。
