@@ -92,12 +92,13 @@ export interface SavedInventoryEntry {
 }
 
 /**
- * 判定一行是否开启：固定行取其实际状态；其余按保存的身份查找，缺省关闭。
+ * 判定一行是否开启：固定行取其实际状态；其余按保存的身份查找。
  * Harness 侧的公开注册表不暴露插件来源，身份未命中时按名称回退，
- * 以兼容带旧来源 id 的已保存配置。
+ * 以兼容带旧来源 id 的已保存配置；名称也未出现时默认开启——导入只能
+ * 看到当时可见的工具，缺行不能关掉既有 KMH 工具。原生行缺省关闭。
  * @param value 已接受的 toolSelection。
  * @param row 实际目录行。
- * @returns 保存的选择或固定行的实际状态。
+ * @returns 保存的选择、固定行的实际状态或该侧的缺省值。
  */
 export function choiceEnabled(
   value: ReadonlyToolSelection,
@@ -110,5 +111,5 @@ export function choiceEnabled(
   );
   if (exact !== undefined) return exact.enabled;
   if (row.side !== "harness") return false;
-  return rows.find((item) => item.name === row.name)?.enabled ?? false;
+  return rows.find((item) => item.name === row.name)?.enabled ?? true;
 }

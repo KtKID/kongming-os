@@ -11,7 +11,8 @@
     "src/client/**/*.ts",
     "src/client/**/*.tsx",
     "src/account-status.ts",
-    "src/live-state.ts"
+    "src/live-state.ts",
+    "src/tool-switches.ts"
   ],
   "exclude": []
 }

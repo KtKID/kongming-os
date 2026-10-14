@@ -19,6 +19,8 @@
         command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
         cwd: !!js process.cwd()
         dataDir: !!js dshHomePath('codex-cli')
+    - id: kmh-cli-tools-selector
+      name: '@kmh/cli-tools-selector'
     - id: kmh-team
       name: '@kmh/kmh-team'
       config:
@@ -34,7 +36,7 @@
   name: '@deepseek-ai/dsh-host-webserver'
   config:
     host: 127.0.0.1
-    port: 3080
+    port: 60000
     compression: gzip
     compressionLevel: 1
     compressionThresholdBytes: 1024
@@ -45,8 +47,8 @@
 - id: agent-default-model
   name: "@deepseek-ai/dsh-agent-default-model"
   config:
-    provider: zcode-cli
-    model: glm-5.3-flash
+    provider: codex-cli
+    model: gpt-5.6-luna
     reasoningEffort: high
 - id: subagent-model-selection-settings
   name: "@deepseek-ai/dsh-tool-subagent/model-selection-settings"
@@ -67,3 +69,358 @@
   name: "@deepseek-ai/dsh-client-ui-theme"
   config:
     preference: dark
+- id: kmh-codex-cli
+  name: "@kmh/codex-cli"
+  config:
+    command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
+    cwd: !!js process.cwd()
+    dataDir: !!js dshHomePath('codex-cli')
+    toolSelection:
+      version: 1
+      harness:
+        - source: harness
+          name: kmh-list_mcp_resources
+          enabled: true
+        - source: harness
+          name: kmh-list_mcp_resource_templates
+          enabled: true
+        - source: harness
+          name: kmh-read_mcp_resource
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__list_apps
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__list_windows
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_window_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__verify_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__launch_app
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__kill_app
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__bring_to_front
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__set_window_frame
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__invoke_menu
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__click
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__double_click
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__right_click
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__drag
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__type_text
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__press_key
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__hotkey
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__set_value
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__scroll
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__clipboard_read
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__clipboard_write
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_screen_size
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_desktop_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_cursor_position
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__move_cursor
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__set_agent_cursor_enabled
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__set_agent_cursor_motion
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__set_agent_cursor_theme
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_agent_cursor_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__check_permissions
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__health_report
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_config
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__set_config
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_accessibility_tree
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__zoom
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__page
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_browser_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_prepare
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_navigate
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_click
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_type
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_dialog
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_set_input_files
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_download
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__browser_pointer
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__start_recording
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__stop_recording
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_recording_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__replay_trajectory
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__install_ffmpeg
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__start_session
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__escalate_session
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_session
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__list_sessions
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__get_session_state
+          enabled: true
+        - source: harness
+          name: kmh-cua_driver_native__end_session
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__list_users
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__list_groups
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__get_acl
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__set_acl
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__find
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__search
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__read
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__list
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__tree
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__remember
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__write
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__edit
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__add_resource
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__add_skill
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__list_watches
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__cancel_watch
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__grep
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__glob
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__forget
+          enabled: true
+        - source: harness
+          name: kmh-mcp__openviking__health
+          enabled: true
+        - source: harness
+          name: kmh-kmh_team_create_role
+          enabled: true
+        - source: harness
+          name: kmh-read
+          enabled: true
+        - source: harness
+          name: kmh-write
+          enabled: true
+        - source: harness
+          name: kmh-edit
+          enabled: true
+        - source: harness
+          name: kmh-glob
+          enabled: true
+        - source: harness
+          name: kmh-grep
+          enabled: true
+        - source: harness
+          name: kmh-job_output
+          enabled: true
+        - source: harness
+          name: kmh-job_list
+          enabled: true
+        - source: harness
+          name: kmh-job_kill
+          enabled: true
+        - source: harness
+          name: kmh-skill
+          enabled: true
+        - source: harness
+          name: kmh-web_search
+          enabled: true
+        - source: harness
+          name: kmh-web_fetch
+          enabled: true
+        - source: harness
+          name: kmh-present
+          enabled: true
+        - source: harness
+          name: kmh-bash
+          enabled: true
+        - source: harness
+          name: kmh-read_image
+          enabled: true
+        - source: harness
+          name: kmh-send_message
+          enabled: true
+        - source: harness
+          name: kmh-interrupt_agent
+          enabled: true
+        - source: harness
+          name: kmh-list_agents
+          enabled: true
+        - source: harness
+          name: kmh-todo_write
+          enabled: true
+        - source: harness
+          name: kmh-workflow
+          enabled: true
+        - source: harness
+          name: kmh-get_goal
+          enabled: true
+        - source: harness
+          name: kmh-create_goal
+          enabled: true
+        - source: harness
+          name: kmh-update_goal
+          enabled: true
+        - source: harness
+          name: kmh-ask_user_question
+          enabled: true
+        - source: harness
+          name: kmh-exit_plan_mode
+          enabled: true
+        - source: harness
+          name: kmh-subagent_fork
+          enabled: true
+        - source: harness
+          name: kmh-schedule_create
+          enabled: true
+        - source: harness
+          name: kmh-schedule_list
+          enabled: true
+        - source: harness
+          name: kmh-schedule_delete
+          enabled: true
+        - source: harness
+          name: kmh-schedule_update
+          enabled: true
+        - source: harness
+          name: kmh-list_subagent_models
+          enabled: true
+        - source: harness
+          name: kmh-subagent
+          enabled: true
+      native:
+        - source: codex/native
+          name: exec_command
+          enabled: false
+        - source: codex/native
+          name: write_stdin
+          enabled: false
+        - source: codex/native
+          name: shell_command
+          enabled: false
+        - source: codex/native
+          name: apply_patch
+          enabled: false
+        - source: codex/native
+          name: view_image
+          enabled: false

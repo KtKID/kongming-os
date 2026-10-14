@@ -5,6 +5,7 @@
     "@deepseek-ai/dsh-computer-use": "link:../../third_party/dsh/packages/computer-use/computer-use",
     "@deepseek-ai/dsh-experimental-computer-use-cua-driver-native": "link:../../third_party/dsh/packages/experimental/computer-use-cua-driver-native",
     "@kmh/codex-cli": "link:../../packages/codex-cli",
+    "@kmh/cli-tools-selector": "link:../../packages/cli-tools-selector",
     "@kmh/dev-preset": "link:../../packages/kmh-dev-preset",
     "@kmh/kmh-echo": "link:../../packages/kmh-echo",
     "@kmh/runtime-log": "link:../../packages/runtime-log",

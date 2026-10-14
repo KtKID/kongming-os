@@ -8,6 +8,8 @@ import { addAbortListener } from "node:events";
 import type { SessionLiveState } from "./live-state.ts";
 export type { SessionLiveState } from "./live-state.ts";
 import { CodexToolPolicy } from "./tool-policy.ts";
+import { applyToolSwitch, listToolSwitches } from "./tool-switches-service.ts";
+import type { ToolSwitchList, ToolSwitchUpdate } from "./tool-switches.ts";
 import { CodexAccount } from "./account.ts";
 import { mountWeb } from "./web.ts";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
@@ -126,6 +128,17 @@ export class CodexCli extends Service {
       },
       "codex-cli: sessions",
     );
+  }
+  /** 本插件自报的工具开关清单；refresh 时重新发现原生目录（详情页选择器读取）。 */
+  toolSwitches(signal: AbortSignal, refresh = false): Promise<ToolSwitchList> {
+    return listToolSwitches(this, this.ctx, signal, refresh);
+  }
+  /** 切换一个开关并带修订号写入 profile 配置，返回新清单；只对普通新建会话生效。 */
+  setToolSwitch(
+    update: ToolSwitchUpdate,
+    signal: AbortSignal,
+  ): Promise<ToolSwitchList> {
+    return applyToolSwitch(this, this.ctx, update, signal);
   }
   /** 保存逐项选择：原子落盘后立即生效于下一回合（进行中回合不受影响）。 */
   async saveSelection(selection: NativeSelection): Promise<void> {

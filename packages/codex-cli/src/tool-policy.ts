@@ -204,6 +204,10 @@ export class CodexToolPolicy {
         (row) =>
           row.source === "codex/native" && row.name === name && row.enabled,
       );
+    // web_search 行由首次导入或详情页切换写入；旧配置尚无该行时沿用旧设置。
+    const webSearchRow = current.native.find(
+      (row) => row.source === "codex/native" && row.name === "web_search",
+    );
     const snapshot = SavedToolPolicySchema.parse({
       version: 1,
       target: this.targetId,
@@ -213,7 +217,10 @@ export class CodexToolPolicy {
         commandExecution: enabled("exec_command"),
         fileChange: enabled("apply_patch"),
         viewImage: enabled("view_image"),
-        webSearch: this.runtime.settings.selection.webSearch,
+        webSearch:
+          webSearchRow === undefined
+            ? this.runtime.settings.selection.webSearch
+            : webSearchRow.enabled,
       },
     });
     signal.throwIfAborted();
@@ -243,6 +250,22 @@ export class CodexToolPolicy {
         error instanceof Error ? error.message : String(error);
     }
     const saved = this.runtime.config.toolSelection.get();
+    // 已保存但当前任何视图都不可见的行（如插件已禁用）仍列出，选择保留。
+    if (saved !== undefined)
+      for (const item of saved.harness)
+        if (
+          !rows.some((row) => row.side === "harness" && row.name === item.name)
+        )
+          rows.push({
+            side: "harness",
+            source: ToolSourceId(item.source),
+            name: item.name,
+            registryName: item.name.startsWith(KMH_TOOL_PREFIX)
+              ? item.name.slice(KMH_TOOL_PREFIX.length)
+              : item.name,
+            description: "",
+            control: { kind: "adjustable" },
+          });
     if (native.diagnostic !== undefined && saved !== undefined) {
       for (const item of saved.native) {
         if (
@@ -270,17 +293,29 @@ export class CodexToolPolicy {
     };
   }
 
-  /** 公开注册表只投影模型侧 schema，不含插件来源，Harness 行统一记为 harness。 */
+  /**
+   * 公开注册表只投影模型侧 schema，不含插件来源，Harness 行统一记为 harness。
+   * 预设内的工具只在 agent 视图可见：无 agent 时合并全局视图与所有活动 agent 的视图。
+   */
   private harnessRows(agent?: Agent): CliToolRow[] {
-    return this.ctx.tools.schemas(agent).map((schema) => ({
-      side: "harness",
-      source: ToolSourceId("harness"),
-      name: KMH_TOOL_PREFIX + schema.name,
-      registryName: schema.name,
-      description: schema.description,
-      schema,
-      control: { kind: "adjustable" },
-    }));
+    const scopes: (Agent | undefined)[] =
+      agent === undefined
+        ? [undefined, ...(this.ctx.get("agents")?.list() ?? [])]
+        : [agent];
+    const rows = new Map<string, CliToolRow>();
+    for (const scope of scopes)
+      for (const schema of this.ctx.tools.schemas(scope))
+        if (!rows.has(schema.name))
+          rows.set(schema.name, {
+            side: "harness",
+            source: ToolSourceId("harness"),
+            name: KMH_TOOL_PREFIX + schema.name,
+            registryName: schema.name,
+            description: schema.description,
+            schema,
+            control: { kind: "adjustable" },
+          });
+    return [...rows.values()];
   }
 
   /** 创建时该 Agent 可见的 Harness 工具快照。 */

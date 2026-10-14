@@ -18,6 +18,10 @@
       "default": "./lib/src/index.js"
     },
     "./package.json": "./package.json",
+    "./tool-switches": {
+      "types": "./lib/src/tool-switches.d.ts",
+      "default": "./lib/src/tool-switches.js"
+    },
     "./client": {
       "types": "./lib/browser-types/src/client/index.d.ts",
       "default": "./lib/client.js"

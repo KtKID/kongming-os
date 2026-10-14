@@ -72,7 +72,7 @@ export async function discoverNativeTools(ctx: Context, config: Config, legacy: 
     const name = item.name ?? item.type;
     const control = name === 'exec_command' || name === 'write_stdin'
       ? { kind: 'linked' as const, group: 'command-execution' }
-      : name === 'apply_patch' || name === 'view_image'
+      : name === 'apply_patch' || name === 'view_image' || name === 'web_search'
         ? { kind: 'adjustable' as const }
         : { kind: 'fixed' as const, enabled: legacy.webSearch, reason: 'Provider-side execution control is unverified; the existing choice is retained.' };
     const captured = z.json().parse(item);

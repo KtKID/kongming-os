@@ -35,6 +35,58 @@ importers:
 
   bundles/mobile-assistant: {}
 
+  packages/cli-tools-selector:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.6.5
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../third_party/dsh/vendor/cordis
+        version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../third_party/dsh/packages/client/connection
+        version: link:../../third_party/dsh/packages/client/connection
+      '@deepseek-ai/dsh-client-locale':
+        specifier: link:../../third_party/dsh/packages/client/locale
+        version: link:../../third_party/dsh/packages/client/locale
+      '@deepseek-ai/dsh-client-ui-plugin-manager':
+        specifier: link:../../third_party/dsh/packages/client/ui-plugin-manager
+        version: link:../../third_party/dsh/packages/client/ui-plugin-manager
+      '@deepseek-ai/dsh-client-ui-primitives':
+        specifier: link:../../third_party/dsh/packages/client/ui-primitives
+        version: link:../../third_party/dsh/packages/client/ui-primitives
+      '@deepseek-ai/dsh-client-ui-renderer':
+        specifier: link:../../third_party/dsh/packages/client/ui-renderer
+        version: link:../../third_party/dsh/packages/client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: link:../../third_party/dsh/packages/client/ui-slots
+        version: link:../../third_party/dsh/packages/client/ui-slots
+      '@kmh/codex-cli':
+        specifier: link:../codex-cli
+        version: link:../codex-cli
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.5
+      '@types/react':
+        specifier: ^18.3.31
+        version: 18.3.31
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.2
+      eslint:
+        specifier: ^9.39.2
+        version: 9.39.5
+      prettier:
+        specifier: ^3.6.2
+        version: 3.9.9
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/codex-cli:
     dependencies:
       zod:
