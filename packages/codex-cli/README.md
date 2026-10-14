@@ -32,7 +32,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 
 ### 工具选择
 
-`kmh-web` 加入可选的 `@deepseek-ai/dsh-harness-cli-tools-selector` 层。Codex 详情显示 KMH 与原生两列，按实际名称排序，各自全选和逐项切换，列表支持内部滚动与折叠。可视化编辑通过共享 Settings 写入 Codex 条目的 `config.toolSelection`。关闭选择器后，Codex 继续执行保存的策略。
+可选的 `@deepseek-ai/dsh-harness-cli-tools-selector` 层通过 Web profile 接入；启用它需要在 profile 清单选择该 Bundle，并使用包含共享 CLI 工具服务的 DSH 版本。Codex 详情显示 KMH 与原生两列，按实际名称排序，各自全选和逐项切换，列表支持内部滚动与折叠。可视化编辑通过共享 Settings 写入 Codex 条目的 `config.toolSelection`。关闭选择器后，Codex 继续执行保存的策略。
 
 首次使用会把已有 `codex-settings.json` 粗粒度工具选择导入 profile Config；原生技能保留原来的独立设置。新增工具默认关闭，暂时移除的工具保留已保存身份。工具开关仅对普通新建会话生效，已有会话保留创建时选择。准备失败或版本冲突明确报错；修正运行条件后可重试原会话，调整工具选择后普通新建会话。
 

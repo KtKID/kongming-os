@@ -2,15 +2,15 @@
 
 完整插件的功能分组、通用与 GUI/Web 作用域见 [插件索引](../../docs/kmh/plugin-index.md)，应用启动与维护归属见 [当前架构](../../docs/architecture/kongming-runtime.md)。
 
-运行 `pnpm web` 启动，运行 `pnpm config:web` 查看最终合成配置。根目录 `launch.config.json` 的 `profiles.web` 选择此 profile；本目录 `cordis.patch.yml` 完整列出 base、Web 应用、standard/PTC/minimal/Cordis 四个预设及 Kongming persona。
+运行 `pnpm web` 启动，运行 `pnpm config:web` 查看最终合成配置。根目录 `launch.config.json` 的 `profiles.web` 选择此 profile；[DSH Web Bundle](../../bundles/dsh-web/README.md)提供基础插件树，本目录 `cordis.patch.yml` 管理 KMH 自有插件和部署覆盖。
 
 Web 使用已有构建产物，修改插件源码后手动构建；新产物通过 [Web 插件热更新](../../docs/kmh/README.md#web-插件热更新) 应用。HMR 的代码目录由启动器提供，配置文件继续由现有 profile 监听应用。
 
-[package.json](package.json) 的 `dsh.profile.bundles` 按顺序选择附加 bundle：`@kmh/dev-preset`、`@deepseek-ai/dsh-experimental-inspector-profile` 与 `dsh-context`。开发预设由[本地 bundle 配置](../../packages/kmh-dev-preset/cordis.patch.yml)提供，Inspector 与 dsh-context 分别由清单所选包提供；随后应用 `cordis.patch.yml` 的基础插件树与覆盖，再应用 home 和调用级 patch。此文件中的 `!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在完整配置中添加插件实例。
+[package.json](package.json) 的 `dsh.profile.bundles` 按顺序选择 `@kmh/dev-preset`、`@deepseek-ai/dsh-experimental-inspector-profile`、`dsh-context` 和 `@kmh/bundle-dsh-web`。开发预设由[本地 bundle 配置](../../packages/kmh-dev-preset/cordis.patch.yml)提供，Inspector 与 dsh-context 分别由清单所选包提供；DSH 插件与四个基础预设由 [DSH Web Bundle 配置](../../bundles/dsh-web/cordis.patch.yml)提供。随后应用本目录 patch，再应用 home 和调用级 patch。`!!js` 保留运行时服务引用，DSH 负责插件实现和依赖解析。新增 Kongming 插件时，在此 profile 的 dependencies 声明包，再在本目录 patch 中添加插件实例。
 
 ## 计算机操作
 
-此 profile 启用 `@deepseek-ai/dsh-computer-use` 与 `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native`。两项依赖通过 `link:` 指向 DSH 子模块中的包；启动器在启动前建立本地包链接。依赖声明和 `cordis.patch.yml` 中的插件条目共同组成接入配置，原生提供方注册 `cua_driver_native__` 前缀的工具。
+此 profile 启用 `@deepseek-ai/dsh-computer-use` 与 `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native`。两项依赖通过 `link:` 指向 DSH 子模块中的包；启动器在启动前建立本地包链接。profile 的依赖声明和 DSH Web Bundle 中的插件条目共同组成接入配置，原生提供方注册 `cua_driver_native__` 前缀的工具。
 
 原生驱动随 npm 依赖安装，安装时保持 optional dependencies 启用，并向启动 Web 的宿主应用授予 macOS 辅助功能与屏幕录制权限。截图传给模型还要求模型声明图像输入能力。运行条件与限制见 [原生驱动说明](../../third_party/dsh/packages/experimental/computer-use-cua-driver-native/README.md)。
 
@@ -18,7 +18,7 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 
 ## 启动设置
 
-直接修改完整配置中的条目，profile HMR 会应用保存后的设置：
+直接修改本目录 patch 的部署覆盖项，profile HMR 会应用保存后的设置：
 
 ```yaml
 - id: webserver
@@ -31,7 +31,7 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
     compressionThresholdBytes: 1024
 ```
 
-`webserver.config.port` 控制监听端口，`host` 支持 `127.0.0.1` 和 `0.0.0.0`。`web-runtime.config.openBrowser` 默认引用 `ctx.webStartup.openBrowser`，运行 `node scripts/kmh.mjs web --no-open` 会在本次启动关闭浏览器交接；`printUrl` 控制输出地址，`surfaceContext` 控制模型的 Web 环境信息，`trustedHosts` 声明受信任的访问域名。需要公布域名时，在 `web-runtime.config` 添加 `publicUrl: https://example.com/`。日常修改文件内的部署字段并运行 `pnpm web`。
+`webserver.config.port` 控制监听端口，`host` 支持 `127.0.0.1` 和 `0.0.0.0`。Bundle 中的 `web-runtime.config.openBrowser` 默认引用 `ctx.webStartup.openBrowser`，运行 `node scripts/kmh.mjs web --no-open` 会在本次启动关闭浏览器交接；`printUrl` 控制输出地址，`surfaceContext` 控制模型的 Web 环境信息，`trustedHosts` 声明受信任的访问域名。需要部署覆盖时，在本目录 patch 添加 `web-runtime` 条目并写出完整 `config`，保留原有字段，再添加 `publicUrl: https://example.com/` 等部署值。
 
 ## 插件实例与可配置字段
 
@@ -44,12 +44,12 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 
 `id` 是插件实例的定位标识，后续 patch 通过它选择条目；`name` 是 DSH 加载的插件包名。编辑 `config` 设置插件公开的配置；保留上述 `id` 和 `name` 可继续使用官方对应的 patch 和实现。
 
-此插件当前的完整配置定义只有 `welcomeNoticeVersion`，表示已经确认的欢迎提示版本，浏览器确认提示时会保存它。完整字段定义见 [ui-settings-general 源码](../../third_party/dsh/packages/client/ui-settings-general/src/index.ts)。其他插件分别在自己的源码中声明 `Config`；完整配置列出所有已组合的插件及配置，源码声明可选字段和默认值。
+此插件当前的完整配置定义只有 `welcomeNoticeVersion`，表示已经确认的欢迎提示版本，浏览器确认提示时会保存它。完整字段定义见 [ui-settings-general 源码](../../third_party/dsh/packages/client/ui-settings-general/src/index.ts)。其他插件分别在自己的源码中声明 `Config`；DSH Web Bundle 保存基础插件配置，本目录 patch 保存部署覆盖，源码声明可选字段和默认值。
 
 配置树通过 `pnpm config:web` 查看，精确字段与默认值以对应插件源码的 `Config` 为准；插件激活状态结合插件面板与运行日志核对。
 
 ## 原版对照与升级
 
-[upstream.cordis.yml](upstream.cordis.yml) 保存固定 DSH 版本的原版 Web 完整配置，包含 base 与 Web bundle 的全部配置和四个预设；用于查阅和升级比较。实际启动使用 [cordis.patch.yml](cordis.patch.yml)。Kongming persona 和欢迎版本已直接写入实际配置，后续 Web 修改在此文件管理；headless/SDK 继续通过 `bundles/kongming` 管理共同 persona。
+[upstream.cordis.yml](upstream.cordis.yml) 保存固定 DSH 版本的原版 Web 完整配置，包含 base 与 Web bundle 的全部配置和四个预设，用于查阅和升级比较。实际启动合成清单选择的 Bundles 与 [cordis.patch.yml](cordis.patch.yml)。四个基础预设的 Kongming persona 在 DSH Web Bundle 中管理，欢迎版本由本目录 patch 覆盖；headless/SDK 通过 `bundles/kongming` 管理共同 persona。
 
-更新 DSH 子模块后，导出新版原配置，与 `upstream.cordis.yml` 比较，再把需要的变化合入实际配置并执行 `pnpm test` 与 Web 启动检查。保留完整 profile 使上游配置变化经过 Kongming 的明确审查。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 patch 仍按 DSH 的顺序在此配置后应用。
+更新 DSH 子模块后，导出新版原配置，与 `upstream.cordis.yml` 比较，再把选定变化合入 DSH Web Bundle，并核对本目录的覆盖项。执行 `pnpm test` 与 Web 启动检查。Bundle 的配置由 Kongming 维护，上游配置变化经过明确审查；修改其 patch 后重新启动 Web。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 patch 按 DSH 的顺序在 profile 配置后应用。

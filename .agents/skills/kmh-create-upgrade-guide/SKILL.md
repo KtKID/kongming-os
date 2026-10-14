@@ -1,6 +1,6 @@
 ---
 name: kmh-create-upgrade-guide
-description: 当 Kongming 层改动破坏外部可感知面——launch.config.json 的键与语义、profiles/*/cordis.patch.yml 与 bundles/*/cordis.patch.yml 的键、KMH_HOME 与启动器转发行为、packages/kmh-* 插件入口与导出、.publish/include.txt 白名单语义——或改动某条升级说明已覆盖的面时使用：把迁移说明写入 docs/kmh/README.md 的"版本升级"节（或该节链接的专门文档）。
+description: 当 Kongming 层改动破坏外部可感知面——launch.config.json 的键与语义、profiles/*/cordis.patch.yml 与 bundles/*/cordis.patch.yml 的键、KMH_HOME 与启动器转发行为、packages/kmh-* 插件入口与导出——或改动某条升级说明已覆盖的面时使用：把迁移说明写入 docs/kmh/README.md 的"版本升级"节（或该节链接的专门文档）。
 ---
 
 # KMH 升级影响面说明
@@ -16,7 +16,6 @@ description: 当 Kongming 层改动破坏外部可感知面——launch.config.j
 - `bundles/*/cordis.patch.yml` 的键与叠加顺序；
 - `KMH_HOME` 的含义，以及启动器的转发行为（调用者工作目录、模型凭据、真实退出状态）；
 - `packages/kmh-*` 插件的包名、入口与导出；
-- `.publish/include.txt` 白名单的语义（哪些路径进入公开发布）。
 
 内部 API 的所有消费方都在同一次改动内更新的，不需要说明。
 
@@ -24,7 +23,7 @@ description: 当 Kongming 层改动破坏外部可感知面——launch.config.j
 
 子模块面的破坏性变更——`cordis.yml`、settings 键、持久化数据、SDK 与 wire API、发布包入口——由 DSH 子模块自己的升级指南机制负责，参照子模块原技能 [dsh-create-upgrade-guide](../../../third_party/dsh/.agents/skills/dsh-create-upgrade-guide/SKILL.md)；本技能不重复其范围。
 
-本技能只回答一个问题：子模块升级传导到 KMH 层时，Kongming 的配置、文档与发布白名单需要跟着什么变。典型传导是 Web 配置：升级时导出新版 DSH Web 配置，与 `profiles/kmh-web/upstream.cordis.yml` 比较，再审查并合入实际 profile；子模块指针升级与检查流程见 [docs/kmh/README.md 的"版本升级"节](../../../docs/kmh/README.md#版本升级)。
+本技能只回答一个问题：子模块升级传导到 KMH 层时，Kongming 的配置与文档需要跟着什么变。典型传导是 Web 配置：升级时导出新版 DSH Web 配置，与 `profiles/kmh-web/upstream.cordis.yml` 比较，再审查并合入 DSH Web Bundle，核对 profile 的部署覆盖；子模块指针升级与检查流程见 [docs/kmh/README.md 的"版本升级"节](../../../docs/kmh/README.md#版本升级)。
 
 ## 落点
 

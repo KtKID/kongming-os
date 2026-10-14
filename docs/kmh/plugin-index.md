@@ -4,7 +4,7 @@ description: 当前 Kongming 插件、自有客户端模块、预设与 DSH 能�
 
 # Kongming 插件索引
 
-Kongming 的 Web 基础插件树由 [profile patch](../../profiles/kmh-web/cordis.patch.yml)管理，附加 bundle 由 [profile 清单](../../profiles/kmh-web/package.json)选择。`pnpm config:web` 展示合成配置；实例是否激活还受依赖、平台条件和预设选择影响，可结合插件面板与[运行日志](runtime-records.md)核对。
+Kongming 的 Web DSH 基础插件树由 [DSH Web Bundle](../../bundles/dsh-web/README.md)管理，KMH 自有插件与部署覆盖由 [profile patch](../../profiles/kmh-web/cordis.patch.yml)管理，Bundle 组合由 [profile 清单](../../profiles/kmh-web/package.json)选择。`pnpm config:web` 展示合成配置；实例是否激活还受依赖、平台条件和预设选择影响，可结合插件面板与[运行日志](runtime-records.md)核对。
 
 当前自有团队能力由 [`@kmh/kmh-team`](../../packages/kmh-team/README.md) 提供，Web profile 声明依赖并挂载 Host/Client；成员执行复用 subagent 的 spawn 服务。
 
@@ -46,6 +46,6 @@ Codex、ZCode 和团队包各自包含客户端源码，并通过 `./client` 导
 
 ## 配置与作用域
 
-standard、ptc、minimal、cordis 的基础预设位于 Web profile patch；开发预设由 `@kmh/dev-preset` bundle 提供。修改 Agent 的 persona、工具或权限时，在对应预设的子插件树内定位实例；同一插件包可在宿主和多个预设中分别加载。
+standard、ptc、minimal、cordis 的基础预设位于 DSH Web Bundle；开发预设由 `@kmh/dev-preset` Bundle 提供。修改 Agent 的 persona、工具或权限时，在对应预设的子插件树内定位实例；同一插件包可在宿主和多个预设中分别加载。
 
 实际 bundle 选择和覆盖顺序见 [Web 配置](../../profiles/kmh-web/README.md)，精确字段见 [DSH 配置目录](../../third_party/dsh/docs/config-catalog.zh.md)及各包 `Config`。升级 DSH 时同时核对 profile 依赖、附加 bundle 和原版配置对照，流程见[底座升级](README.md#版本升级)。

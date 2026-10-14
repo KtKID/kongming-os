@@ -5,7 +5,7 @@ description: 在 push、force-push、把改动标记为 ready 或声称检查通
 
 # KMH Push 前检查
 
-在向 private-main 推送之前，用本技能收集一次与改动相关的本地证据。Git 钩子刻意保持精简：pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前 Node 启动测试。钩子之外没有普适的本地全量基线，更广的覆盖不会因 push 而自动发生。
+在向 kongming-os 的 main 推送之前，用本技能收集一次与改动相关的本地证据。Git 钩子刻意保持精简：pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前 Node 启动测试。钩子之外没有普适的本地全量基线，更广的覆盖不会因 push 而自动发生。
 
 ## 先确认检出与分支
 
@@ -13,13 +13,13 @@ description: 在 push、force-push、把改动标记为 ready 或声称检查通
 git status --short --branch
 ```
 
-确认当前分支、与远端的关系以及未提交改动。Kongming 的推送目标是 private-main。提交遵循 type(scope): 中文 subject（scope 为英文 kebab-case），代码、测试与文档分别提交。
+确认当前分支、与远端的关系以及未提交改动。Kongming 的推送目标是 main。提交遵循 type(scope): 中文 subject（scope 为英文 kebab-case），代码、测试与文档分别提交。
 
-再确认待推送的改动面：取得已验证的基线 ref（通常为 origin/private-main），对照它检查完整改动范围。
+再确认待推送的改动面：取得已验证的基线 ref（通常为 origin/main），对照它检查完整改动范围。
 
 ```sh
-git fetch origin private-main
-git diff --stat origin/private-main...HEAD
+git fetch origin main
+git diff --stat origin/main...HEAD
 ```
 
 合并基线变化后，重新评估合并后的改动面能影响的行为，只重跑被合并作废的检查。
@@ -35,7 +35,7 @@ git diff --stat origin/private-main...HEAD
 | `packages/kmh-*` 插件改动 | `pnpm build` + `pnpm test` |
 | `third_party/dsh` 子模块改动 | 遵循子模块 AGENTS.md 与其自身检查；深入 DSH 时参照子模块原技能 [dsh-pre-push-checks](../../../third_party/dsh/.agents/skills/dsh-pre-push-checks/SKILL.md) |
 | 文档改动 | 链接有效；命令说明与实际执行结果一致 |
-| 涉及公开发布的改动 | 核对 [.publish/include.txt](../../../.publish/include.txt) 白名单；流程见 [.publish/README.md](../../../.publish/README.md) |
+| 涉及公开发布的改动 | 核对 `origin` 指向 `KtKID/kongming-os`、待推送 diff 和凭据／本地数据排除；流程见 [AGENTS.md](../../../AGENTS.md#git-维护) |
 
 改动新增或修改了占用资源、依赖异步时序的测试、fixture 或辅助脚本时，先用 [kmh-ci-test-reliability](../kmh-ci-test-reliability/SKILL.md) 判断隔离、恢复与清理方面的可靠性证据是否适用；本技能仍负责挑选命令，不重复已经通过的检查。
 
@@ -66,9 +66,9 @@ rebase 允许用于本地分支，包括审查之后。重写已推送分支前�
 
 1. 把所选相关检查跑一次。
 2. 正常提交；pre-commit 拦下暂存格式、代码文档分离或脚本语法问题时，先修复再继续。
-3. push 前用 `git status --short --branch` 再次确认分支与未提交改动，然后 `git push origin private-main` 正常推送，让 pre-push 钩子运行 Node 启动测试；仅对获准重写的分支使用准确 lease。
+3. push 前用 `git status --short --branch` 再次确认分支与未提交改动，然后 `git push origin main` 正常推送，让 pre-push 钩子运行 Node 启动测试；仅对获准重写的分支使用准确 lease。
 4. 核对远端 ref 与本地 HEAD 一致。
 
 ```sh
-git rev-parse HEAD origin/private-main
+git rev-parse HEAD origin/main
 ```

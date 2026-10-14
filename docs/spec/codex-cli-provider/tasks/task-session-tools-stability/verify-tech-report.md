@@ -1,9 +1,11 @@
 # 技术验收 · 会话新建与复用
 
+> 本文保存原仓的开发与验收记录。原始日志和临时证据位于原执行环境；其中的通过结果归属该次运行。OS 当前固定底座的依赖状态见 [仓库入口](../../../../../README.md#当前依赖状态)。
+
 - 项目与范围：Kongming 的 task-session-tools-stability，19 个影响文件；承接范围见 [req 分配](req-allocation.md)。
 - 设计与确认：[tech-design v0.3](../../tech-design.md)，本次对话用户“同意 走req dev，verify”；[确认版本副本](baselines/tech-design.md) SHA-256 `414f844570b2bda71d211cbc6d78bdba368b6f20dd57b9e0298cf354c5a48d4e`。
 - 规范：项目 AGENTS.md、KMH 文档规范、dev-ts、x-tech-design 的 development-rules.md；下表对应 R1–R7。spec 与 [保存副本](baselines/spec.md) 一致，SHA-256 `edcb81f838d0c9630859595f21ef8f45ed3a084a6c9cf069c12314588a3b0b40`。
-- 代码基线：HEAD `d1c62af1649f4dff2088ddf516dc12c96d3356e0` 加本次工作区增量；19 个影响文件含新增测试的最终 SHA-256 见 [记录](</private/tmp/kmh-codex-rdv-20261013/final-source-hashes.json>)。
+- 代码基线：HEAD `d1c62af1649f4dff2088ddf516dc12c96d3356e0` 加本次工作区增量；19 个影响文件含新增测试的最终 SHA-256 见 记录（原执行记录 `final-source-hashes.json`）。
 - 环境：Kongming 根目录，Node v25.6.1、官方 Codex CLI 0.162.0-alpha.17.2；真实插件、官方 CLI、实际文件与 JSONL 持久化；模型响应由隔离本地服务提供。
 - 结论：本轮确认的增量范围通过，18 项适用检查通过。整包格式门禁报出 8 个本轮未修改文件的问题；回合内精确事件分叉和真实模型压缩触发观察保留单独未验证状态。
 
@@ -37,17 +39,17 @@
 
 ## 实际执行证据
 
-- 根目录 `pnpm --config.verify-deps-before-run=false test`：242/242，0 跳过，退出码 0，[全量日志](</private/tmp/kmh-codex-rdv-20261013/all-verification.log>)。
-- T2 新增验收测试：1/1、退出码 0，[A/B 新建记录](</private/tmp/kmh-codex-rdv-20261013/new-a-b-final.log>)。T3 加强后复跑：1/1、退出码 0，[老工具实际执行记录](</private/tmp/kmh-codex-rdv-20261013/old-tools-final.log>)。这两项执行在各自最终测试内容上，生产代码与全量回归版本一致。
-- 根目录 lint（含七个 KMH 包）退出码 0，[日志](</private/tmp/kmh-codex-rdv-20261013/root-lint-final.log>)。包类型检查和 lint 均退出码 0：[类型](</private/tmp/kmh-codex-rdv-20261013/typecheck-final.log>)、[lint](</private/tmp/kmh-codex-rdv-20261013/lint-final.log>)；[本轮格式检查](</private/tmp/kmh-codex-rdv-20261013/changed-format-final.log>) 退出码 0。
-- 真实页面只读核对：[工具生效提示截图](</private/tmp/kmh-codex-rdv-20261013/tool-scope-browser.png>)。Selector 实际装卸和保存配置在隔离 profile 完成，[记录](</private/tmp/kmh-codex-rdv-20261013/selector-fixed.log>)。
+- 根目录 `pnpm --config.verify-deps-before-run=false test`：242/242，0 跳过，退出码 0，全量日志（原执行记录 `all-verification.log`）。
+- T2 新增验收测试：1/1、退出码 0，A/B 新建记录（原执行记录 `new-a-b-final.log`）。T3 加强后复跑：1/1、退出码 0，老工具实际执行记录（原执行记录 `old-tools-final.log`）。这两项执行在各自最终测试内容上，生产代码与全量回归版本一致。
+- 根目录 lint（含七个 KMH 包）退出码 0，日志（原执行记录 `root-lint-final.log`）。包类型检查和 lint 均退出码 0：类型（原执行记录 `typecheck-final.log`）、lint（原执行记录 `lint-final.log`）；本轮格式检查（原执行记录 `changed-format-final.log`） 退出码 0。
+- 真实页面只读核对：工具生效提示截图（原执行记录 `tool-scope-browser.png`）。Selector 实际装卸和保存配置在隔离 profile 完成，记录（原执行记录 `selector-fixed.log`）。
 
 `verify-deps-before-run=false` 只阻止 pnpm 在现有模块布局上自动重新安装依赖，实际测试、类型和 lint 门禁均执行。回环监听的宿主执行已获自动审核允许。测试目录保留通信及原生记录供复查，实际子进程和本地模型服务已由测试回收。
 
 ## 范围与限制
 
 - 本轮范围内失败：无。
-- 范围外已知检查失败：整包 `format:check` 退出码 1，八个本轮未修改文件有原有格式问题，名单见 [开发报告](dev-report.md)，[原始日志](</private/tmp/kmh-codex-rdv-20261013/package-format-final.log>)。本轮涉及文件的格式检查通过。
+- 范围外已知检查失败：整包 `format:check` 退出码 1，八个本轮未修改文件有原有格式问题，名单见 [开发报告](dev-report.md)，原始日志（原执行记录 `package-format-final.log`）。本轮涉及文件的格式检查通过。
 - 保留的未验证项：D05 回合内精确事件切点、T6 真模型长上下文压缩触发观察，均由已确认设计单独保留；已验证范围为普通新建、原编号复用、完成回合切点和编辑首条输入。
 - 不适用：自有 Python 协议生成、DSH Session 代际/SDK 投影变更；本轮保存字段属于 Codex 自有绑定文件，DSH 数据格式和 SDK 保持现有版本。
 - 待确认：无。新增测试和加强验证 位于 [tool-policy.test.mjs](../../../../../packages/codex-cli/test/tool-policy.test.mjs) 与 [session-store.test.mjs](../../../../../packages/codex-cli/test/session-store.test.mjs)，固定预期位于 [session-tools.expected.json](../../../../../packages/codex-cli/test/fixtures/session-tools.expected.json)。

@@ -56,9 +56,9 @@ pnpm sdk
 | --- | --- | --- |
 | headless | DSH base → headless → Kongming bundle → profile | `bundles/kongming/`、`profiles/kmh-headless/` |
 | SDK | DSH base → sdk-app → Kongming bundle → profile | `bundles/kongming/`、`profiles/kmh-sdk/` |
-| Web | 清单声明的附加 bundles → profile 基础配置 → home → 调用级 patch | `profiles/kmh-web/package.json`、`profiles/kmh-web/cordis.patch.yml` |
+| Web | 清单声明的 bundles → profile 自有插件与覆盖 → home → 调用级 patch | `bundles/dsh-web/`、`profiles/kmh-web/` |
 
-Web profile 文件包含 base 服务、GUI/API、Web 承载、standard/PTC/minimal/Cordis 基础预设和产品配置；附加 bundle 按清单顺序先于 profile patch 应用，开发预设也由 bundle 提供。原版展开保存于 `profiles/kmh-web/upstream.cordis.yml`，用于查阅和升级对照。`pnpm config:web` 展示最终配置。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 overlay 按顺序在 profile 配置之后应用。
+Web 的 DSH 基础服务、GUI/API、Web 承载和 standard/PTC/minimal/Cordis 预设由 [DSH Web Bundle](../../bundles/dsh-web/README.md)提供；profile patch 插入 KMH 自有插件并覆盖部署配置。Bundle 按清单顺序先于 profile patch 应用，开发预设也由 Bundle 提供。原版展开保存于 `profiles/kmh-web/upstream.cordis.yml`，用于查阅和升级对照。`pnpm config:web` 展示最终配置。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 overlay 按顺序在 profile 配置之后应用。
 
 | 修改目标 | 配置位置 |
 | --- | --- |
