@@ -4,7 +4,7 @@
 
 Kongming 的后端由完整 DSH Git 子模块 third_party/dsh 提供，维护分支 kmh/runtime-core。当前架构说明位于 [docs/architecture/kongming-runtime.md](docs/architecture/kongming-runtime.md)，启动与升级流程位于 [docs/kmh/README.md](docs/kmh/README.md)，插件功能索引位于 [docs/kmh/plugin-index.md](docs/kmh/plugin-index.md)。
 
-Kongming 管理 scripts/kmh.mjs、launch.config.json、profiles/、bundles/ 与自有 packages/。DSH 管理自己的 packages、apps、vendor、native、工作区和锁文件；进入子模块开发时遵循其中的 AGENTS.md。自有插件使用 DSH 服务和事件时遵循其公开 API 与生命周期规则，新增能力通过现有插件服务、事件和 effect 扩展。
+Kongming 管理 scripts/kmh.mjs、launch.config.json、profiles/、bundles/ 与自有 packages/。DSH 管理自己的 packages、apps、vendor、native、工作区和锁文件。禁止修改 third_party/dsh 内的代码与文件；Kongming 侧需求一律通过自有插件、profiles 与 bundles 实现，确需 DSH 侧变更时先向用户说明，取得单独授权后在子模块内按其 AGENTS.md 进行。自有插件使用 DSH 服务和事件时遵循其公开 API 与生命周期规则，新增能力通过现有插件服务、事件和 effect 扩展。
 
 Web 的 DSH 基础配置位于 bundles/dsh-web/cordis.patch.yml，profiles/kmh-web/cordis.patch.yml 管理 KMH 自有插件与部署覆盖，profiles/kmh-web/package.json 的 dsh.profile.bundles 选择组合，具体说明见 [Web 配置](profiles/kmh-web/README.md)。端口由 webserver.config.port 管理，浏览器打开方式由 web-runtime.config.openBrowser 管理。standard、ptc、minimal、cordis 与开发模式预设定义各自的 Agent 子插件和 persona。headless/SDK 的共同 persona 由 bundles/kongming 管理。
 
