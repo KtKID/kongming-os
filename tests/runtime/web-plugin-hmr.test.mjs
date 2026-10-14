@@ -57,7 +57,7 @@ test('保存源码保持现有代码，手动构建后 Web 连续热重载并更
     }
     symlinkSync(join(source, 'node_modules'), join(target, 'node_modules'), 'dir');
   }
-  for (const name of ['codex-cli', 'runtime-log', 'web-surface-zh', 'kmh-dev-preset', 'kmh-team']) symlinkSync(join(root, 'packages', name), join(dir, 'packages', name), 'dir');
+  for (const name of ['codex-cli', 'cli-tools-selector', 'runtime-log', 'web-surface-zh', 'kmh-dev-preset', 'kmh-team']) symlinkSync(join(root, 'packages', name), join(dir, 'packages', name), 'dir');
   const port = await freePort();
   for (const name of ['kmh-web', 'kmh-headless', 'kmh-sdk']) {
     const target = join(dir, 'profiles', name);
@@ -67,7 +67,7 @@ test('保存源码保持现有代码，手动构建后 Web 连续热重载并更
     delete manifest.dependencies['dsh-context'];
     writeFileSync(join(target, 'package.json'), JSON.stringify(manifest));
     writeFileSync(join(target, 'cordis.yml'), '[]\n');
-    writeFileSync(join(target, 'cordis.patch.yml'), name === 'kmh-web' ? readFileSync(join(root, 'profiles/kmh-web/cordis.patch.yml'), 'utf8').replace('port: 3080', `port: ${port}`) : '[]\n');
+    writeFileSync(join(target, 'cordis.patch.yml'), name === 'kmh-web' ? readFileSync(join(root, 'profiles/kmh-web/cordis.patch.yml'), 'utf8').replace(/port: \d+/, `port: ${port}`) : '[]\n');
   }
   const webRuntime = loadOverlayPatches('test', join(dir, 'bundles/dsh-web/cordis.patch.yml')).flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'web-runtime');
   assert.equal(webRuntime.config.openBrowser.__jsExpr, 'ctx.webStartup.openBrowser', 'Web 配置必须接收 --no-open 的启动值');

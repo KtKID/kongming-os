@@ -299,3 +299,56 @@ test('closing C gives a new session only A and B while the original session reta
   assert.deepEqual(starts[1].params.dynamicTools.map(row => row.name), ['kmh-fixture_a', 'kmh-fixture_b']);
   assert.equal(h.rpcs.some(row => row.method === 'thread/fork'), false);
 });
+
+test('tool switches list mirrors the saved selection and exposes four native capabilities', async t => {
+  const h = await profileHarness(t);
+  const signal = new AbortController().signal;
+  const list = await h.ctx.codexCli.toolSwitches(signal);
+  assert.equal(list.target, 'codex-cli');
+  assert.deepEqual(list.kmh.map(row => row.id).sort(), ['kmh:kmh-fixture_a', 'kmh:kmh-fixture_b']);
+  assert.equal(list.kmh.every(row => row.enabled && row.covers.length === 0), true);
+  assert.deepEqual(list.native.map(row => row.id), ['native:command-execution', 'native:file-change', 'native:view-image', 'native:web-search']);
+  assert.deepEqual(list.native.find(row => row.id === 'native:command-execution').covers, ['exec_command', 'write_stdin', 'shell_command']);
+  assert.equal(list.native.every(row => !row.enabled), true);
+  assert.deepEqual(list.nativeStatus, { ok: true });
+  assert.equal(list.revision, h.ctx.settings.describe().find(row => row.ns === 'codex-entry').revision);
+});
+
+test('tool switches report an unverified native catalog and recover after refresh', async t => {
+  const h = await profileHarness(t, { versionGate: true });
+  const signal = new AbortController().signal;
+  const first = await h.ctx.codexCli.toolSwitches(signal);
+  assert.equal(first.nativeStatus.ok, false);
+  assert.match(first.nativeStatus.reason, /CODEX_NATIVE_VERSION_UNVERIFIED/);
+  assert.equal(first.kmh.length, 2);
+  h.releaseNativeVersion();
+  const second = await h.ctx.codexCli.toolSwitches(signal, true);
+  assert.deepEqual(second.nativeStatus, { ok: true });
+  assert.equal(second.native.length, 4);
+});
+
+test('setting a tool switch writes the covered rows, touches only the Codex entry and reaches new sessions', async t => {
+  const h = await profileHarness(t);
+  const signal = new AbortController().signal;
+  const snapshotOthers = () => h.ctx.settings.describe().filter(row => row.ns !== 'codex-entry').map(row => [String(row.ns), row.revision, JSON.stringify(row.value)]);
+  const others = snapshotOthers();
+  const before = await h.ctx.codexCli.toolSwitches(signal);
+  let list = await h.ctx.codexCli.setToolSwitch({ id: 'native:command-execution', enabled: true, revision: before.revision }, signal);
+  const savedRows = () => h.ctx.settings.describe().find(row => row.ns === 'codex-entry').value.toolSelection.native;
+  for (const name of ['exec_command', 'write_stdin', 'shell_command']) assert.equal(savedRows().find(row => row.name === name).enabled, true, name);
+  assert.equal(list.native.find(row => row.id === 'native:command-execution').enabled, true);
+  list = await h.ctx.codexCli.setToolSwitch({ id: 'kmh:kmh-fixture_a', enabled: false, revision: list.revision }, signal);
+  assert.equal(list.kmh.find(row => row.id === 'kmh:kmh-fixture_a').enabled, false);
+  list = await h.ctx.codexCli.setToolSwitch({ id: 'native:web-search', enabled: true, revision: list.revision }, signal);
+  assert.equal(savedRows().find(row => row.name === 'web_search').enabled, true);
+  assert.equal(list.native.find(row => row.id === 'native:web-search').enabled, true);
+  assert.deepEqual(snapshotOthers(), others);
+  await assert.rejects(h.ctx.codexCli.setToolSwitch({ id: 'kmh:kmh-fixture_b', enabled: false, revision: before.revision }, signal), /changed since it was read/);
+  await assert.rejects(h.ctx.codexCli.setToolSwitch({ id: 'nope', enabled: true, revision: list.revision }, signal), /CLI_TOOL_SWITCH_UNKNOWN/);
+  assert.equal(h.ctx.settings.describe().find(row => row.ns === 'codex-entry').value.toolSelection.harness.find(row => row.name === 'kmh-fixture_b').enabled, true);
+  const fresh = await h.create('switch-fresh');
+  await h.send('Use switched tools.', fresh);
+  const tools = h.server.requests.at(-1).tools.map(row => row.name ?? row.type);
+  assert.deepEqual(tools.filter(name => name.startsWith('kmh-')), ['kmh-fixture_b']);
+  assert.equal(tools.includes('exec_command'), true);
+});
