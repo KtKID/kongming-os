@@ -1,6 +1,4 @@
 - insert:
-    - id: cli-tools
-      name: '@deepseek-ai/dsh-cli-tools'
     - id: kmh-zcode-cli
       name: '@kmh/zcode-cli'
       config:

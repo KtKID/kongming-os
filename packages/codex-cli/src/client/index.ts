@@ -4,8 +4,6 @@ import type {} from "@deepseek-ai/dsh-client-locale/client";
 import type {} from "@deepseek-ai/dsh-client-ui-plugin-manager/client";
 import type {} from "@deepseek-ai/dsh-client-ui-conversation/client";
 import type {} from "@deepseek-ai/dsh-client-ui-renderer/client";
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client';
-import { cliToolDefinition, preparationDefinition, ToolRecord, PreparationRecord } from './ToolRecords.tsx';
 import { CodexCard } from "./DetailCard.tsx";
 import { LiveBall, LiveBallView } from "./LiveBall.tsx";
 import { zh, en, type LocaleKey } from "./locales.ts";
@@ -48,12 +46,6 @@ export function apply(ctx: Context): void {
       ),
     "codex-cli: detail card",
   );
-  ctx.inject(['uiConversation'], ctx => {
-    ctx.uiConversation.events.register(cliToolDefinition);
-    ctx.uiConversation.events.register(preparationDefinition);
-    ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({ name: 'conversation.chat.node', key: 'cli-tool', locale: namespace }, ToolRecord));
-    ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({ name: 'conversation.chat.node', key: 'cli-preparation', locale: namespace }, PreparationRecord));
-  });
   // 会话底部状态小球（第 n 轮第 n 步统计行最右）：order 2 排在活动/用量
   // 药丸之后；非 codex 会话无记录时组件自身不渲染。
   ctx.effect(

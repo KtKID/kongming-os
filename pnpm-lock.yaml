@@ -56,18 +56,12 @@ importers:
       '@deepseek-ai/dsh-brand':
         specifier: link:../../third_party/dsh/packages/util/brand
         version: link:../../third_party/dsh/packages/util/brand
-      '@deepseek-ai/dsh-cli-tools':
-        specifier: link:../../third_party/dsh/packages/llm/cli-tools
-        version: link:../../third_party/dsh/packages/llm/cli-tools
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../third_party/dsh/packages/client/connection
         version: link:../../third_party/dsh/packages/client/connection
       '@deepseek-ai/dsh-client-locale':
         specifier: link:../../third_party/dsh/packages/client/locale
         version: link:../../third_party/dsh/packages/client/locale
-      '@deepseek-ai/dsh-client-ui-chat':
-        specifier: link:../../third_party/dsh/packages/client/ui-chat
-        version: link:../../third_party/dsh/packages/client/ui-chat
       '@deepseek-ai/dsh-client-ui-conversation':
         specifier: link:../../third_party/dsh/packages/client/ui-conversation
         version: link:../../third_party/dsh/packages/client/ui-conversation

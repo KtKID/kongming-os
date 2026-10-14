@@ -1,6 +1,6 @@
 /** 依据已验证的 CLI 版本解析原生工具；未知版本保留待核实状态。 */
 import type { Context } from '@deepseek-ai/cordis';
-import { ToolSourceId, type CliToolRow } from '@deepseek-ai/dsh-cli-tools';
+import { ToolSourceId, type CliToolRow } from '../tool-selection.ts';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

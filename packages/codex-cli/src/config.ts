@@ -1,5 +1,5 @@
 /** 官方 Codex CLI 执行、存储与超时限制的部署配置。 */
-import { ToolSelectionSchema } from "@deepseek-ai/dsh-cli-tools";
+import { ToolSelectionSchema } from "./tool-selection.ts";
 import schema from "@deepseek-ai/schemastery";
 import { isAbsolute } from "node:path";
 // 共享 schema 保持选择类型；联动检查可在配置 schema 传到客户端后独立执行。

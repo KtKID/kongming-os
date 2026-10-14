@@ -9,11 +9,8 @@ import {
   CliTargetId,
   ToolSourceId,
   ToolSelectionSchema,
-} from "@deepseek-ai/dsh-cli-tools";
-import {
-  assertSupportedJsonSchema,
-  type ToolInventoryEntry,
-} from "@deepseek-ai/dsh-tools";
+} from "./tool-selection.ts";
+import { assertSupportedJsonSchema } from "@deepseek-ai/dsh-tools";
 import type { CursorSnapshot } from "./cursor.ts";
 
 const choices = z
@@ -36,26 +33,30 @@ const toolSchema = rawToolSchema.transform(({ deferLoading, ...tool }) => ({
   ...tool,
   ...(deferLoading === undefined ? {} : { deferLoading }),
 }));
-const inventoryEntry = z.object({
-  // 文件中的来源经过字符串校验后恢复公开 API 的名义类型。
-  source: z
-    .string()
-    .min(1)
-    .transform((value) => brandString<ToolInventoryEntry["source"]>(value)),
-  sourceLabel: z.string(),
-  schema: toolSchema,
-  sdk: rawToolSchema
-    .extend({
-      output: z.record(z.string(), z.json()).transform((value) => {
-        assertSupportedJsonSchema(value);
-        return value;
-      }),
-    })
-    .transform(({ deferLoading, ...tool }) => ({
-      ...tool,
-      ...(deferLoading === undefined ? {} : { deferLoading }),
-    })),
-});
+// 来源标签与 PTC SDK 契约只存在于旧记录；公开 schemas() 投影的新快照不含它们。
+const inventoryEntry = z
+  .object({
+    source: z.string().min(1).transform(ToolSourceId),
+    sourceLabel: z.string().optional(),
+    schema: toolSchema,
+    sdk: rawToolSchema
+      .extend({
+        output: z.record(z.string(), z.json()).transform((value) => {
+          assertSupportedJsonSchema(value);
+          return value;
+        }),
+      })
+      .transform(({ deferLoading, ...tool }) => ({
+        ...tool,
+        ...(deferLoading === undefined ? {} : { deferLoading }),
+      }))
+      .optional(),
+  })
+  .transform(({ sourceLabel, sdk, ...row }) => ({
+    ...row,
+    ...(sourceLabel === undefined ? {} : { sourceLabel }),
+    ...(sdk === undefined ? {} : { sdk }),
+  }));
 const catalogRow = z
   .object({
     side: z.enum(["harness", "native"]),

@@ -421,10 +421,6 @@ export class CodexTurn {
     if (connection === undefined) return;
     connection.onNotification((method, params) => {
       try {
-        if (method === "rawResponseItem/completed")
-          this.ctx
-            .get("codexCli")
-            ?.toolPolicy?.observeNative(this.sessionId, params);
         this.handleNotification(method, params);
       } catch (error) {
         this.push({

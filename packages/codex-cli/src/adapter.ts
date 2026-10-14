@@ -118,6 +118,12 @@ export class CodexAdapter extends LlmAdapter {
         : String(options.sessionId);
     const signal = options.signal ?? new AbortController().signal;
     const preparedPolicy = this.runtime.toolPolicy?.forStream(options);
+    // 只把创建时冻结选择中开启的 Harness 工具交给 Codex；辅助请求原样传递。
+    const tools = (options.tools ?? []).filter(
+      (tool) =>
+        preparedPolicy === undefined ||
+        preparedPolicy.names.includes(tool.name),
+    );
     const startInput: Omit<TurnStartInput, "text"> = {
       policyFingerprint: preparedPolicy?.fingerprint,
       model: options.model,
@@ -131,8 +137,8 @@ export class CodexAdapter extends LlmAdapter {
       // D13：不改写提示正文（整词替换会改普通词义），以一段声明约定说明
       // 指明 KMH 工具名与 kmh- 前缀声明名的对应关系。
       developerInstructions:
-        (options.tools ?? []).length > 0 ? toolDeclarationNote() : undefined,
-      tools: (options.tools ?? []).map((tool) => ({
+        tools.length > 0 ? toolDeclarationNote() : undefined,
+      tools: tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.parameters,

@@ -1,9 +1,5 @@
 /** 详情卡片文案（中英）。 */
 export type LocaleKey =
-  | "toolDisabled"
-  | "toolRunning"
-  | "toolCompleted"
-  | "preparationWaiting"
   | "title"
   | "liveTitle"
   | "liveGreen"
@@ -41,10 +37,6 @@ export type LocaleKey =
   | "logoutNote";
 
 export const zh: Record<LocaleKey, string> = {
-  toolDisabled: "工具已关闭",
-  toolRunning: "执行中",
-  toolCompleted: "执行完成",
-  preparationWaiting: "工具准备待重试",
   title: "Codex CLI",
   liveTitle: "Codex CLI 连接状态",
   liveGreen: "通信正常",
@@ -85,10 +77,6 @@ export const zh: Record<LocaleKey, string> = {
 };
 
 export const en: Record<LocaleKey, string> = {
-  toolDisabled: "Tool disabled",
-  toolRunning: "Running",
-  toolCompleted: "Completed",
-  preparationWaiting: "Tool preparation awaiting retry",
   title: "Codex CLI",
   liveTitle: "Codex CLI connection",
   liveGreen: "Connected",

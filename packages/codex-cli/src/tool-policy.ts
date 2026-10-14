@@ -3,9 +3,6 @@ import type { Entry } from "@deepseek-ai/cordis-plugin-loader";
 import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-settings";
 import type {} from "@deepseek-ai/dsh-tools";
-import type {} from "@deepseek-ai/dsh-cli-tools";
-import type { ToolInventoryEntry } from "@deepseek-ai/dsh-tools";
-import { ToolCallId, type ToolSchema } from "@deepseek-ai/dsh-llm";
 import type { Agent, SessionStartSource } from "@deepseek-ai/dsh-agent";
 import type { GenerateOptions } from "@deepseek-ai/dsh-llm";
 import {
@@ -14,15 +11,15 @@ import {
   choiceEnabled,
   type CliToolCatalog,
   type CliToolRow,
+  type SavedInventoryEntry,
   type ToolSelection,
   type ReadonlyToolSelection,
-} from "@deepseek-ai/dsh-cli-tools";
+} from "./tool-selection.ts";
 import { deepFreeze } from "@deepseek-ai/dsh-util-values";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-const rawItem = z.object({ item: z.record(z.string(), z.json()) });
 import {
   discoverNativeTools,
   type NativeCatalog,
@@ -34,7 +31,8 @@ import { prepareIsolation, verifyIsolation } from "./isolation.ts";
 import { SavedToolPolicySchema } from "./session-store.ts";
 import { KMH_TOOL_PREFIX } from "./tool-registry.ts";
 
-interface PreparedPolicy {
+/** 一个回合冻结的工具策略：保存的选择、目录、原生开关与进入请求的 Harness 工具名。 */
+export interface PreparedPolicy {
   readonly turn: number;
   readonly choices: ReadonlyToolSelection;
   readonly catalog: CliToolCatalog;
@@ -42,8 +40,7 @@ interface PreparedPolicy {
   readonly version: string;
   readonly fingerprint: string;
   readonly names: readonly string[];
-  readonly inventory: readonly ToolInventoryEntry[];
-  tools?: ToolSchema[];
+  readonly inventory: readonly SavedInventoryEntry[];
 }
 const legacySchema = z.object({
   selection: z.object({
@@ -60,10 +57,6 @@ export class CodexToolPolicy {
   private readonly lifetime = new AbortController();
   private readonly turns = new WeakMap<Agent, PreparedPolicy>();
   private readonly sessions = new Map<string, PreparedPolicy>();
-  private readonly nativeCalls = new Map<
-    string,
-    { source: ReturnType<typeof ToolSourceId>; name: string }
-  >();
   private readonly roots = new Map<string, PreparedPolicy>();
   private readonly work = new Set<Promise<unknown>>();
   private migration: Promise<void> | undefined;
@@ -79,23 +72,6 @@ export class CodexToolPolicy {
     if (entry === undefined)
       throw new Error("CODEX_TOOL_POLICY_REQUIRES_PROFILE_ENTRY");
     this.targetId = CliTargetId(entry.options.id);
-    ctx.inject(["cliTools"], (available) => {
-      available.cliTools.register({
-        target: {
-          id: this.targetId,
-          kind: "codex",
-          name: "Codex",
-          settingsNamespace: entry.options.id,
-          detailSubject: "codex-cli",
-        },
-        catalog: (signal, refresh) => this.catalog(signal, refresh === true),
-        retry: (signal) => {
-          signal.throwIfAborted();
-          this.nativeCache = undefined;
-          return Promise.resolve();
-        },
-      });
-    });
     ctx.on("settings/document-updated", (ns) => {
       if (ns === entry.options.id) this.nativeCache = undefined;
     });
@@ -112,67 +88,33 @@ export class CodexToolPolicy {
         this.work.delete(pending);
       }
     });
-    ctx.on("tools/change", () => {
-      ctx.emit("cli-tools/change", this.targetId);
-    });
-    ctx.on(
-      "agent/request-tools",
-      async ({ agent, turn, step, config, signal }, next) => {
-        const base = await next();
-        if (config.provider !== "codex-cli") {
-          this.sessions.delete(agent.session.id);
-          return base;
-        }
-        let prepared = this.turns.get(agent);
-        if (prepared?.turn !== turn) {
-          const pending = this.untilPrepared(
-            agent,
-            turn,
-            step,
-            config.model,
-            signal,
-          );
-          this.work.add(pending);
-          try {
-            prepared = await pending;
-          } finally {
-            this.work.delete(pending);
-          }
-          this.turns.set(agent, prepared);
-        }
-        this.sessions.set(agent.session.id, prepared);
-        const selected = ctx.tools.presentation(base, prepared.names, agent, [
-          ...prepared.inventory,
-        ]);
-        prepared.tools ??= selected.tools;
-        selected.tools = prepared.tools;
-        agent.session.append(
-          "cli-tools/turn-prepared",
-          {
-            target: this.targetId,
-            turn,
-            step,
-            cliVersion: prepared.version,
-            policyFingerprint: prepared.fingerprint,
-            catalogFingerprint: prepared.catalog.revision,
-            harness: selected.tools,
-            native: prepared.catalog.tools
-              .filter(
-                (row) =>
-                  row.side === "native" && choiceEnabled(prepared.choices, row),
-              )
-              .flatMap((row) =>
-                row.declaration === undefined ? [] : [row.declaration],
-              ),
-            sources: prepared.catalog.tools
-              .filter((row) => choiceEnabled(prepared.choices, row))
-              .map(({ side, source, name }) => ({ side, source, name })),
-          },
-          { ignorable: true },
+    // 在请求配置冻结阶段准备本回合策略：此时用户消息尚未提交，准备失败
+    // 不会把未投递的输入留在历史里，修正运行条件后可重试原会话。
+    ctx.on("agent/request", async ({ agent, turn, signal }, next) => {
+      const config = await next();
+      if (config.provider !== "codex-cli") {
+        this.sessions.delete(agent.session.id);
+        return config;
+      }
+      let prepared = this.turns.get(agent);
+      if (prepared?.turn !== turn) {
+        const pending = this.untilPrepared(
+          agent.session.id,
+          turn,
+          config.model,
+          signal,
         );
-        return selected;
-      },
-    );
+        this.work.add(pending);
+        try {
+          prepared = await pending;
+        } finally {
+          this.work.delete(pending);
+        }
+        this.turns.set(agent, prepared);
+      }
+      this.sessions.set(agent.session.id, prepared);
+      return config;
+    });
     ctx.on("session/event", (session, event) => {
       if (event.type === "tool/call") {
         const prepared = this.sessions.get(session.id);
@@ -183,9 +125,6 @@ export class CodexToolPolicy {
           );
       } else if (event.type === "turn/end") {
         this.sessions.delete(session.id);
-        for (const key of this.nativeCalls.keys())
-          if (key.startsWith(JSON.stringify([session.id]).slice(0, -1) + ","))
-            this.nativeCalls.delete(key);
         for (const key of this.roots.keys())
           if (key.startsWith(JSON.stringify([session.id]).slice(0, -1) + ","))
             this.roots.delete(key);
@@ -201,9 +140,7 @@ export class CodexToolPolicy {
       const row = policy.catalog.tools.find(
         (tool) => tool.side === "harness" && tool.registryName === exec.name,
       );
-      const current = ctx.tools
-        .inventory(exec.agent)
-        .find((item) => item.schema.name === exec.name);
+      const current = ctx.tools.get(exec.name, exec.agent);
       const saved = policy.inventory.find(
         (item) => item.schema.name === exec.name,
       );
@@ -211,27 +148,12 @@ export class CodexToolPolicy {
         row !== undefined &&
         saved !== undefined &&
         current !== undefined &&
-        ToolSourceId(current.source) === row.source &&
-        fingerprint(current.schema.parameters) ===
+        fingerprint(current.parameters) ===
           fingerprint(saved.schema.parameters) &&
-        fingerprint(current.sdk.output) === fingerprint(saved.sdk.output) &&
         choiceEnabled(policy.choices, row)
       )
         return undefined;
       const source = row?.source ?? ToolSourceId("harness/unregistered");
-      session.append(
-        "cli-tools/tool-observed",
-        {
-          target: this.targetId,
-          turn: policy.turn,
-          source,
-          name: row?.name ?? exec.name,
-          callId: exec.callId,
-          kind: "blocked",
-          data: { reason: "TOOL_DISABLED" },
-        },
-        { ignorable: true },
-      );
       return `TOOL_DISABLED: ${source}/${row?.name ?? exec.name}`;
     });
     ctx.effect(() => async () => {
@@ -239,7 +161,6 @@ export class CodexToolPolicy {
       await Promise.allSettled([...this.work]);
       this.sessions.clear();
       this.roots.clear();
-      this.nativeCalls.clear();
     });
   }
 
@@ -274,7 +195,7 @@ export class CodexToolPolicy {
         );
       return;
     }
-    await this.initialize(this.harnessRows());
+    await this.initialize(this.harnessRows(agent));
     const current = this.runtime.config.toolSelection.get();
     if (current === undefined)
       throw new Error("CODEX_TOOL_SELECTION_UNINITIALIZED");
@@ -287,7 +208,7 @@ export class CodexToolPolicy {
       version: 1,
       target: this.targetId,
       choices: current,
-      inventory: this.ctx.tools.inventory(agent),
+      inventory: this.snapshotInventory(agent),
       nativeExecution: {
         commandExecution: enabled("exec_command"),
         fileChange: enabled("apply_patch"),
@@ -349,21 +270,24 @@ export class CodexToolPolicy {
     };
   }
 
+  /** 公开注册表只投影模型侧 schema，不含插件来源，Harness 行统一记为 harness。 */
   private harnessRows(agent?: Agent): CliToolRow[] {
-    return (
-      agent === undefined
-        ? this.ctx.tools.registeredInventory()
-        : this.ctx.tools.inventory(agent)
-    ).map((item) => ({
+    return this.ctx.tools.schemas(agent).map((schema) => ({
       side: "harness",
-      source: ToolSourceId(item.source),
-      sourceLabel: item.sourceLabel,
-      name: KMH_TOOL_PREFIX + item.schema.name,
-      registryName: item.schema.name,
-      description: item.schema.description,
-      schema: item.schema,
+      source: ToolSourceId("harness"),
+      name: KMH_TOOL_PREFIX + schema.name,
+      registryName: schema.name,
+      description: schema.description,
+      schema,
       control: { kind: "adjustable" },
     }));
+  }
+
+  /** 创建时该 Agent 可见的 Harness 工具快照。 */
+  private snapshotInventory(agent: Agent): SavedInventoryEntry[] {
+    return this.ctx.tools
+      .schemas(agent)
+      .map((schema) => ({ source: ToolSourceId("harness"), schema }));
   }
 
   private nativeCatalog(
@@ -479,16 +403,14 @@ export class CodexToolPolicy {
   }
 
   private async untilPrepared(
-    agent: Agent,
+    sessionId: NonNullable<GenerateOptions["sessionId"]>,
     turn: number,
-    _step: number,
     model: string,
     signal: AbortSignal,
   ): Promise<PreparedPolicy> {
     const combined = AbortSignal.any([signal, this.lifetime.signal]);
     combined.throwIfAborted();
-    let snapshot = (await this.runtime.bindingRecord(agent.session.id))
-      ?.toolPolicy;
+    let snapshot = (await this.runtime.bindingRecord(sessionId))?.toolPolicy;
     if (snapshot === undefined)
       throw new Error(
         "CODEX_SESSION_STATE_INCOMPLETE: original tools are unavailable",
@@ -504,7 +426,7 @@ export class CodexToolPolicy {
     if (snapshot.nativeCatalog === undefined) {
       const native = await this.nativeCatalog(
         combined,
-        this.runtime.resolveCwd(agent.session.id),
+        this.runtime.resolveCwd(sessionId),
         true,
         selected,
       );
@@ -513,14 +435,16 @@ export class CodexToolPolicy {
         ...snapshot,
         nativeCatalog: { version: native.version, rows: [...native.rows] },
       });
-      await this.runtime.saveToolPolicy(agent.session.id, snapshot);
+      await this.runtime.saveToolPolicy(sessionId, snapshot);
     }
     const saved = snapshot;
     const rows: CliToolRow[] = [
       ...saved.inventory.map((item) => ({
         side: "harness" as const,
         source: ToolSourceId(item.source),
-        sourceLabel: item.sourceLabel,
+        ...(item.sourceLabel === undefined
+          ? {}
+          : { sourceLabel: item.sourceLabel }),
         name: KMH_TOOL_PREFIX + item.schema.name,
         registryName: item.schema.name,
         description: item.schema.description,
@@ -532,7 +456,7 @@ export class CodexToolPolicy {
     const catalog = { revision: fingerprint(rows), tools: rows };
     await this.preflight(
       selected,
-      this.runtime.resolveCwd(agent.session.id),
+      this.runtime.resolveCwd(sessionId),
       model,
       combined,
     );
@@ -596,81 +520,11 @@ export class CodexToolPolicy {
     }
   }
 
-  /** 将实际 CLI raw item 归属到本回合的原生工具及拒绝事实。 */
-  observeNative(
-    sessionId: GenerateOptions["sessionId"],
-    payload: unknown,
-  ): void {
-    if (sessionId === undefined) return;
-    const prepared = this.sessions.get(sessionId);
-    const session = this.ctx.get("sessions")?.get(sessionId);
-    if (prepared === undefined || session === undefined) return;
-    const { item } = rawItem.parse(payload);
-    const type = item["type"];
-    const callId = item["call_id"];
-    if (typeof callId !== "string") return;
-    if (type === "function_call" || type === "custom_tool_call") {
-      const name = item["name"];
-      if (typeof name !== "string") return;
-      const row = prepared.catalog.tools.find((row) => row.name === name);
-      const harness = name.startsWith(KMH_TOOL_PREFIX);
-      const blocked =
-        row !== undefined ? !choiceEnabled(prepared.choices, row) : harness;
-      if (harness && !blocked) return;
-      session.append(
-        "cli-tools/tool-observed",
-        {
-          target: this.targetId,
-          turn: prepared.turn,
-          source:
-            row?.source ??
-            ToolSourceId(harness ? "harness/unregistered" : "codex/native"),
-          name,
-          callId: ToolCallId(callId),
-          kind: blocked ? "blocked" : "call",
-          data: item,
-        },
-        { ignorable: true },
-      );
-      this.nativeCalls.set(JSON.stringify([sessionId, callId]), {
-        source:
-          row?.source ??
-          ToolSourceId(harness ? "harness/unregistered" : "codex/native"),
-        name,
-      });
-    } else if (
-      type === "function_call_output" ||
-      type === "custom_tool_call_output"
-    ) {
-      const call = this.nativeCalls.get(JSON.stringify([sessionId, callId]));
-      if (call === undefined) return;
-      this.nativeCalls.delete(JSON.stringify([sessionId, callId]));
-      session.append(
-        "cli-tools/tool-observed",
-        {
-          target: this.targetId,
-          turn: prepared.turn,
-          ...call,
-          callId: ToolCallId(callId),
-          kind: "result",
-          data: item,
-        },
-        { ignorable: true },
-      );
-    }
-  }
-
-  /** 已准备回合的原生开关与线程指纹；辅助请求保留自己的既有路径。 */
-  forStream(
-    options: GenerateOptions,
-  ): { native: NativeSelection; fingerprint: string } | undefined {
-    const prepared =
-      options.sessionId === undefined
-        ? undefined
-        : this.sessions.get(options.sessionId);
-    return prepared === undefined
+  /** 已准备回合的冻结策略；辅助请求与未准备的会话返回 undefined，保留既有路径。 */
+  forStream(options: GenerateOptions): PreparedPolicy | undefined {
+    return options.sessionId === undefined
       ? undefined
-      : { native: prepared.native, fingerprint: prepared.fingerprint };
+      : this.sessions.get(options.sessionId);
   }
 }
 
