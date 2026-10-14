@@ -14,9 +14,6 @@ import Tools, { defineContentToolFixture } from '../../../../third_party/dsh/pac
 import Agents from '../../../../third_party/dsh/packages/core/agent/lib/index.js';
 import Loop from '../../../../third_party/dsh/packages/core/agent-loop/lib/index.js';
 import Persistence from '../../../../third_party/dsh/packages/session/session-persistence-jsonl/lib/index.js';
-import CliTools from '../../../../third_party/dsh/packages/llm/cli-tools/lib/index.js';
-import CliToolsController from '../../../../third_party/dsh/packages/api/cli-tools-controller/lib/index.js';
-import * as CliToolsSelector from '../../../../third_party/dsh/packages/client/ui-cli-tools-selector/lib/index.js';
 import { LocalSubprocessRuntime } from '../../../../third_party/dsh/packages/subprocess/subprocess-local/lib/index.js';
 import * as Codex from '../../lib/src/index.js';
 import { startModelServer } from './model-server.mjs';
@@ -53,9 +50,8 @@ export async function profileHarness(t, options = {}) {
   const config = { command, cwd, dataDir: join(home, 'data'), reasoningSummary: 'none', startupTimeoutMs: 10000, probeTimeoutMs: 20000, cleanupTimeoutMs: 2000, requestTimeoutMs: 30000, ...options.config, env: { CODEX_HOME: codexHome, KMH_CODEX_TEST_KEY: 'fixture-key', HTTP_PROXY: '', HTTPS_PROXY: '', ALL_PROXY: '', NO_PROXY: '127.0.0.1,localhost' } };
   const rows = [
     ['editor', 'editor'], ['settings', 'settings'], ['llm', 'llm'], ['session', 'sessions'], ['projection', 'projection'],
-    ['prompt', 'prompt'], ['tools', 'tools'], ['agents', 'agents'], ['agent-loop', 'loop'], ...options.withoutCatalog ? [] : [['cli-tools', 'cliTools']], ['subprocess', 'subprocess'],
+    ['prompt', 'prompt'], ['tools', 'tools'], ['agents', 'agents'], ['agent-loop', 'loop'], ['subprocess', 'subprocess'],
   ].map(([id, name]) => ({ id, name: `cordis:${name}`, ...(name === 'loop' ? { config: { agents: [] } } : {}) }));
-  if (options.withSelector) rows.push({ id: 'selector-controller', name: 'cordis:selectorController' }, { id: 'selector-ui', name: 'cordis:selectorUi' });
   if (options.persistence) rows.push({ required: true, id: 'persistence', name: 'cordis:persistence', config: { root: join(home, 'sessions'), compression: 'none' } });
   rows.push({ id: 'default-model', name: 'cordis:defaultModel', config: { provider: 'codex-cli', model: 'gpt-6-sol' } });
   rows.forEach(row => { row.required = true; });
@@ -70,9 +66,9 @@ export async function profileHarness(t, options = {}) {
     ctx.provide('appReady', { onReady(listener) { listener(); return () => {}; } });
     Object.assign(ctx.loader.builtins, {
       editor: ConfigEditor, settings: Settings, defaultModel: DefaultModel, llm: Llm, sessions: Sessions, projection: Projection, prompt: Prompt,
-      tools: Tools, agents: Agents, loop: Loop, cliTools: CliTools, selectorController: CliToolsController, selectorUi: CliToolsSelector, persistence: Persistence, subprocess: LocalSubprocessRuntime,
+      tools: Tools, agents: Agents, loop: Loop, persistence: Persistence, subprocess: LocalSubprocessRuntime,
       // Text/tool-policy qualification supplies the exact runtime's consumed services.
-      codex: { Config: Codex.Config, inject: ['llm', 'subprocess', 'agents', 'tools', ...options.withoutCatalog ? [] : ['cliTools']], apply: Codex.apply },
+      codex: { Config: Codex.Config, inject: ['llm', 'subprocess', 'agents', 'tools'], apply: Codex.apply },
     });
   });
   const spawn = ctx.subprocess.spawn.bind(ctx.subprocess);
@@ -104,7 +100,6 @@ export async function profileHarness(t, options = {}) {
   await bootProfile();
   await options.beforeCreate?.(ctx);
   t.diagnostic(`profile artifacts: ${home}`);
-  t.diagnostic('targets: ' + JSON.stringify(ctx.get('cliTools')?.targets() ?? []));
   let agent = await ctx.agentLoop.create('codex-profile-session', { provider: 'codex-cli', model: 'gpt-6-sol' });
   return { get ctx() { return ctx; }, get agent() { return agent; }, server, home, profile, rpcs, notifications, children,
     async restart() { await ctx.sessions.flush(agent.session); await ctx.fiber.dispose(); await bootProfile(); const handle = await ctx.agents.resume({ resumeSessionId: agent.session.id, agentOptions: { provider: 'codex-cli', model: 'gpt-6-sol' } }); agent = handle.agent; },

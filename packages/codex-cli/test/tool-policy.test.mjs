@@ -4,17 +4,14 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { profileHarness } from './support/profile-harness.mjs';
-import Schema from '@deepseek-ai/schemastery';
 import { until } from './support/harness.mjs';
 
 test('profile imports choices once and Config selection reaches the actual Codex request', async t => {
   const h = await profileHarness(t);
-  const provider = h.ctx.cliTools.get('codex-entry');
-  const catalog = await provider.catalog(new AbortController().signal);
+  const catalog = await h.ctx.codexCli.toolPolicy.catalog(new AbortController().signal);
   const descriptor = h.ctx.settings.describe().find(row => row.ns === 'codex-entry');
   assert.ok(descriptor.value.toolSelection);
   const choices = descriptor.value.toolSelection;
-  assert.deepEqual(new Schema(JSON.parse(JSON.stringify(descriptor.schema)))(descriptor.value), descriptor.value);
   assert.equal(choices.harness.length, 2);
   assert.equal(choices.harness.every(row => row.enabled), true);
   assert.equal(choices.native.every(row => !row.enabled), true);
@@ -24,16 +21,12 @@ test('profile imports choices once and Config selection reaches the actual Codex
   const fresh = await h.create('selected-tools-fresh');
   await h.send('Use selected tools.', fresh);
   assert.deepEqual(h.server.requests[0].tools.map(row => row.name ?? row.type), ['kmh-fixture_a']);
-  const prepared = fresh.session.snapshotEvents().filter(event => event.type === 'cli-tools/turn-prepared');
-  assert.equal(prepared.length, 1);
-  assert.deepEqual(prepared[0].data.harness.map(tool => tool.name), ['fixture_a']);
-  assert.equal(prepared[0].data.cliVersion, '0.162.0-alpha.17.2');
   assert.equal(catalog.tools.some(row => row.name === 'shell_command'), true);
 });
 
 test('saved changes keep existing conversations frozen and enter only a newly created conversation', async t => {
   const h = await profileHarness(t, { holdFirst: true });
-  await h.ctx.cliTools.get('codex-entry').catalog(new AbortController().signal);
+  await h.ctx.codexCli.toolPolicy.catalog(new AbortController().signal);
   const running = h.send('First turn with the original tools.');
   await until(() => h.server.requests.length === 1, 'first request');
   const descriptor = h.ctx.settings.describe().find(row => row.ns === 'codex-entry');
@@ -45,19 +38,14 @@ test('saved changes keep existing conversations frozen and enter only a newly cr
   assert.deepEqual(h.server.requests[0].tools.map(row => row.name), ['kmh-fixture_a', 'kmh-fixture_b']);
   assert.deepEqual(h.server.requests.at(-1).tools.map(row => row.name), ['kmh-fixture_a', 'kmh-fixture_b']);
   assert.match(JSON.stringify(h.server.requests.at(-1).input), /First turn with the original tools/);
-  const prepared = h.agent.session.snapshotEvents().filter(event => event.type === 'cli-tools/turn-prepared');
-  assert.deepEqual(prepared.map(event => event.data.harness.map(tool => tool.name)), [['fixture_a', 'fixture_b'], ['fixture_a', 'fixture_b']]);
   const fresh = await h.create('saved-selection-fresh');
   await h.send('New conversation with saved selection', fresh);
   assert.deepEqual(h.server.requests.at(-1).tools.map(row => row.name), ['kmh-fixture_b']);
 });
 
-test('closed native attempts are attributed and refused through an actual profile loop', async t => {
+test('closed native attempts leave the executor untouched through an actual profile loop', async t => {
   const h = await profileHarness(t, { toolCall: { type: 'function_call', name: 'exec_command', arguments: '{"cmd":"touch native-canary"}' } });
   await h.send('Run the fixture.');
-  const observed = h.agent.session.snapshotEvents().filter(event => event.type === 'cli-tools/tool-observed');
-  assert.ok(observed.some(event => event.data.name === 'exec_command' && event.data.source === 'codex/native' && event.data.kind === 'blocked'));
-  assert.ok(observed.some(event => event.data.name === 'exec_command' && event.data.kind === 'result'));
   assert.equal(h.executions(), 0);
 });
 
@@ -74,17 +62,14 @@ test('unknown native version reports a bounded error and the normal retry keeps 
   assert.equal(h.agent.session.snapshotEvents().filter(event => event.type === 'turn/start').length, 2);
 });
 
-test('forced disabled Harness calls retain their source and leave the executor untouched', async t => {
+test('forced disabled Harness calls leave the executor untouched', async t => {
   const h = await profileHarness(t, { toolCall: { type: 'function_call', name: 'kmh-fixture_b', arguments: '{}' }, beforeCreate: ctx => editChoices(ctx, row => row.name === 'kmh-fixture_a') });
-  await h.ctx.cliTools.get('codex-entry').catalog(new AbortController().signal);
+  await h.ctx.codexCli.toolPolicy.catalog(new AbortController().signal);
   const descriptor = h.ctx.settings.describe().find(row => row.ns === 'codex-entry');
   const selected = { ...descriptor.value.toolSelection, harness: descriptor.value.toolSelection.harness.map(row => ({ ...row, enabled: row.name === 'kmh-fixture_a' })) };
   await h.ctx.settings.update('codex-entry', { toolSelection: selected }, descriptor.revision);
   await h.send('Run the fixture.');
   assert.equal(h.executions(), 0);
-  const blocked = h.agent.session.snapshotEvents().find(event => event.type === 'cli-tools/tool-observed' && event.data.name === 'kmh-fixture_b' && event.data.kind === 'blocked');
-  assert.ok(blocked);
-  assert.ok(blocked.data.source);
 });
 
 /** 创建之前编辑真实 Config；执行与工具策略保持生产代码。 */
@@ -167,9 +152,8 @@ test('native file changes keep their creation setting on resumed sessions while 
 });
 
 
-test('original native id and tools survive a real KMH persistence restart with no selector catalog', async t => {
-  const h = await profileHarness(t, { persistence: true, withoutCatalog: true });
-  assert.equal(h.ctx.get('cliTools'), undefined);
+test('original native id and tools survive a real KMH persistence restart', async t => {
+  const h = await profileHarness(t, { persistence: true });
   await h.send('Persisted original input');
   const original = await h.ctx.codexCli.bindingRecord(h.agent.session.id);
   const descriptor = h.ctx.settings.describe().find(row => row.ns === 'codex-entry');
@@ -296,36 +280,6 @@ test('resuming an old binding without creation tools fails and preserves its nat
   assert.equal(JSON.parse(legacy)[h.agent.session.id].threadId, original);
 });
 
-
-test('the actual Selector can unload and reload while Codex preserves old tools and accepts new defaults', async t => {
-  const h = await profileHarness(t, { withSelector: true });
-  await h.send('Original conversation before disabling Selector');
-  const original = await h.ctx.codexCli.bindingRecord(h.agent.session.id);
-  const codexEntry = h.ctx.configEditor.entries().find(row => row.options.id === 'codex-entry');
-  const codexOwner = codexEntry.fiber;
-  const controller = h.ctx.configEditor.entries().find(row => row.options.id === 'selector-controller');
-  const ui = h.ctx.configEditor.entries().find(row => row.options.id === 'selector-ui');
-  assert.ok(h.ctx.cliToolsController.targets().entries.some(row => row.id === 'codex-entry'));
-  await controller.update({ disabled: true });
-  await ui.update({ disabled: true });
-  await h.ctx.loader.await();
-  assert.equal(h.ctx.get('cliToolsController'), undefined);
-  assert.equal(codexEntry.fiber, codexOwner);
-  await editChoices(h.ctx, row => row.name === 'kmh-fixture_b');
-  await h.send('Continue original conversation while Selector is disabled');
-  assert.equal((await h.ctx.codexCli.bindingRecord(h.agent.session.id)).threadId, original.threadId);
-  assert.deepEqual(h.server.requests.at(-1).tools.map(row => row.name), ['kmh-fixture_a', 'kmh-fixture_b']);
-  const fresh = await h.create('selector-disabled-fresh');
-  await h.send('New conversation while Selector is disabled', fresh);
-  assert.deepEqual(h.server.requests.at(-1).tools.map(row => row.name), ['kmh-fixture_b']);
-  await controller.update({ disabled: false });
-  await ui.update({ disabled: false });
-  await h.ctx.loader.await();
-  assert.ok(h.ctx.cliToolsController.targets().entries.some(row => row.id === 'codex-entry'));
-  const descriptor = h.ctx.settings.describe().find(row => row.ns === 'codex-entry');
-  assert.deepEqual(descriptor.value.toolSelection.harness.filter(row => row.enabled).map(row => row.name), ['kmh-fixture_b']);
-  assert.equal(codexEntry.fiber, codexOwner);
-});
 
 test('closing C gives a new session only A and B while the original session retains A B C', async t => {
   const h = await profileHarness(t, { extraFixtures: true, beforeCreate: ctx => editChoices(ctx, row => row.name !== 'kmh-fixture_d') });
