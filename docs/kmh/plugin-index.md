@@ -13,6 +13,7 @@ Kongming 的 Web DSH 基础插件树由 [DSH Web Bundle](../../bundles/dsh-web/R
 | 包 | 用途 | 维护入口 |
 | --- | --- | --- |
 | `@kmh/codex-cli` | 官方 Codex CLI 模型接入、账号配置与客户端展示 | [包说明](../../packages/codex-cli/README.md) |
+| `@kmh/cli-tools-selector` | 在 Codex 插件详情页查看与切换工具开关；只消费 codex-cli 自报的开关 | [包说明](../../packages/cli-tools-selector/README.md) |
 | `@kmh/zcode-cli` | ZCode CLI 模型接入、登录与客户端展示 | [包说明](../../packages/zcode-cli/README.md) |
 | `@kmh/kmh-team` | 固定角色与团队会话，成员执行复用 DSH subagent | [包说明](../../packages/kmh-team/README.md) |
 | `@kmh/runtime-log` | 将 Cordis 插件诊断保存到 KMH 数据目录 | [包说明](../../packages/runtime-log/README.md) |
@@ -22,7 +23,7 @@ Kongming 的 Web DSH 基础插件树由 [DSH Web Bundle](../../bundles/dsh-web/R
 | `@kmh/bundle-mobile-assistant` | 移动助手 preset、精选技能与精简工具 | [包说明](../../bundles/mobile-assistant/README.md) |
 | `@kmh/mobile-assistant-runtime` | 助手 SDK、持久会话恢复与审批转发 | [包说明](../../packages/mobile-assistant-runtime/README.md) |
 
-Codex、ZCode 和团队包各自包含客户端源码，并通过 `./client` 导出接入 DSH Web。Web 外壳、通用 UI 服务和组件由 DSH 子模块提供。新增自有包的依赖、构建、profile 和测试登记见[包接入指南](adding-a-plugin-package.md)。
+Codex、ZCode、团队与工具开关选择器包各自包含客户端源码，并通过 `./client` 导出接入 DSH Web。Web 外壳、通用 UI 服务和组件由 DSH 子模块提供。新增自有包的依赖、构建、profile 和测试登记见[包接入指南](adding-a-plugin-package.md)。
 
 ## DSH 能力导航
 
