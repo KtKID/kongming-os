@@ -17,9 +17,9 @@ export const zh = {
   "config.saving": "保存中……",
   "config.saveFailed": "保存未成功（配置可能已被并发修改），请重试。",
   "config.serviceUrl": "MadeMe 服务地址",
-  "config.serviceUrlHint": "内嵌网页打开的目标，如 http://127.0.0.1:8100",
+  "config.serviceUrlHint": "内嵌网页打开的目标，如 http://127.0.0.1:30000",
   "config.mcpUrl": "MCP 接入地址",
-  "config.mcpUrlHint": "streamable-http 端点，如 http://127.0.0.1:8100/mcp",
+  "config.mcpUrlHint": "streamable-http 端点，如 http://127.0.0.1:30000/mcp",
   "config.mcpEnabled": "把 MadeMe 工具接入助手",
   "config.mcpEnabledHint":
     "开启后按 MCP 接入地址挂载工具（mcp__mademe__<工具名>）；关闭即卸载",
@@ -51,10 +51,10 @@ export const en = {
   "config.saveFailed":
     "Save did not land (config changed concurrently); please retry.",
   "config.serviceUrl": "MadeMe service URL",
-  "config.serviceUrlHint": "Embedded page target, e.g. http://127.0.0.1:8100",
+  "config.serviceUrlHint": "Embedded page target, e.g. http://127.0.0.1:30000",
   "config.mcpUrl": "MCP endpoint URL",
   "config.mcpUrlHint":
-    "streamable-http endpoint, e.g. http://127.0.0.1:8100/mcp",
+    "streamable-http endpoint, e.g. http://127.0.0.1:30000/mcp",
   "config.mcpEnabled": "Connect MadeMe tools to the assistant",
   "config.mcpEnabledHint":
     "Mounts tools (mcp__mademe__<tool>) at the MCP endpoint when on; off unmounts them",

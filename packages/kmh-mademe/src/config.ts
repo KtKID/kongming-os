@@ -35,20 +35,20 @@ export function normalizeHttpUrl(input: string): string | undefined {
   return url.href;
 }
 
-// TODO(task-mcp-tools 前): 服务默认地址待用户提供，8100 为占位端口。
+// 服务默认地址 30000，MCP 为同服务的 /mcp 路径（2026-10 用户提供）。
 // URL 的格式校验与规范化在配置表单的 parse 层完成（settingsHttpUrlField）；
 // 宿主 schema 用原生 string 字段——transform 节点的序列化产物会被 settings
 // describe 的 client 侧校验丢弃，导致配置页不可见（实测结论）。
 /** MadeMe 服务地址（网页内嵌打开的目标）。 */
 const serviceUrl = Schema.string()
   .description("MadeMe 服务地址")
-  .default("http://127.0.0.1:8100")
+  .default("http://127.0.0.1:30000")
   .volatile();
 
 /** MadeMe MCP 接入地址（streamable-http 端点）。 */
 const mcpUrl = Schema.string()
   .description("MCP 接入地址")
-  .default("http://127.0.0.1:8100/mcp")
+  .default("http://127.0.0.1:30000/mcp")
   .volatile();
 
 /** 是否把 MadeMe 工具接入助手。 */
