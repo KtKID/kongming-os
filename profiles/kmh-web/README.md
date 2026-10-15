@@ -25,7 +25,7 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
   name: '@deepseek-ai/dsh-host-webserver'
   config:
     host: 127.0.0.1
-    port: 3080
+    port: 60000
     compression: gzip
     compressionLevel: 1
     compressionThresholdBytes: 1024

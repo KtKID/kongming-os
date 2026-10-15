@@ -66,7 +66,7 @@ Agent 创建的项目文件由任务工作目录和工具参数决定。外部�
 
 也可以使用 `bash /absolute/path/to/kongming-agent/kmh.sh status` 从任意目录调用。脚本按自身文件位置定位仓库，转发调用环境、输出和退出状态；不带参数或传入 `-h/--help/help` 时展示可用操作。`start/stop/restart/status` 之外的子命令连同参数透传给 `scripts/kmh.mjs`（如 `./kmh.sh web` 前台启动 Web、`./kmh.sh cli`），由其校验参数并返回真实退出状态。
 
-脚本默认检查 3080 端口。调整 profile 的 `webserver.config.port` 后，同时设置 `KMH_WEB_PORT` 为对应端口；该环境变量只选择启停脚本检查的端口。每次操作使用同一个 `KMH_HOME` 和 `KMH_WEB_PORT`。`KMH_HOME` 的解析规则与 KMH 启动器一致。
+脚本默认检查 60000 端口。调整 profile 的 `webserver.config.port` 后，同时设置 `KMH_WEB_PORT` 为对应端口；该环境变量只选择启停脚本检查的端口。每次操作使用同一个 `KMH_HOME` 和 `KMH_WEB_PORT`。`KMH_HOME` 的解析规则与 KMH 启动器一致。
 
 `KMH_HOME/logs/web-supervisor/` 保存 `web.pid`、`web-server.log` 与异常退出的 `crash-*.md`。正常停止释放 PID 记录；异常退出保存日志尾部，保留最近 50 份崩溃报告并等待人工处理。每次启动截断 supervisor 的运行日志；KMH 启动器另外保留前文定义的每次启动独占日志。
 

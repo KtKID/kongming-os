@@ -39,7 +39,7 @@ DSH 与 Kongming 使用各自的 pnpm 工作区和锁文件。Kongming 根工作
 
 根目录 `launch.config.json` 指定 `cli`、`web`、`sdk` 短命令对应的 profile。`profiles/kmh-headless` 选择 DSH base + headless，`profiles/kmh-sdk` 选择 base + sdk-app，两者最后叠加 `@kmh/bundle-kongming`。bundle 清单中的 `dsh.bundle.patch` 指向自身的 `cordis.patch.yml`，profile 的 `dependencies` 使用 `link:../../bundles/kongming` 选择本地包。
 
-Web profile 的 `package.json` 通过 `dsh.profile.bundles` 声明 Bundle 组合。[DSH Web Bundle](../../bundles/dsh-web/README.md)保存 base、Web、standard/PTC/minimal/Cordis 基础预设和已采用的 Kongming persona；`profiles/kmh-web/cordis.patch.yml` 管理 KMH 自有插件与部署覆盖。Bundle 的选择与顺序在 profile 清单中管理：`webserver.config.port` 默认 `3080`，`web-runtime.config.openBrowser` 控制打开浏览器。原版配置保存在 `profiles/kmh-web/upstream.cordis.yml`，实际 Bundle 选择与字段说明见 [Web profile](../../profiles/kmh-web/README.md)。运行 `pnpm web` 启动，`pnpm config:web` 查看最终配置。
+Web profile 的 `package.json` 通过 `dsh.profile.bundles` 声明 Bundle 组合。[DSH Web Bundle](../../bundles/dsh-web/README.md)保存 base、Web、standard/PTC/minimal/Cordis 基础预设和已采用的 Kongming persona；`profiles/kmh-web/cordis.patch.yml` 管理 KMH 自有插件与部署覆盖。Bundle 的选择与顺序在 profile 清单中管理：`webserver.config.port` 默认 `60000`，`web-runtime.config.openBrowser` 控制打开浏览器。原版配置保存在 `profiles/kmh-web/upstream.cordis.yml`，实际 Bundle 选择与字段说明见 [Web profile](../../profiles/kmh-web/README.md)。运行 `pnpm web` 启动，`pnpm config:web` 查看最终配置。
 
 headless/SDK 的共同应用配置编辑 `bundles/kongming/cordis.patch.yml`，模式覆盖编辑相应 `profiles/<name>/cordis.patch.yml`。DSH 的 overlay 对目标条目的 config 整体替换，配置修改需要保留该条目所需的字段。机器偏好放在 `$KMH_HOME/cordis.patch.yml`，调用级覆盖通过 `--patch /absolute/path.yml` 提供。headless/SDK 层顺序为 DSH bundles → Kongming bundle → profile → home → 调用级 patch；Web 层顺序为清单声明的 bundles → profile → home → 调用级 patch。
 

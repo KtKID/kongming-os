@@ -63,7 +63,7 @@ Web 的 DSH 基础服务、GUI/API、Web 承载和 standard/PTC/minimal/Cordis �
 | 修改目标 | 配置位置 |
 | --- | --- |
 | 短命令使用哪个 profile | `launch.config.json` 的 `profiles` |
-| Web 监听地址与端口 | `webserver.config.host`、`webserver.config.port`，当前为 `127.0.0.1:3080` |
+| Web 监听地址与端口 | `webserver.config.host`、`webserver.config.port`，当前为 `127.0.0.1:60000` |
 | 自动打开浏览器 | `web-runtime.config.openBrowser` 引用启动选项；`--no-open` 关闭本次浏览器交接 |
 | Agent 预设默认选择 | `agent-preset-registry.config.default`，当前为 `standard` |
 | 某个 Web Agent 的 persona 和工具 | 对应 `preset-*.config.plugins` 中的条目 |

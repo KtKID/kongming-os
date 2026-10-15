@@ -40,7 +40,7 @@ pnpm web
 
 可提交的 profile 直接位于 Kongming；启动时在 `$KMH_HOME/profiles/` 建立指向这些目录的链接。profile 中的本地包链接按其 dependencies 登记，包含自有插件、bundle 和声明的 DSH 本地包；DSH 自带依赖使用子模块自己的安装。重复启动保留 profile 内容，已有独立 profile 目录冲突时立即报错。
 
-Web 基础配置位于 `bundles/dsh-web/cordis.patch.yml`，包含 base、Web 和四个基础预设；`profiles/kmh-web/cordis.patch.yml` 管理 KMH 自有插件与部署覆盖，Bundle 组合由同目录 `package.json` 的 `dsh.profile.bundles` 选择。端口编辑 `webserver.config.port`，默认 `3080`；浏览器打开方式编辑 `web-runtime.config.openBrowser`。原版对照位于同目录 `upstream.cordis.yml`，字段说明见 [Web 配置](profiles/kmh-web/README.md)。
+Web 基础配置位于 `bundles/dsh-web/cordis.patch.yml`，包含 base、Web 和四个基础预设；`profiles/kmh-web/cordis.patch.yml` 管理 KMH 自有插件与部署覆盖，Bundle 组合由同目录 `package.json` 的 `dsh.profile.bundles` 选择。端口编辑 `webserver.config.port`，默认 `60000`；浏览器打开方式编辑 `web-runtime.config.openBrowser`。原版对照位于同目录 `upstream.cordis.yml`，字段说明见 [Web 配置](profiles/kmh-web/README.md)。
 
 ```sh
 pnpm run profiles
