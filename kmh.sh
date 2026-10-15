@@ -2,7 +2,7 @@
 # KMH 统一启动入口；Web 后台服务管理与其余子命令透传。
 #
 #   ./kmh.sh start     彻底脱离当前终端/agent 会话启动 Web(setsid 新会话,
-#                       不再随父进程退出被杀),监听 http://127.0.0.1:3080
+#                       不再随父进程退出被杀),监听 http://127.0.0.1:60000
 #   ./kmh.sh stop      优雅停止(正常停止,不产生崩溃记录)
 #   ./kmh.sh status    查看运行状态与崩溃记录概况
 #   ./kmh.sh restart   stop 后重新 start
@@ -25,7 +25,7 @@ export KMH_HOME
 ERROR_DIR="$KMH_HOME/logs/web-supervisor"
 LOG_FILE="$ERROR_DIR/web-server.log"
 PID_FILE="$ERROR_DIR/web.pid"
-PORT="${KMH_WEB_PORT:-3080}"
+PORT="${KMH_WEB_PORT:-60000}"
 KEEP_CRASH_FILES=50
 TAIL_LINES=300
 
