@@ -53,3 +53,7 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 [upstream.cordis.yml](upstream.cordis.yml) 保存固定 DSH 版本的原版 Web 完整配置，包含 base 与 Web bundle 的全部配置和四个预设，用于查阅和升级比较。实际启动合成清单选择的 Bundles 与 [cordis.patch.yml](cordis.patch.yml)。四个基础预设的 Kongming persona 在 DSH Web Bundle 中管理，欢迎版本由本目录 patch 覆盖；headless/SDK 通过 `bundles/kongming` 管理共同 persona。
 
 更新 DSH 子模块后，导出新版原配置，与 `upstream.cordis.yml` 比较，再把选定变化合入 DSH Web Bundle，并核对本目录的覆盖项。执行 `pnpm test` 与 Web 启动检查。Bundle 的配置由 Kongming 维护，上游配置变化经过明确审查；修改其 patch 后重新启动 Web。机器偏好 `$KMH_HOME/cordis.patch.yml` 和调用级 patch 按 DSH 的顺序在 profile 配置后应用。
+
+## CLI 执行记录
+
+Web profile 单独挂载 `@kmh/codex-cli-trace`，会话内入口为「Codex Trace」。数据来源、配置与故障处理统一见[插件说明](../../packages/codex-cli-trace/README.md)。

@@ -14,6 +14,7 @@ Kongming 的 Web DSH 基础插件树由 [DSH Web Bundle](../../bundles/dsh-web/R
 | --- | --- | --- |
 | `@kmh/codex-cli` | 官方 Codex CLI 模型接入、账号配置与客户端展示 | [包说明](../../packages/codex-cli/README.md) |
 | `@kmh/cli-tools-selector` | 在 Codex 插件详情页查看与切换工具开关；只消费 codex-cli 自报的开关 | [包说明](../../packages/cli-tools-selector/README.md) |
+| `@kmh/codex-cli-trace` | 会话内查看已有 CLI 本地记录、用量与调用原文，导出当前关联 session | [包说明](../../packages/codex-cli-trace/README.md) |
 | `@kmh/zcode-cli` | ZCode CLI 模型接入、登录与客户端展示 | [包说明](../../packages/zcode-cli/README.md) |
 | `@kmh/kmh-team` | 固定角色与团队会话，成员执行复用 DSH subagent | [包说明](../../packages/kmh-team/README.md) |
 | `@kmh/runtime-log` | 将 Cordis 插件诊断保存到 KMH 数据目录 | [包说明](../../packages/runtime-log/README.md) |

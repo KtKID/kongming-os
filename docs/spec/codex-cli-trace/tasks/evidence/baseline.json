@@ -1,0 +1,162 @@
+{
+  "gitHead": "ee49ba08ec4d35dc6fdbcab0e180f54fff63e658",
+  "fileSetSha256": "26fd55d6b5f287d3464ca5bc5e02f4f28612dabbf74cd29f9532a69618636586",
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "e20d7eb1b8668303324c0889a80e6d0e1665ccb06f91325ac22fb793ecb48039"
+    },
+    {
+      "path": "packages/codex-cli-trace/README.md",
+      "sha256": "6e2383f7f51a31e653fe37eee6ff18894af522b7e32f809c373f7475f3185856"
+    },
+    {
+      "path": "packages/codex-cli-trace/build.mjs",
+      "sha256": "647df43de72f97886751233b6db2a58b7cb168f821b0d6fb4251c0184f2c3be7"
+    },
+    {
+      "path": "packages/codex-cli-trace/package.json",
+      "sha256": "19787c364fb0133a0fdee637ac7aed22ca38f5d4fe134e8bc0f21ff433752966"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/bindings.ts",
+      "sha256": "a0b7eeefdc61650c1349058e253d1d4ff2a004d5696425e81a94653fe9946617"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/client/TraceView.tsx",
+      "sha256": "b121cdc0bd74dca84f55a086e7c96bf9b2f9192f239d83532be72754fed68214"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/client/index.ts",
+      "sha256": "423bd7e756e2e278962c7cbd0f8367bdf265e171adf0325bdf9a4b3e977566f6"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/client/locales.ts",
+      "sha256": "62b40b85d4f0d822114fa53c247fa0d40c8a26fb489e705c52ccb5e6571a98d5"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/client/state.ts",
+      "sha256": "a36f7d0774e9f8ebb93c010c4273ed5a0d48e07bea92d5f1b2f0fc50a639eda3"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/client/styles.ts",
+      "sha256": "9d412047341fc4349189597e579fa5cc75cca8f22f620ea8b7351411bbafed49"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/config.ts",
+      "sha256": "2a9be8437d02fe9f8a6863ff5dbd2600a0af73f1f82f172560fa31bba9a7f4a2"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/export.ts",
+      "sha256": "fda17d75786f9dd2aa85119476882bbb955938fbab29633d0fa457a468603115"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/index.ts",
+      "sha256": "5481dcca1f4d69741107dea8df6c3cfebfeb03b66a6c4ab563f8c5bdd59d2a10"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/paths.ts",
+      "sha256": "0f419a96755624cf878f400a818ca9174b03806156300bcaacd580973ae91adc"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/projector.ts",
+      "sha256": "26757ef76fdf441c52e6c902e48395a2bb62375017edf9c954295fac4d3808b9"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/protocol.ts",
+      "sha256": "db303d1424f843514e67ea3697fc29c9c6af34a40d17c2f5eee15d2ca04f328f"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/reader.ts",
+      "sha256": "78e1ff2b3a11860cca6309434395b8425365366205f81d13ad42e457a61255ea"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/rollout-schema.ts",
+      "sha256": "a5d09023b971f15d790a5d2b67d51dc1bac6a2473d41efe0c16b2246d979fbb4"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/source.ts",
+      "sha256": "1a4082eb40e1f8cafec04a72482f033aceec1fb88c0b1b9908639102190fcf85"
+    },
+    {
+      "path": "packages/codex-cli-trace/src/web.ts",
+      "sha256": "87eb2afb5204ca75368116026fa3f20c3dea2aa43291b5dc8321e3db18cfc2e8"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/bindings.test.mjs",
+      "sha256": "c24944a1864a9628126a742ee26c14447aa761040b4eb303743753eb1eb48a0c"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/browser-harness.mjs",
+      "sha256": "79f1892630eb5cfcd41b3389f18f6bde8810534037cceddc3e1b2e218d9003bb"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/client.test.mjs",
+      "sha256": "a4b1304b56753f83ee8d81c4b29fa2b7ce73831d0a276e47e7e3844745811e1e"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/export.test.mjs",
+      "sha256": "9784f18b504d76fca155f6c67aed14e90dc5bc94e418dbba5c433c1179867048"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/fixtures.mjs",
+      "sha256": "0394a321ef8e4362209b77f73a84ddf6a10e38ec700a1b867f6b994afae0b234"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/projector.test.mjs",
+      "sha256": "83f3786cc690998e5168b9822adff12ca7229e01e93d92a499e5662198dc8675"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/protocol.test.mjs",
+      "sha256": "3c73d943f34f1701cc061bdd548101201c0e630690c8940e274b42bf6e896165"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/query.test.mjs",
+      "sha256": "19cf8c0c208cf9ff5ff2f326120a9e49bc8db86f5d979022df806c770fcfd3f1"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/reader.test.mjs",
+      "sha256": "5c7d3d8353b697c61ddd2f79be5008897ca7ff3f7016a0b121892cfff151a142"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/source.test.mjs",
+      "sha256": "e684847db099bd0c61bbaa0a0ef95a937825eb11c66ddfa71d147902c742424e"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/usage.test.mjs",
+      "sha256": "fcb977e37a5c5c7d15b6fc7a63a7b6fe14cd17f853036ff13b8e2cbed5bfa77e"
+    },
+    {
+      "path": "packages/codex-cli-trace/test/web.test.mjs",
+      "sha256": "a289aded5bbbc1ced92015423eeff4cfb30f4062d5b3fa3cc75b8a63134bda52"
+    },
+    {
+      "path": "packages/codex-cli-trace/tsconfig.browser.json",
+      "sha256": "8488d5bbc812377df4d74536c5acf433f0f2d71f6335b02c2817af524e0649ae"
+    },
+    {
+      "path": "packages/codex-cli-trace/tsconfig.host.json",
+      "sha256": "f46341664180847b15fb7aa2804fc8200174c819956471f2bcfa7b8b9d14b0fe"
+    },
+    {
+      "path": "packages/codex-cli-trace/tsconfig.json",
+      "sha256": "9bbcd8ea75582de86ae8e946e684bbd840b681238148f8c7511039e20558142d"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "6b7c76afabaef3cc28ecd25a01de1519e09683b701fe4289819f77c5b67fea2d"
+    },
+    {
+      "path": "profiles/kmh-web/cordis.patch.yml",
+      "sha256": "8c8600010fb084df0a0c3b3fd01ecd713ef34b4da568c47105357af2c770e27f"
+    },
+    {
+      "path": "profiles/kmh-web/package.json",
+      "sha256": "db6a6b15b6ae32dbe5a621a311ada3f91259f83a73577483954044cf669ff54e"
+    },
+    {
+      "path": "tests/runtime/web-plugin-hmr.test.mjs",
+      "sha256": "6e44b8dde1b31e27320ab3abf5c4d5233acd9a047c3792ee693c8da33602c6b6"
+    }
+  ]
+}
