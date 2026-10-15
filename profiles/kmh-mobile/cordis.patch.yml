@@ -18,6 +18,7 @@
         command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
         cwd: !!js process.cwd()
         dataDir: !!js dshHomePath('codex-cli')
+        probeTimeoutMs: 30000
 - id: agent-default-model
   name: '@deepseek-ai/dsh-agent-default-model'
   config:
