@@ -37,6 +37,10 @@
         file: !!js dshHomePath('logs', 'kmh-echo', `events-${process.pid}.log`)
     - id: kmh-web-surface-zh
       name: '@kmh/web-surface-zh'
+    - id: kmh-mademe
+      name: '@kmh/mademe'
+      # serviceUrl/mcpUrl/mcpEnabled 默认值见包内 src/config.ts；
+      # 运行时经插件详情页表单修改并持久化回本 patch。
 - id: webserver
   name: '@deepseek-ai/dsh-host-webserver'
   config:

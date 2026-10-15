@@ -1,0 +1,14 @@
+# 依赖与构建产物（构建在宿主 workspace 内进行，见 README「仓库位置与宿主关系」）
+node_modules/
+lib/
+
+# tsc 增量构建在 src 旁的产物
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+
+# 本地环境与系统文件
+.env
+*.tsbuildinfo
+.DS_Store
