@@ -1,0 +1,77 @@
+{
+  "name": "@kmh/codex-cli-trace",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Read-only Codex CLI session trace viewer and export",
+  "license": "MIT",
+  "files": [
+    "lib/src",
+    "lib/client.js",
+    "README.md",
+    "lib/browser-types/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    },
+    "./package.json": "./package.json",
+    "./client": {
+      "types": "./lib/browser-types/src/client/index.d.ts",
+      "default": "./lib/client.js"
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "pretest": "pnpm build",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.host.json --noEmit && tsc -p tsconfig.browser.json --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "format:check": "prettier src tsconfig*.json package.json README.md --check"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.1-alpha.1",
+    "@deepseek-ai/schemastery": "3.18.5-alpha.1",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-alpha.1"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "link:../../third_party/dsh/vendor/cordis",
+    "@deepseek-ai/dsh-client-connection": "link:../../third_party/dsh/packages/client/connection",
+    "@deepseek-ai/dsh-client-locale": "link:../../third_party/dsh/packages/client/locale",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "link:../../third_party/dsh/packages/client/ui-plugin-manager",
+    "@deepseek-ai/dsh-client-ui-renderer": "link:../../third_party/dsh/packages/client/ui-renderer",
+    "@deepseek-ai/dsh-client-ui-slots": "link:../../third_party/dsh/packages/client/ui-slots",
+    "@deepseek-ai/dsh-client-ui-primitives": "link:../../third_party/dsh/packages/client/ui-primitives",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "@types/node": "^22.20.0",
+    "eslint": "^9.39.2",
+    "prettier": "^3.6.2",
+    "react": "^18.3.1",
+    "@types/react": "^18.3.31",
+    "@deepseek-ai/dsh-client-ui-conversation": "link:../../third_party/dsh/packages/client/ui-conversation",
+    "@deepseek-ai/dsh-client-ui-session": "link:../../third_party/dsh/packages/client/ui-session",
+    "@deepseek-ai/schemastery": "link:../../third_party/dsh/vendor/schemastery",
+    "@deepseek-ai/dsh-client-ui-layout": "link:../../third_party/dsh/packages/client/ui-layout"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
+    }
+  }
+}

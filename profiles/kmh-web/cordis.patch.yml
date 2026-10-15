@@ -21,6 +21,11 @@
         dataDir: !!js dshHomePath('codex-cli')
     - id: kmh-cli-tools-selector
       name: '@kmh/cli-tools-selector'
+    - id: kmh-codex-cli-trace
+      name: '@kmh/codex-cli-trace'
+      config:
+        bindingsFile: !!js dshHomePath('codex-cli', 'codex-bindings.json')
+        refreshIntervalMs: 1000
     - id: kmh-team
       name: '@kmh/kmh-team'
       config:

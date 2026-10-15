@@ -9,7 +9,7 @@
   "scripts": {
     "setup": "node scripts/kmh.mjs setup",
     "build": "node scripts/kmh.mjs build",
-    "build:kmh": "pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh build",
+    "build:kmh": "pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/codex-cli-trace --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh build",
     "cli": "node scripts/kmh.mjs cli",
     "web": "node scripts/kmh.mjs web",
     "config:web": "node scripts/kmh.mjs web --dump-config",
@@ -20,9 +20,9 @@
     "test": "node --test --test-concurrency=1 tests/runtime/*.test.mjs packages/codex-cli/test/*.test.mjs packages/cli-tools-selector/test/*.test.mjs packages/kmh-team/test/*.test.mjs",
     "pretest": "pnpm build:kmh",
     "typecheck": "pnpm typecheck:kmh && pnpm --dir third_party/dsh run typecheck",
-    "typecheck:kmh": "pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh typecheck",
-    "lint": "bash -n kmh.sh && node --check scripts/kmh.mjs && node --check packages/zcode-cli/build.mjs && node --check packages/codex-cli/build.mjs && node --check packages/cli-tools-selector/build.mjs && node --check scripts/runtime-home.mjs && node --check scripts/runtime-logs.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh lint",
-    "format:check": "pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh format:check"
+    "typecheck:kmh": "pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/codex-cli-trace --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh typecheck",
+    "lint": "bash -n kmh.sh && node --check scripts/kmh.mjs && node --check packages/zcode-cli/build.mjs && node --check packages/codex-cli/build.mjs && node --check packages/codex-cli-trace/build.mjs && node --check packages/cli-tools-selector/build.mjs && node --check scripts/runtime-home.mjs && node --check scripts/runtime-logs.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/codex-cli-trace --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh lint",
+    "format:check": "pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/codex-cli-trace --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh format:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
