@@ -7,7 +7,7 @@
 在 Kongming 根目录构建后，通过现有启动器使用该 profile：
 
 ```sh
-KMH_HOME=~/.hm-mobile node scripts/kmh.mjs dsh --profile kmh-mobile-assistant
+KMH_HOME=~/.hm-mobile-os node scripts/kmh.mjs dsh --profile kmh-mobile-assistant
 ```
 
 进程等待 stdio JSON-RPC，实际使用由小艺网关持有管道。启动器转发调用者工作目录，默认模型配置为 `codex-cli / gpt-6.1-sol / medium`（中等思考强度），SDK initialize 的显式 provider/model/reasoningEffort 由网关传入；运行数据写入独立的 KMH_HOME。

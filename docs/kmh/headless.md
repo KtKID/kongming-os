@@ -22,7 +22,7 @@ description: 外部脚本与服务经 kmh 启动器以 headless 单次进程调�
 启动器是仓库根的 `kmh.sh`，或等价的 `node scripts/kmh.mjs`；`dsh` 子命令把参数原样转发给底层 CLI。每次运行时启动器解析 `KMH_HOME`、注册 profile 链接，并把该目录映射为底座的数据根。
 
 ```bash
-KMH_HOME=~/.hm-mobile /absolute/path/to/kmh.sh dsh --profile kmh-mobile "只回复两个字：ok"
+KMH_HOME=~/.hm-mobile-os /absolute/path/to/kmh.sh dsh --profile kmh-mobile "只回复两个字：ok"
 ```
 
 | 参数 / 环境 | 说明 |
@@ -43,7 +43,7 @@ KMH_HOME=~/.hm-mobile /absolute/path/to/kmh.sh dsh --profile kmh-mobile "只回�
 组合预检不启动运行时，可用于验证 profile 与 overlay 的叠加结果：
 
 ```bash
-KMH_HOME=~/.hm-mobile /absolute/path/to/kmh.sh dsh --profile kmh-mobile --dump-config
+KMH_HOME=~/.hm-mobile-os /absolute/path/to/kmh.sh dsh --profile kmh-mobile --dump-config
 ```
 
 ## 输入输出契约
@@ -72,9 +72,9 @@ KMH_HOME=~/.hm-mobile /absolute/path/to/kmh.sh dsh --profile kmh-mobile --dump-c
 小艺网关（`xiaoyi2agent-server`）以三项配置接入本入口，完整参数以其仓库 `docs/development.md` 为准：
 
 ```bash
-DSH_COMMAND=["node","/absolute/path/to/kongming-agent/scripts/kmh.mjs","dsh"]
+DSH_COMMAND=["node","/absolute/path/to/kongming-os/scripts/kmh.mjs","dsh"]
 DSH_PROFILE=kmh-mobile
-KMH_HOME=~/.hm-mobile   # 经网关进程环境继承传入子进程
+KMH_HOME=~/.hm-mobile-os   # 经网关进程环境继承传入子进程
 ```
 
 网关自行拼装 `--profile` 与任务文本；`dsh` 透传形态下启动器不注入 `--profile`，并转发调用方工作目录、信号与真实退出码。
