@@ -16,8 +16,8 @@ function volatileValue(field) {
 
 test("缺省输入解析出默认值（volatile 引用，schema 原样保留）", () => {
   const config = Config({});
-  assert.equal(volatileValue(config.serviceUrl), "http://127.0.0.1:8100");
-  assert.equal(volatileValue(config.mcpUrl), "http://127.0.0.1:8100/mcp");
+  assert.equal(volatileValue(config.serviceUrl), "http://127.0.0.1:30000");
+  assert.equal(volatileValue(config.mcpUrl), "http://127.0.0.1:30000/mcp");
   assert.equal(volatileValue(config.mcpEnabled), true);
 });
 
