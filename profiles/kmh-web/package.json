@@ -14,6 +14,7 @@
     "dsh-context": "^0.67.0",
     "@kmh/kmh-team": "link:../../packages/kmh-team",
     "@kmh/mademe": "link:../../packages/kmh-mademe",
+    "@kmh/kmh-infra": "link:../../packages/kmh-infra",
     "@kmh/bundle-dsh-web": "link:../../bundles/dsh-web",
     "@kmh/codex-cli-trace": "link:../../packages/codex-cli-trace"
   },

@@ -1,0 +1,77 @@
+{
+  "name": "@kmh/kmh-infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "x-infra 服务插件：侧栏入口 + 内嵌 x-dash 面板 + 服务查询工具接入",
+  "exports": {
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    },
+    "./client": {
+      "types": "./lib/browser-types/src/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "main": "lib/src/index.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.host.json --noEmit && tsc -p tsconfig.browser.json --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "format:check": "prettier src tsconfig*.json package.json cordis.patch.yml --check"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/cordis-plugin-loader": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-store": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-mcp-client": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-system-prompt": "0.2.1-alpha.1",
+    "@deepseek-ai/schemastery": "3.18.5-alpha.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "link:../../third_party/dsh/vendor/cordis",
+    "@deepseek-ai/cordis-plugin-loader": "link:../../third_party/dsh/vendor/loader",
+    "@deepseek-ai/dsh-brand": "link:../../third_party/dsh/packages/util/brand",
+    "@deepseek-ai/dsh-client-locale": "link:../../third_party/dsh/packages/client/locale",
+    "@deepseek-ai/dsh-client-store": "link:../../third_party/dsh/packages/client/store",
+    "@deepseek-ai/dsh-client-ui-layout": "link:../../third_party/dsh/packages/client/ui-layout",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "link:../../third_party/dsh/packages/client/ui-plugin-manager",
+    "@deepseek-ai/dsh-client-ui-primitives": "link:../../third_party/dsh/packages/client/ui-primitives",
+    "@deepseek-ai/dsh-client-ui-renderer": "link:../../third_party/dsh/packages/client/ui-renderer",
+    "@deepseek-ai/dsh-client-ui-settings": "link:../../third_party/dsh/packages/client/ui-settings",
+    "@deepseek-ai/dsh-client-ui-sidebar": "link:../../third_party/dsh/packages/client/ui-sidebar",
+    "@deepseek-ai/dsh-client-ui-slots": "link:../../third_party/dsh/packages/client/ui-slots",
+    "@deepseek-ai/dsh-mcp-client": "link:../../third_party/dsh/packages/mcp/mcp-client",
+    "@deepseek-ai/dsh-system-prompt": "link:../../third_party/dsh/packages/core/system-prompt",
+    "@deepseek-ai/schemastery": "link:../../third_party/dsh/vendor/schemastery",
+    "@types/node": "^22.20.0",
+    "@types/react": "^18.3.31",
+    "esbuild": "^0.28.1",
+    "react": "^18.3.1",
+    "typescript": "^6.0.3"
+  }
+}

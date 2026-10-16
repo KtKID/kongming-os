@@ -41,6 +41,11 @@
       name: '@kmh/mademe'
       # serviceUrl/mcpUrl/mcpEnabled 默认值见包内 src/config.ts；
       # 运行时经插件详情页表单修改并持久化回本 patch。
+    - id: kmh-infra
+      name: '@kmh/kmh-infra'
+      # 八个配置项的默认值见包内 src/config.ts；暗号只填环境变量名，
+      # 暗号本身从启动 KMH 的进程环境读取，不写入本文件。
+      # 运行时经插件详情页表单修改并持久化回本 patch。
 - id: webserver
   name: '@deepseek-ai/dsh-host-webserver'
   config:

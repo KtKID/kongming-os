@@ -263,6 +263,69 @@ importers:
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
 
+  packages/kmh-infra:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../third_party/dsh/vendor/cordis
+        version: link:../../third_party/dsh/vendor/cordis
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: link:../../third_party/dsh/vendor/loader
+        version: link:../../third_party/dsh/vendor/loader
+      '@deepseek-ai/dsh-brand':
+        specifier: link:../../third_party/dsh/packages/util/brand
+        version: link:../../third_party/dsh/packages/util/brand
+      '@deepseek-ai/dsh-client-locale':
+        specifier: link:../../third_party/dsh/packages/client/locale
+        version: link:../../third_party/dsh/packages/client/locale
+      '@deepseek-ai/dsh-client-store':
+        specifier: link:../../third_party/dsh/packages/client/store
+        version: link:../../third_party/dsh/packages/client/store
+      '@deepseek-ai/dsh-client-ui-layout':
+        specifier: link:../../third_party/dsh/packages/client/ui-layout
+        version: link:../../third_party/dsh/packages/client/ui-layout
+      '@deepseek-ai/dsh-client-ui-plugin-manager':
+        specifier: link:../../third_party/dsh/packages/client/ui-plugin-manager
+        version: link:../../third_party/dsh/packages/client/ui-plugin-manager
+      '@deepseek-ai/dsh-client-ui-primitives':
+        specifier: link:../../third_party/dsh/packages/client/ui-primitives
+        version: link:../../third_party/dsh/packages/client/ui-primitives
+      '@deepseek-ai/dsh-client-ui-renderer':
+        specifier: link:../../third_party/dsh/packages/client/ui-renderer
+        version: link:../../third_party/dsh/packages/client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-settings':
+        specifier: link:../../third_party/dsh/packages/client/ui-settings
+        version: link:../../third_party/dsh/packages/client/ui-settings
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: link:../../third_party/dsh/packages/client/ui-sidebar
+        version: link:../../third_party/dsh/packages/client/ui-sidebar
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: link:../../third_party/dsh/packages/client/ui-slots
+        version: link:../../third_party/dsh/packages/client/ui-slots
+      '@deepseek-ai/dsh-mcp-client':
+        specifier: link:../../third_party/dsh/packages/mcp/mcp-client
+        version: link:../../third_party/dsh/packages/mcp/mcp-client
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: link:../../third_party/dsh/packages/core/system-prompt
+        version: link:../../third_party/dsh/packages/core/system-prompt
+      '@deepseek-ai/schemastery':
+        specifier: link:../../third_party/dsh/vendor/schemastery
+        version: link:../../third_party/dsh/vendor/schemastery
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.5
+      '@types/react':
+        specifier: ^18.3.31
+        version: 18.3.31
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.2
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/kmh-mademe:
     devDependencies:
       '@deepseek-ai/cordis':
