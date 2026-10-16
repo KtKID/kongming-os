@@ -21,6 +21,7 @@ Kongming 的 Web DSH 基础插件树由 [DSH Web Bundle](../../bundles/dsh-web/R
 | `@kmh/kmh-echo` | 插件加载与回收的生命周期示例 | [包说明](../../packages/kmh-echo/README.md) |
 | `@kmh/web-surface-zh` | Web 环境系统提示词的中文替换 | [包说明](../../packages/web-surface-zh/README.md) |
 | `@kmh/mademe` | MadeMe 服务插件：侧栏入口、中心内嵌网页面板与 MCP 工具接入 | [包说明](../../packages/kmh-mademe/README.md) |
+| `@kmh/kmh-infra` | x-infra 服务插件：侧栏 Infra 入口、内嵌 x-dash 面板与只读服务查询接入 | [包说明](../../packages/kmh-infra/README.md) |
 | `@kmh/dev-preset` | 开发模式预设 bundle | [清单](../../packages/kmh-dev-preset/package.json)、[配置](../../packages/kmh-dev-preset/cordis.patch.yml) |
 | `@kmh/bundle-mobile-assistant` | 移动助手 preset、精选技能与精简工具 | [包说明](../../bundles/mobile-assistant/README.md) |
 | `@kmh/mobile-assistant-runtime` | 助手 SDK、持久会话恢复与审批转发 | [包说明](../../packages/mobile-assistant-runtime/README.md) |
