@@ -8,8 +8,10 @@
  * 实测结论）。地址的格式校验与规范化由配置表单的 parse 层承担
  * （normalizeHttpUrl），宿主 schema 只收原始字符串。
  *
- * 暗号本身的取值不在这里：本文件只声明"暗号所在的环境变量名"，暗号从 KMH
- * 进程环境读取，不落任何配置文件。
+ * 暗号本身的取值不在这里：本文件只声明"暗号所在的环境变量名"。暗号由
+ * 插件在挂载与配置变更时自行解析（token.ts：先读用户 shell 配置，再回退
+ * KMH 进程环境），因此 Web 的启动环境不需要预先注入暗号；取值不落任何
+ * 配置文件。
  */
 import type { Volatile } from "@deepseek-ai/cordis";
 import Schema from "@deepseek-ai/schemastery";

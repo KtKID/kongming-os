@@ -27,7 +27,7 @@ export const zh = {
     "内嵌打开的地址，也是服务查询的目标，如 http://127.0.0.1:60010",
   "config.tokenEnvVar": "暗号所在的环境变量名",
   "config.tokenEnvVarHint":
-    "填变量名，不填暗号本身；暗号要在启动 KMH 之前设进环境，不会写入任何配置文件。填错或留空时助手会报身份校验错误",
+    "填变量名，不填暗号本身；插件接入时自动从你的 shell 配置读取该变量（KMH 进程环境作后备），暗号不会写入任何配置文件或日志。取不到时助手会报身份校验错误",
   "config.pythonCommand": "Python 位置",
   "config.pythonCommandHint": "启动服务查询进程用的可执行文件，如 python3",
   "config.mcpModuleDir": "x-infra-mcp 所在目录",
@@ -76,7 +76,7 @@ export const en = {
     "Embedded page target and the service query target, e.g. http://127.0.0.1:60010",
   "config.tokenEnvVar": "Environment variable holding the shared secret",
   "config.tokenEnvVarHint":
-    "the variable name, not the secret; set the secret in the environment before starting KMH, it is never written to a config file. A wrong or empty value makes the assistant report an identity check failure",
+    "the variable name, not the secret; when attaching, the plugin reads the variable from your shell profile itself (the KMH process environment is the fallback), and the secret is never written to a config file or log. If it cannot be found, the assistant reports an identity check failure",
   "config.pythonCommand": "Python executable",
   "config.pythonCommandHint":
     "executable used to start the service query process, e.g. python3",

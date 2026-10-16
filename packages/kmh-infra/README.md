@@ -8,7 +8,7 @@ description: kmh-infra 服务插件：在 KMH Web 侧栏加 Infra 入口、在�
 
 装上并启用后，KMH Web 的侧栏出现 Infra 入口，点开在主区内嵌打开 x-dash 面板；同时把本机服务查询接入助手，会话里可以直接问"本机有哪些服务在跑"或某个服务现在的状态。八个配置项都收在插件详情页，不需要改配置文件，改完即刻生效、不用重启。
 
-主要代价与边界：**只能查询**，不提供任何启停、修改或删除服务的操作；暗号只以"环境变量名"的形式保存在配置里，暗号本身要在启动 KMH 之前设进环境，否则助手查询会得到身份校验错误。面板与助手查询共用同一个 x-dash 地址，只填一处。
+主要代价与边界：**只能查询**，不提供任何启停、修改或删除服务的操作；暗号只以"环境变量名"的形式保存在配置里，取值由插件接入时自行从用户 shell 配置读取（KMH 进程环境作后备），Web 怎么启动都不用预先注入，取不到时助手查询得到身份校验错误。面板与助手查询共用同一个 x-dash 地址，只填一处。
 
 ## 目录
 
@@ -51,11 +51,13 @@ description: kmh-infra 服务插件：在 KMH Web 侧栏加 Infra 入口、在�
 
 装上后通常要改两处：`pythonCommand` 与 `mcpModuleDir`（本机路径，换机器必改）；`dashUrl` 与 `tokenEnvVar` 多数情况不用动。
 
-**暗号怎么给**：暗号不进配置。启动 KMH 之前把它设进进程环境，变量名与 `tokenEnvVar` 一致：
+**暗号怎么给**：暗号不进配置。把它设进你的 shell 配置（变量名与 `tokenEnvVar` 一致），就像 x-dash 进程从同一份配置取值那样：
 
 ```sh
-export X_INFRA_MCP_TOKEN="<与 x-dash 进程相同的暗号>"
+export X_INFRA_MCP_TOKEN="<与 x-dash 进程相同的暗号>"   # 写进 ~/.zshrc 等你的 shell 配置
 ```
+
+插件在挂载与每次配置变更时，用一个登录交互 shell 模拟终端会话读取该变量（先于 KMH 进程环境后备）——因此 Web 以任何环境启动都不需要预先注入暗号，暗号轮换后**保存任一配置**（或停用再启用插件）即可按新取值重挂，全程不需要重启 Web。取值只存在于解析路径与查询子进程环境，不写入文件、不进入日志。取不到时挂载照常进行，只是查询会得到身份校验错误。
 
 x-dash 侧不设这个暗号时查询端点整体关闭，助手会得到身份校验错误——这与暗号填错的表现一致，都由助手回答"身份校验错误"。配置项标签写明该字段填变量名而非暗号，暗号也不会出现在日志或错误消息里。
 
@@ -75,11 +77,13 @@ x-dash 侧不设这个暗号时查询端点整体关闭，助手会得到身份�
 
 **`src/mcp.ts`（服务查询装配）** 的 `McpMount` 管理"按配置挂载一组子插件"这件事：
 
-- `sync()` 读取 `mcpEnabled`、`pythonCommand`、`mcpModuleDir`、`dashUrl`、`toolCallTimeoutMs` 与 `tokenEnvVar`；启用且关键参数非空时组成装配键，与上次相同就不动。变化时先卸载旧实例再挂新的，避免重复实例。
+- `sync()` 读取 `mcpEnabled`、`pythonCommand`、`mcpModuleDir`、`dashUrl`、`toolCallTimeoutMs` 与 `tokenEnvVar`；禁用或关键参数为空时立即卸载。可用时**异步解析暗号**（`src/token.ts`）：以登录交互 shell 模拟用户终端会话读取 `tokenEnvVar` 指定的变量，取不到再回退 KMH 进程环境。解析期间不打扰在跑的实例；结果回来后装配键或暗号取值有变化才先卸旧再挂新，都没变就不动（解析同时承担暗号轮换的刷新）。连发多次配置变更时以代次校验保证只有最新一次的结果落地。
 - 挂载用 DSH 现成的 `@deepseek-ai/dsh-mcp-client` 的 stdio 形态：`args` 固定为 `-m x_infra_mcp.mcp_server`，工作目录取 `mcpModuleDir`，工具名落在 `mcp__infra__<tool>`。
 - **两个环境变量由插件显式传给子进程**：DSH 给子进程的是一份"洗过的"父进程环境，名字匹配 `KEY|PASSWORD|SECRET|TOKEN` 的一律不转发，所以 `X_INFRA_MCP_TOKEN` 不会被自动带进去；`X_DASH_BASE_URL` 取 `dashUrl`。暗号取值单独保存与比较，不进装配键，以免被诊断信息打印出来。
-- 失败处理：`failOnStartupError: false`，初始连接失败只记一条告警，工具暂不可用，插件其余部分与 Web 都不受影响；`tokenEnvVar` 为空或该变量没有取值时仍然挂载并记一条告警，查询会返回身份校验错误。
+- 失败处理：`failOnStartupError: false`，初始连接失败只记一条告警，工具暂不可用，插件其余部分与 Web 都不受影响；`tokenEnvVar` 为空或两个来源都没有取值时仍然挂载并记一条告警，查询会返回身份校验错误。
 - 同一个 `sync()` 还会挂载 `src/prompt.ts` 的措辞引导，两者一起挂、一起卸。
+
+**`src/token.ts`（暗号自取）** 承担"插件自己去找暗号"这件事，把暗号与 Web 的启动环境解耦。`McpMount` 每次同步装配时调用它的 `resolveToken()`：先用 `fetchTokenFromShellProfile()` 以登录交互 shell（`$SHELL -lic`，模拟用户终端会话）读取 `tokenEnvVar` 指定的变量——暗号的真实存放处，与 x-dash 从同一份 shell 配置取值；取不到再回退查 KMH 进程环境，兼容从带暗号的环境启动的部署；两个来源都没有时返回 absent，由调用方照常挂载并告警。护栏：`isValidEnvVarName()` 先校验变量名（只允许字母数字下划线），非法名字不拼进 shell 命令；shell 取值有 5 秒超时（`SHELL_FETCH_TIMEOUT_MS`）与 64 KB 输出上限，超时、非零退出与启动失败都按取不到处理，函数绝不抛错；取 stdout 的最后一个非空行，吸收 rc 文件的杂音输出。暗号取值不写入任何文件、不进入日志——日志只出现变量名与来源。
 
 **`src/prompt.ts`（措辞引导）** 把一个子插件注册到系统提示词的 `MCP_SERVERS` 段位，正文是"结果码 → 该怎么回答"的对照（身份校验错误、面板不在运行、名字查不到、状态暂未知、存在重名等）。工具输出文本由上游服务生成、插件不能改写，所以措辞只能这样引导；正文里不含地址与凭据。
 
@@ -93,7 +97,7 @@ x-dash 侧不设这个暗号时查询端点整体关闭，助手会得到身份�
 
 **`build.mjs`（构建脚本）** 先清 `lib/`，用 `tsc -b` 编译宿主半与浏览器半（`tsconfig.host.json` / `tsconfig.browser.json` 双 references），再用 esbuild 把浏览器半打成 `__ModuleLoader__.load({id:"@kmh/kmh-infra", …})` 工厂，产物为 `lib/client.js`。它导出的 `watchClient()` 供开发期热构建使用。
 
-**`test/`（包内测试）** 四份，都用 `node --test` 运行：`infra-config.test.mjs` 断言配置默认值、数值类型与地址规范化边界；`infra-client.test.mjs` 把构建产物当模块加载器工厂加载并注入假上下文，断言四个槽位的注册、面板 id 唯一、配置表单的注入面与选中态镜像/刷新恢复；`infra-mount.test.mjs` 用可变 volatile 替身驱动 `McpMount`，断言 stdio 参数、暗号显式传递与不泄漏、重挂与卸载、引导段落的内容边界；`infra-smoke.test.mjs` 断言产物与分发声明（双入口、`dsh.client` 元数据、组合包 patch、两端产物形态）。
+**`test/`（包内测试）** 五份，都用 `node --test` 运行：`infra-config.test.mjs` 断言配置默认值、数值类型与地址规范化边界；`infra-client.test.mjs` 把构建产物当模块加载器工厂加载并注入假上下文，断言四个槽位的注册、面板 id 唯一、配置表单的注入面与选中态镜像/刷新恢复；`infra-token.test.mjs` 用桩 shell 与注入取值器断言暗号解析顺序、护栏与边界（shell 优先、进程环境后备、非法变量名不起 shell、超时与非零退出按取不到处理）；`infra-mount.test.mjs` 用可变 volatile 替身与暗号解析替身驱动 `McpMount`，断言 stdio 参数、暗号显式传递与不泄漏、异步解析后的重挂/竞态与卸载、引导段落的内容边界；`infra-smoke.test.mjs` 断言产物与分发声明（双入口、`dsh.client` 元数据、组合包 patch、两端产物形态）。
 
 </details>
 
@@ -112,7 +116,7 @@ node --test packages/kmh-infra/test/*.test.mjs
 node --test tests/runtime/web-plugin-hmr.test.mjs
 ```
 
-成功时：包内测试全绿（26 项），`build:kmh` 产出 `lib/src/index.js` 与 `lib/client.js`，热重载回归用真实 KMH Web 入口在临时目录起服务并通过。失败时先看 `pnpm --filter @kmh/kmh-infra build` 的报错；模块解析失败通常是 profile 的 `link:` 登记或本包 `node_modules` 未建立。
+成功时：包内测试全绿（41 项），`build:kmh` 产出 `lib/src/index.js` 与 `lib/client.js`，热重载回归用真实 KMH Web 入口在临时目录起服务并通过。失败时先看 `pnpm --filter @kmh/kmh-infra build` 的报错；模块解析失败通常是 profile 的 `link:` 登记或本包 `node_modules` 未建立。
 
 **环境前提（本机当前状态）**：`pnpm install` 在本机要求先移除 `node_modules`（`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`）。在跑着 KMH Web 的机器上不要直接放行；本包的锁文件登记用 `pnpm install --lockfile-only` 完成，依赖链接按 pnpm 隔离链接器的布局建立。受此影响，根脚本内的 `pnpm --filter` 会做依赖状态检查并连带触发同一个 install，因此本机运行根命令时需要用 `pnpm_config_verify_deps_before_run=false pnpm <script>`。安全时机下应执行一次正常 `pnpm install` 让 pnpm 自己重建链接。
 
