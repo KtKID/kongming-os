@@ -8,13 +8,18 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./protocol": {
+      "types": "./lib/protocol.d.ts",
+      "default": "./lib/protocol.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings 0",
-    "format:check": "prettier src tsconfig.json package.json README.md --check"
+    "format:check": "prettier src tsconfig.json package.json README.md --check",
+    "test": "pnpm build && node --test test/*.test.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.5-alpha.1"

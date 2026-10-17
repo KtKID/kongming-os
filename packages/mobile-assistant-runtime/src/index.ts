@@ -2,6 +2,12 @@
 import type { Context } from "@deepseek-ai/cordis";
 import schema from "@deepseek-ai/schemastery";
 import { z } from "zod";
+import {
+  TaskQuerySchema,
+  TaskControlSchema,
+  SessionQuerySchema,
+  SessionControlSchema,
+} from "./protocol.js";
 import { carrierKeyOf } from "@deepseek-ai/dsh-scope";
 import { JsonRpcLineTransport } from "@deepseek-ai/dsh-sdk-protocol";
 import type {} from "@deepseek-ai/dsh-user-approval";
@@ -37,6 +43,24 @@ export function apply(ctx: Context, config: { preset: string }): void {
         return server.initialize(InitializeSchema.parse(params));
       case "session/prompt":
         return server.prompt(PromptSchema.parse(params));
+      case "kmh/session/get":
+        return server.getSession(SessionQuerySchema.parse(params));
+      case "kmh/session/cancel":
+        return server.controlSession(
+          SessionControlSchema.parse(params),
+          "cancel",
+        );
+      case "kmh/session/resume":
+        return server.controlSession(
+          SessionControlSchema.parse(params),
+          "resume",
+        );
+      case "kmh/task/get":
+        return server.getTask(TaskQuerySchema.parse(params));
+      case "kmh/task/cancel":
+        return server.cancelTask(TaskControlSchema.parse(params));
+      case "kmh/task/resume":
+        return server.resumeTask(TaskControlSchema.parse(params));
       case "shutdown": {
         const result = await server.shutdown();
         setImmediate(() => {
