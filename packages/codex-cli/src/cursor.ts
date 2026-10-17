@@ -175,8 +175,6 @@ export function diffIncrement(
   if (last === undefined)
     return { kind: "baseline-lost", reason: "empty-increment" };
   if (last.role === "tool") return toolResults(tail, messages.length, snapshot);
-  if (last.role !== "user")
-    return { kind: "baseline-lost", reason: "unexpected-tail" };
   return newUserInput(tail, messages.length, snapshot);
 }
 
@@ -206,9 +204,7 @@ function newUserInput(
   if (last === undefined)
     return { kind: "baseline-lost", reason: "unexpected-tail" };
   /** 拼接一条消息的全部文本块；出现非文本块返回 undefined。 */
-  const textOfMessage = (
-    message: RequestMessage,
-  ): string | undefined => {
+  const textOfMessage = (message: RequestMessage): string | undefined => {
     const parts: string[] = [];
     for (const block of asArray(fieldOf(message, "content"))) {
       if (!isTextBlock(block)) return undefined;
@@ -244,13 +240,11 @@ function newUserInput(
   for (const message of tail.slice(lastReal + 1)) {
     // 尾随注入只接受透明类型；文本并入本次投递（模型需要看到技能清单、
     // 时间戳与运行时上下文），非文本块断基线。
-    if (
-      !(
-        message.role === "system" ||
-        message.role === "developer" ||
-        (message.role === "user" && !isRealUserMessage(message))
-      )
-    )
+    if (!(
+      message.role === "system" ||
+      message.role === "developer" ||
+      (message.role === "user" && !isRealUserMessage(message))
+    ))
       return { kind: "baseline-lost", reason: "unexpected-tail" };
     const injected = textOfMessage(message);
     if (injected === undefined)

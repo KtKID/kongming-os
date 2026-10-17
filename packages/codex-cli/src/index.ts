@@ -421,13 +421,17 @@ export class CodexCli extends Service {
           },
           () => undefined,
         );
+      const aborted = isCancelCause(error);
+      if (confirmed && aborted) {
+        state.turn.cursor.delivered = [...state.turn.pendingDigests];
+        await this.recordBinding(sessionKey, state.turn);
+      }
       const reason =
         error instanceof Error && error.name === "TimeoutError"
           ? `CODEX_REQUEST_TIMEOUT: ${this.config.requestTimeoutMs}ms`
           : error instanceof Error
             ? error.message
             : String(error);
-      const aborted = isCancelCause(error);
       this.markLive(sessionKey, {
         color: confirmed && aborted ? "gray" : "red",
         streaming: false,
@@ -451,6 +455,10 @@ export class CodexCli extends Service {
               },
               () => undefined,
             );
+          if (confirmed) {
+            state.turn.cursor.delivered = [...state.turn.pendingDigests];
+            await this.recordBinding(sessionKey, state.turn);
+          }
           await state.turn.dispose().catch(() => undefined);
           this.markLive(sessionKey, {
             color: confirmed ? "gray" : "red",

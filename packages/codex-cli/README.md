@@ -75,7 +75,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 - **流式正文与思考摘要**：正文、可提供的思考摘要随官方 CLI 增量返回。用户选择的推理等级传入每次官方回合；摘要内容以模型实际提供为准。
 - **原生工具审批**：启用原生命令执行或文件修改后，「请求审批」使用工作区沙箱，额外权限申请在 KMH 弹出审批卡片；「帮我审批」对应官方 `--approve-for-me`，使用工作区沙箱与 Codex 自动审查，通过后执行、拒绝后返回结果；「完全权限」使用完整访问范围并跳过审批询问；「仅可查看」使用只读沙箱，额外权限申请交用户决定。设置在下一回合读取，KMH 工具继续遵循宿主权限策略。
 - **图片直接入会话**：原生图片生成的产物作为图片块出现在对话里（附实际像素尺寸说明），可点击查看与保存原图。
-- **token 用量与会话状态**：每轮回复显示用量药丸（含缓存命中率）；会话底部连接小球以绿、灰、红区分通信、停止与异常。官方重试期间直接显示“连接失败，正在重试”与原因，恢复输出后回绿；最终失败保留原因，用户可再次发送。等待首段响应和重试期间均可停止。超时返回 `CODEX_REQUEST_TIMEOUT`，随后中断与进程回收分别受收尾时限约束。
+- **token 用量与会话状态**：每轮回复显示用量药丸（含缓存命中率）；会话底部连接小球以绿、灰、红区分通信、停止与异常。官方重试期间直接显示“连接失败，正在重试”与原因，恢复输出后回绿；最终失败保留原因，用户可再次发送。等待首段响应和重试期间均可停止。超时返回 `CODEX_REQUEST_TIMEOUT`，随后中断与进程回收分别受收尾时限约束。官方已接纳的输入在确认停止或超时后仍计为已投递：用同一份历史再次发送返回 `CODEX_SESSION_HISTORY_MISMATCH: empty-increment`，用户追加新输入即可继续原会话，这一事实在重启后保留。
 
 ### 详情页
 
@@ -98,7 +98,7 @@ Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.1
 
 token 用量：`turn/completed` 的 turn 不携带用量（0.162 wire 实测），逐响应用量来自 `thread/tokenUsage/updated`（`last` 分项）。桥维护未消费样本队列，每个 step 收尾（工具挂起或回合终局）恰产出一条 usage chunk：队列空补零样本、终局合并全部剩余，保证各步样本之和恒等于回合总量且携带 `totalTokens`（KMH 折算校验必需）。
 
-会话底部状态由 `conversation.composer.dock` 公开槽位（order 2）注册的 `LiveBall` 展示，2 秒轮询 `GET /api/codex-cli/live`，按当前 sessionId 过滤。Host 与 Client 共用 `live-state.ts` 的响应校验；`retrying` 标记官方重试，`streaming` 在等待重试期间保持 true。宿主停止以 `AgentCancelCause` 对象经 `signal.reason` 传递；流等待监听中止信号并清理监听器。请求超时覆盖排队等待；取消排队项后，后继项仍等待当前消费方交还执行权。重试次数与退避由官方 CLI 管理。
+会话底部状态由 `conversation.composer.dock` 公开槽位（order 2）注册的 `LiveBall` 展示，2 秒轮询 `GET /api/codex-cli/live`，按当前 sessionId 过滤。Host 与 Client 共用 `live-state.ts` 的响应校验；`retrying` 标记官方重试，`streaming` 在等待重试期间保持 true。宿主停止以 `AgentCancelCause` 对象经 `signal.reason` 传递；流等待监听中止信号并清理监听器。请求超时覆盖排队等待；取消排队项后，后继项仍等待当前消费方交还执行权。重试次数与退避由官方 CLI 管理。游标在官方确认接纳输入后立即推进并写入绑定文件，不等待本回合输出结束；确认中断时（用户停止或消费方提前结束流）把待投递摘要记为已投递，下一次差分不再包含该输入。差分切分允许真实用户输入后尾随 system/developer 运行时上下文并并入同一次投递，尾随 assistant 消息仍判定基线丢失。
 
 图片生成结果的展示：Codex 原生 `image_gen.imagegen` 工具在默认隔离下即对模型可用（托管 API 调用，无本地执行与审批）。生成产物由 Codex 落盘到 `~/.codex/generated_images/<threadId>/`；桥在收到对应 `item/completed` 通知时读取落盘文件、经宿主附件服务（`ctx.attachments.saveImages`）落成 `ImageAttachmentRef`，并以 image 内容块送回 KMH，会话内直接展示该图片（2026-10-08 真机闭环：叙述块、image 块与尺寸附注并存渲染）。投影是展示增强：读取或入库失败时跳过并告警（落盘路径即恢复入口），生成与续推链路不受影响；同一生图项按 id 去重，一回合多张图片逐项展示。注意：image 块使用独立流块索引（`<id>:image`）——与叙述块共用 item id 的索引会让组装器按先关先赢丢弃 image 块。
 
@@ -147,7 +147,7 @@ pnpm test
 KMH_CODEX_TEST_TMP=/private/tmp/kmh-codex-retry-20261009 pnpm --filter @kmh/codex-cli test
 ```
 
-测试位于 [`test/`](test/stream-reasoning.test.mjs)，使用真实 Cordis 服务、插件 adapter 和官方 app-server，模型响应来自本地 Responses 服务。完成门控制响应结束时机，分别核对官方通知与插件增量在完成前到达；调用结束后读取原生 session，检查首次、恢复和原生分叉的思考等级及摘要模式。官方 `ultra` 在 session 中保留原值，在 Responses 请求中映射为 `max`。[重试测试](test/retry-status.test.mjs)覆盖真实 503、恢复、重试耗尽、首段前停止、重试期间停止，以及主请求和辅助请求超时；客户端 bundle 渲染测试检查中英文可见原因。生产模型访问与浏览器显示由真实环境验收。
+测试位于 [`test/`](test/stream-reasoning.test.mjs)，使用真实 Cordis 服务、插件 adapter 和官方 app-server，模型响应来自本地 Responses 服务。完成门控制响应结束时机，分别核对官方通知与插件增量在完成前到达；调用结束后读取原生 session，检查首次、恢复和原生分叉的思考等级及摘要模式。官方 `ultra` 在 session 中保留原值，在 Responses 请求中映射为 `max`。[重试测试](test/retry-status.test.mjs)覆盖真实 503、恢复、重试耗尽、首段前停止、重试期间停止，以及主请求和辅助请求超时（超时后同一份历史不再重跑，追加新输入才发起下一次请求）；客户端 bundle 渲染测试检查中英文可见原因。[停止恢复测试](test/task-stop-recovery.test.mjs)覆盖真实 Agent 在输入被接纳后停止、下一条输入不重复投递、重启后继续，以及消费方提前结束流后部分输出与绑定保留。生产模型访问与浏览器显示由真实环境验收。
 
 `KMH_CODEX_TEST_TMP` 必须为绝对路径，省略时使用系统临时目录下的 `kmh-codex-cli-tests`。每项 smoke 建立独立子目录，并将 `CODEX_HOME` 指向其 `codex-home/`；测试保留这些目录，登录与响应服务使用隔离的测试配置。
 

@@ -193,6 +193,13 @@ export class CodexAdapter extends LlmAdapter {
         );
       }
       turn.pendingDigests = [...increment.delivered, ...turn.pendingDigests];
+      // 原生确认接纳后立即推进；中断仍保留输入已投递的事实。
+      turn.cursor = snapshotAt(
+        options.messages,
+        increment.consumed,
+        turn.pendingDigests,
+      );
+      await this.runtime.recordBinding(sessionKey, turn);
       yield* turn.pump(signal);
     } else {
       turn.pendingDigests = [...increment.delivered];

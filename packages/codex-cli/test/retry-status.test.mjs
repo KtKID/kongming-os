@@ -180,7 +180,22 @@ test("request deadline ends a stalled turn and permits another request", async (
   assert.match(live.detail, /CODEX_REQUEST_TIMEOUT/);
   await bounded(Promise.all(h.children.map((child) => child.done)));
   h.server.advanceFirst();
-  const next = await run(h.adapter, input);
+  // 已接纳的相同历史保持只读；用户追加新输入才启动下一次执行（C7 / R4）。
+  await assert.rejects(
+    run(h.adapter, input),
+    /CODEX_SESSION_HISTORY_MISMATCH: empty-increment/,
+  );
+  const next = await run(h.adapter, {
+    ...input,
+    messages: [
+      ...input.messages,
+      {
+        role: "user",
+        content: [{ type: "text", text: "new attempt after timeout" }],
+      },
+    ],
+  });
+  assert.equal(h.server.requests.length, 2);
   assert.ok(next.chunks.some((chunk) => chunk.type === "text-delta"));
 });
 
