@@ -58,27 +58,22 @@
 
 ## feat03: 助手使用 MadeMe 工具
 
-插件把 MadeMe 服务的能力接入助手，用户在会话中让助手操作 MadeMe。
+MadeMe 知识库的能力接入助手，用户在会话中让助手操作 MadeMe。接入由 kmh-web profile 的 `mcp-mademe` 实例承担（拉起 MadeMe-web 自带的 stdio MCP 服务），不经本插件装配；配置落点、核对与停用见 [Web 配置 · MadeMe 工具](../../../profiles/kmh-web/README.md#mademe-工具)。
 
 场景1: 会话中调用
-- GIVEN MadeMe 插件已启用且 MadeMe 服务正在运行
+- GIVEN profile 已声明 mcp-mademe 实例，且 MadeMe-web 的 MCP 入口与 mademe-cli 就位
 - WHEN 用户在会话中要求助手操作 MadeMe（如查询或写入内容）
-- THEN 助手可以调用 MadeMe 服务提供的工具完成任务；具体提供哪些工具由 MadeMe 服务自身定义
+- THEN 助手可以调用 MadeMe 提供的工具完成任务；具体提供哪些工具由 MadeMe 的 MCP 服务自身定义
 
-场景2: 服务未运行
-- GIVEN MadeMe 插件已启用，但 MadeMe 服务未启动
+场景2: 入口或 CLI 缺失
+- GIVEN profile 已声明 mcp-mademe 实例，但 MCP 入口文件或 mademe-cli 不存在
 - WHEN 用户在会话中让助手使用 MadeMe 工具
-- THEN 助手暂无 MadeMe 工具可用（工具不出现，无法调用）；服务恢复运行后工具自动出现，无需重装或重启
+- THEN 助手暂无 MadeMe 工具可用（工具不出现，无法调用）；在重连窗口内补齐文件即自动出现，超过窗口后重启 Web 恢复
 
-场景3: 停用后失效
-- GIVEN MadeMe 插件已停用
+场景3: 停用实例
+- GIVEN 已从 profile 移除 mcp-mademe 实例并重启 Web
 - WHEN 用户在会话中要求助手操作 MadeMe
-- THEN 助手不再有 MadeMe 工具可用
-
-场景4: 未配置接入地址
-- GIVEN MadeMe 插件已启用，但插件详情中未填写助手接入地址（或接入不可用）
-- WHEN 用户使用网页内嵌打开、并在会话中要求助手操作 MadeMe
-- THEN 网页内嵌打开功能不受影响；助手调用时提示 MadeMe 能力未接入
+- THEN 助手不再有 MadeMe 工具可用；停用 @kmh/mademe 插件本身不影响工具，网页内嵌打开功能也不受工具接入状态影响
 
 ## feat04: 在插件详情中填写配置
 
@@ -87,7 +82,7 @@
 场景1: 查看与修改
 - GIVEN MadeMe 插件已安装
 - WHEN 用户打开 MadeMe 插件详情
-- THEN 详情页直接显示全部配置项（至少含 MadeMe 服务地址、助手接入地址），每项带默认值，可修改并保存；服务地址修改后，下次打开按新地址加载
+- THEN 详情页直接显示全部配置项（即 MadeMe 服务地址），每项带默认值，可修改并保存；服务地址修改后，下次打开按新地址加载
 
 场景2: 无效地址
 - WHEN 用户填入格式无效的地址并保存

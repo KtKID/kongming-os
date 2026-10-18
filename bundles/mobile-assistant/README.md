@@ -15,7 +15,7 @@
 | 规划与目标 | `todo_write`、`exit_plan_mode`、`create_goal`、`get_goal`、`update_goal` |
 | 插件管理 | `plugin_manager` |
 
-Windows 使用 `pwsh` 执行命令。MCP 资源工具根据已连接资源注册；可选工具沿用 DSH base 的启用条件。文件、命令、沙箱、审批、日志、存储与上下文压缩服务沿用 DSH。插件管理作用于整个 profile，并遵循现有授权与审批。
+Windows 使用 `pwsh` 执行命令。MCP 资源工具根据已连接资源注册；可选工具沿用 DSH base 的启用条件。文件、命令、沙箱、审批、日志、存储与上下文压缩服务沿用 DSH。插件管理作用于整个 profile，并遵循现有授权与审批。[kmh-mobile-assistant profile](../../profiles/kmh-mobile-assistant/README.md#mademe-工具) 在本组合之上接入 5 个 MadeMe 工具并关闭 MCP 资源工具，模型实际可见 30 项。
 
 [skills.json](skills.json) 选择 32 个已有技能，按任务分组：
 
@@ -37,7 +37,7 @@ Windows 使用 `pwsh` 执行命令。MCP 资源工具根据已连接资源注册
 
 ## 验证
 
-`node --test tests/runtime/mobile-assistant.test.mjs` 通过真实 profile 和本机 Messages 模型夹具验证工具快照、五类新增技能的正文加载、工作目录内文件写入及读取、正常回复和跨进程历史恢复。精确的模型工具快照位于 [mobile-assistant-tools.json](../../tests/runtime/expected/mobile-assistant-tools.json)。完整接入和新增能力建议见[小艺移动助手](../../docs/integrations/xiaoyi-mobile-assistant.md)。
+`node --test tests/runtime/mobile-assistant.test.mjs` 通过真实 profile 和本机 Messages 模型夹具验证工具快照、五类新增技能的正文加载、工作目录内文件写入及读取、正常回复和跨进程历史恢复。精确的模型工具快照位于 [mobile-assistant-tools.json](../../tests/runtime/expected/mobile-assistant-tools.json)，记录的是 kmh-mobile-assistant profile 的完整工具面（本组合 25 项加 profile 接入的 5 个 MadeMe 工具）。完整接入和新增能力建议见[小艺移动助手](../../docs/integrations/xiaoyi-mobile-assistant.md)。
 
 ## 开发备注
 

@@ -113,9 +113,25 @@
       name: '@kmh/runtime-log'
       config:
         file: !!js dshHomePath('logs', 'plugins', `runtime-${process.pid}.jsonl`)
+    - id: mcp-mademe
+      name: '@deepseek-ai/dsh-mcp-client'
+      # MadeMe 知识库工具（mcp__mademe__<tool>）：与 kmh-web 同一实例形态，
+      # 说明与核对见 profiles/kmh-web/README.md「MadeMe 工具」。SDK 进程由
+      # 网关按需拉起，本条目在下一次拉起时生效；已有 Codex 会话保留创建时
+      # 的工具快照，新工具只在新建会话出现。
+      config:
+        serverName: mademe
+        transport: stdio
+        command: /opt/homebrew/bin/node
+        args: ['/Volumes/machub_app/proj/MadeMe-web/mcp/dist/index.js']
 - id: sdk-app-startup
   config:
     profile: kmh-mobile-assistant
+# mcp-resources 会在有 MCP 服务接入时向模型挂出 3 个资源工具；MadeMe 的 MCP
+# 不提供 resources，这些工具只会得到 method not found，按精简工具原则关闭。
+# 后续接入带 resources 的 MCP 服务时再启用。
+- id: mcp-resources
+  disabled: true
 - id: plugin-manager
   config:
     logRoot: !!js dshHomePath('logs', 'plugin-manager', 'kmh-mobile-assistant')

@@ -1,7 +1,7 @@
 /**
- * MadeMe 插件配置 schema。三个字段均为 volatile：经插件页/设置表单修改后，
- * loader 把新值热提交进运行中的配置引用（apply 收到的 config 即活引用），
- * 持久化由 settings + config-editor 走当前 profile 的 Cordis patch。
+ * MadeMe 插件配置 schema。字段为 volatile：经插件页/设置表单修改后，loader
+ * 把新值热提交进运行中的配置引用（apply 收到的 config 即活引用），持久化由
+ * settings + config-editor 走当前 profile 的 Cordis patch。
  * URL 的格式校验与规范化由配置表单的 parse 层承担（normalizeHttpUrl）。
  */
 import type { Volatile } from "@deepseek-ai/cordis";
@@ -35,7 +35,7 @@ export function normalizeHttpUrl(input: string): string | undefined {
   return url.href;
 }
 
-// 服务默认地址 30000，MCP 为同服务的 /mcp 路径（2026-10 用户提供）。
+// 服务默认地址 30000（2026-10 用户提供）。
 // URL 的格式校验与规范化在配置表单的 parse 层完成（settingsHttpUrlField）；
 // 宿主 schema 用原生 string 字段——transform 节点的序列化产物会被 settings
 // describe 的 client 侧校验丢弃，导致配置页不可见（实测结论）。
@@ -45,24 +45,10 @@ const serviceUrl = Schema.string()
   .default("http://127.0.0.1:30000")
   .volatile();
 
-/** MadeMe MCP 接入地址（streamable-http 端点）。 */
-const mcpUrl = Schema.string()
-  .description("MCP 接入地址")
-  .default("http://127.0.0.1:30000/mcp")
-  .volatile();
-
-/** 是否把 MadeMe 工具接入助手。 */
-const mcpEnabled = Schema.boolean()
-  .description("把 MadeMe 工具接入助手")
-  .default(true)
-  .volatile();
-
 /** 运行期配置形态：volatile 字段为活引用（.get() 读当前值）。 */
 export interface Config {
   serviceUrl: Volatile<string>;
-  mcpUrl: Volatile<string>;
-  mcpEnabled: Volatile<boolean>;
 }
 
 /** 插件配置 schema。 */
-export const Config = Schema.object({ serviceUrl, mcpUrl, mcpEnabled });
+export const Config = Schema.object({ serviceUrl });

@@ -57,3 +57,21 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 ## CLI 执行记录
 
 Web profile 单独挂载 `@kmh/codex-cli-trace`，会话内入口为「Codex Trace」。数据来源、配置与故障处理统一见[插件说明](../../packages/codex-cli-trace/README.md)。
+
+## MadeMe 工具
+
+本目录 patch 以实例 `mcp-mademe` 把 MadeMe 知识库的 5 个工具接入助手：`mcp__mademe__mademe_save_idea`、`mcp__mademe__mademe_list_recent_ideas`、`mcp__mademe__mademe_list_ideas_by_tag`、`mcp__mademe__mademe_save_article`、`mcp__mademe__mademe_list_tags`。服务是 MadeMe-web 仓库自带的本机 stdio MCP，DSH 启动时把它拉起为子进程：
+
+```yaml
+- id: mcp-mademe
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: mademe
+    transport: stdio
+    command: /opt/homebrew/bin/node
+    args: ['/Volumes/machub_app/proj/MadeMe-web/mcp/dist/index.js']
+```
+
+前提是 `args` 指向的入口已构建（在 MadeMe-web 的 `mcp/` 目录运行 `npm run build`），MadeMe-web 的 `cli/bin/mademe-cli` 存在，且其 `.env.local` 已配置 Vault 路径。服务按自身文件位置定位 MadeMe-web 项目根并以此为工作目录调用 CLI，本条目不需要 `cwd` 与 `env`。工具契约、错误码与排障见 MadeMe-web 的 `mcp/README.md`（仓库外文档，位于 `args` 所指目录的上一级）。[kmh-mobile-assistant profile](../kmh-mobile-assistant/README.md#mademe-工具) 声明同一实例，其 SDK 场景的差异在该页说明。
+
+重启 Web 后两处核对：`$KMH_HOME/logs/web-supervisor/web-server.log` 出现 `[mademe-mcp] 0.1.0 ready via stdio (cli: …, cwd: …)`；设置 → Built-in plugins → Global plugins 中搜索 `mcp`，`mcp-mademe` 条目的 Status 为 Running。工具以 DSH 的 `mcp__<serverName>__<tool>` 规则命名，即上述 5 个名字。入口文件或 CLI 缺失时子进程启动即退出，工具不出现，mcp-client 按重连策略重试：间隔 0.5 秒起倍增、上限 30 秒、连续 10 次失败即放弃并注销工具（合计约两分钟）。在此窗口内修复文件会自动恢复；超过窗口后必须重启 Web。改路径、换 Node 或停用时直接编辑本条目后重启 Web。`serverName` 必须保持 `mademe` 且在所有 mcp-client 实例中唯一，改名会改变工具名，重名会让实例加载失败。`@kmh/mademe` 插件只负责侧栏入口与内嵌面板，停用它不影响工具，见[插件说明](../../packages/kmh-mademe/README.md)。

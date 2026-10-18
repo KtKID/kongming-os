@@ -18,11 +18,6 @@ export const zh = {
   "config.saveFailed": "保存未成功（配置可能已被并发修改），请重试。",
   "config.serviceUrl": "MadeMe 服务地址",
   "config.serviceUrlHint": "内嵌网页打开的目标，如 http://127.0.0.1:30000",
-  "config.mcpUrl": "MCP 接入地址",
-  "config.mcpUrlHint": "streamable-http 端点，如 http://127.0.0.1:30000/mcp",
-  "config.mcpEnabled": "把 MadeMe 工具接入助手",
-  "config.mcpEnabledHint":
-    "开启后按 MCP 接入地址挂载工具（mcp__mademe__<工具名>）；关闭即卸载",
   "config.overridden": "已覆盖",
   "config.reset": "重置",
   "config.invalidUrl": "需为合法的 http(s) 地址",
@@ -32,7 +27,6 @@ export const zh = {
   "config.healthFail": "不可达或超时",
   "config.healthInvalid": "地址格式无效，请先修正后再测试",
   "config.healthServiceLabel": "服务",
-  "config.healthMcpLabel": "MCP",
 } as const;
 
 /** 英文文案。 */
@@ -52,12 +46,6 @@ export const en = {
     "Save did not land (config changed concurrently); please retry.",
   "config.serviceUrl": "MadeMe service URL",
   "config.serviceUrlHint": "Embedded page target, e.g. http://127.0.0.1:30000",
-  "config.mcpUrl": "MCP endpoint URL",
-  "config.mcpUrlHint":
-    "streamable-http endpoint, e.g. http://127.0.0.1:30000/mcp",
-  "config.mcpEnabled": "Connect MadeMe tools to the assistant",
-  "config.mcpEnabledHint":
-    "Mounts tools (mcp__mademe__<tool>) at the MCP endpoint when on; off unmounts them",
   "config.overridden": "overridden",
   "config.reset": "Reset",
   "config.invalidUrl": "a legal http(s) URL is required",
@@ -67,7 +55,6 @@ export const en = {
   "config.healthFail": "unreachable or timed out",
   "config.healthInvalid": "Invalid URL; fix it before testing",
   "config.healthServiceLabel": "Service",
-  "config.healthMcpLabel": "MCP",
 } as const;
 
 /** 词典键：以 zh 为准，en 必须同键。 */

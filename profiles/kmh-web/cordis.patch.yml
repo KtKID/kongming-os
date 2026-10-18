@@ -39,8 +39,18 @@
       name: '@kmh/web-surface-zh'
     - id: kmh-mademe
       name: '@kmh/mademe'
-      # serviceUrl/mcpUrl/mcpEnabled 默认值见包内 src/config.ts；
+      # serviceUrl 默认值见包内 src/config.ts；
       # 运行时经插件详情页表单修改并持久化回本 patch。
+    - id: mcp-mademe
+      name: '@deepseek-ai/dsh-mcp-client'
+      # MadeMe 知识库工具（mcp__mademe__<tool>）：MadeMe-web 自带的本机 stdio
+      # MCP 服务，由 DSH 拉起为子进程。服务按自身位置定位项目根与 Vault，
+      # 不需要 cwd 与环境变量；改路径或停用时直接编辑本条目后重启 Web。
+      config:
+        serverName: mademe
+        transport: stdio
+        command: /opt/homebrew/bin/node
+        args: [ '/Volumes/machub_app/proj/MadeMe-web/mcp/dist/index.js' ]
     - id: kmh-infra
       name: '@kmh/kmh-infra'
       # 八个配置项的默认值见包内 src/config.ts；暗号只填环境变量名，

@@ -5,10 +5,9 @@
  * 字段覆盖标记与非法值拦截均由共享表单模型承担；快照与动作经注册侧注入
  * 的 controller face（configForms 体系）提供。
  *
- * 接入开关沿用 ui-settings-subagent 的开关行形态（标签左、Switch 右、
- * 三级色 hint）；连通性测试对当前草稿的两个地址做 no-cors 可达性探测
- * （5 秒超时），结果以 StateDot 状态点加 12px 辅助文本呈现。附加排版
- * 经 styles.ts 注入，对齐 DSH 设置表单的字段节奏与 --dsw-* token。
+ * 连通性测试对当前草稿的服务地址做 no-cors 可达性探测（5 秒超时），结果
+ * 以 StateDot 状态点加 12px 辅助文本呈现。附加排版经 styles.ts 注入，对齐
+ * DSH 设置表单的字段节奏与 --dsw-* token。
  */
 import { useState, type ReactNode } from "react";
 import {
@@ -16,7 +15,6 @@ import {
   SettingsForm,
   SettingsValueField,
   StateDot,
-  Switch,
 } from "@deepseek-ai/dsh-client-ui-primitives";
 import type {
   InjectFace,
@@ -46,7 +44,6 @@ interface HealthState {
   running: boolean;
   invalid: boolean;
   service: HealthResult | undefined;
-  mcp: HealthResult | undefined;
 }
 
 /** 以 no-cors 请求探测一个地址的可达性；5 秒超时视为不可达。 */
@@ -113,19 +110,16 @@ export function MadeMeConfigForm(props: MadeMeConfigFormProps): ReactNode {
     running: false,
     invalid: false,
     service: undefined,
-    mcp: undefined,
   });
 
-  /** 对当前草稿的两个地址并行做连通性探测。 */
+  /** 对当前草稿的服务地址做连通性探测。 */
   const testConnections = (): void => {
     const serviceUrl = normalizeHttpUrl(state.serviceUrl.text);
-    const mcpUrl = normalizeHttpUrl(state.mcpUrl.text);
-    if (serviceUrl === undefined || mcpUrl === undefined) {
+    if (serviceUrl === undefined) {
       setHealth({
         running: false,
         invalid: true,
         service: undefined,
-        mcp: undefined,
       });
       return;
     }
@@ -133,21 +127,16 @@ export function MadeMeConfigForm(props: MadeMeConfigFormProps): ReactNode {
       running: true,
       invalid: false,
       service: undefined,
-      mcp: undefined,
     });
     const attempt = async (): Promise<void> => {
-      const [service, mcp] = await Promise.all([
-        probeHealth(serviceUrl),
-        probeHealth(mcpUrl),
-      ]);
-      setHealth({ running: false, invalid: false, service, mcp });
+      const service = await probeHealth(serviceUrl);
+      setHealth({ running: false, invalid: false, service });
     };
     attempt().catch(() => {
       setHealth({
         running: false,
         invalid: false,
         service: { ok: false, ms: 0 },
-        mcp: { ok: false, ms: 0 },
       });
     });
   };
@@ -187,36 +176,6 @@ export function MadeMeConfigForm(props: MadeMeConfigFormProps): ReactNode {
           actions.resetField("serviceUrl");
         }}
       />
-      <SettingsValueField
-        id="mademe-config-mcp-url"
-        label={t("config.mcpUrl")}
-        hint={t("config.mcpUrlHint")}
-        overriddenLabel={t("config.overridden")}
-        resetLabel={t("config.reset")}
-        invalidLabel={t("config.invalidUrl")}
-        disabled={!state.writable}
-        {...state.mcpUrl}
-        onEdit={(text) => {
-          actions.edit("mcpUrl", text);
-        }}
-        onReset={() => {
-          actions.resetField("mcpUrl");
-        }}
-      />
-      <div className="mademe-field">
-        <div className="mademe-toggle-row">
-          <span>{t("config.mcpEnabled")}</span>
-          <Switch
-            checked={state.mcpEnabled.text === "true"}
-            disabled={!state.writable}
-            label={t("config.mcpEnabled")}
-            onChange={(checked) => {
-              actions.edit("mcpEnabled", checked ? "true" : "false");
-            }}
-          />
-        </div>
-        <p className="mademe-hint">{t("config.mcpEnabledHint")}</p>
-      </div>
       <div className="mademe-field">
         <div className="mademe-toggle-row">
           <span className="mademe-toggle-label">
@@ -245,10 +204,7 @@ export function MadeMeConfigForm(props: MadeMeConfigFormProps): ReactNode {
               <span>{t("config.testing")}</span>
             </div>
           ) : (
-            <>
-              {healthRow(t("config.healthServiceLabel"), health.service, t)}
-              {healthRow(t("config.healthMcpLabel"), health.mcp, t)}
-            </>
+            healthRow(t("config.healthServiceLabel"), health.service, t)
           )}
         </div>
       </div>

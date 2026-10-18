@@ -331,9 +331,6 @@ importers:
       '@deepseek-ai/cordis':
         specifier: link:../../third_party/dsh/vendor/cordis
         version: link:../../third_party/dsh/vendor/cordis
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: link:../../third_party/dsh/vendor/loader
-        version: link:../../third_party/dsh/vendor/loader
       '@deepseek-ai/dsh-brand':
         specifier: link:../../third_party/dsh/packages/util/brand
         version: link:../../third_party/dsh/packages/util/brand
@@ -364,9 +361,6 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: link:../../third_party/dsh/packages/client/ui-slots
         version: link:../../third_party/dsh/packages/client/ui-slots
-      '@deepseek-ai/dsh-mcp-client':
-        specifier: link:../../third_party/dsh/packages/mcp/mcp-client
-        version: link:../../third_party/dsh/packages/mcp/mcp-client
       '@deepseek-ai/schemastery':
         specifier: link:../../third_party/dsh/vendor/schemastery
         version: link:../../third_party/dsh/vendor/schemastery

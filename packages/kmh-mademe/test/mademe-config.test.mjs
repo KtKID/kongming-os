@@ -17,17 +17,11 @@ function volatileValue(field) {
 test("缺省输入解析出默认值（volatile 引用，schema 原样保留）", () => {
   const config = Config({});
   assert.equal(volatileValue(config.serviceUrl), "http://127.0.0.1:30000");
-  assert.equal(volatileValue(config.mcpUrl), "http://127.0.0.1:30000/mcp");
-  assert.equal(volatileValue(config.mcpEnabled), true);
 });
 
 test("schema 原样保留输入；规范化只发生在表单层（normalizeHttpUrl）", () => {
-  const config = Config({
-    serviceUrl: "mademe.local:8443",
-    mcpUrl: "127.0.0.1:9000/mcp",
-  });
+  const config = Config({ serviceUrl: "mademe.local:8443" });
   assert.equal(volatileValue(config.serviceUrl), "mademe.local:8443");
-  assert.equal(volatileValue(config.mcpUrl), "127.0.0.1:9000/mcp");
   assert.equal(normalizeHttpUrl("mademe.local:8443"), "https://mademe.local:8443/");
 });
 
@@ -43,14 +37,14 @@ test("URL 校验由表单层承担：schema 接受任意字符串，normalizeHtt
   assert.equal(normalizeHttpUrl("https://user:pass@example.com"), undefined);
 });
 
-test("合法覆盖与布尔开关保留", () => {
-  const config = Config({
-    serviceUrl: "http://10.0.0.5:8100/base",
-    mcpUrl: "http://10.0.0.5:8100/mcp",
-    mcpEnabled: false,
-  });
+test("合法覆盖保留", () => {
+  const config = Config({ serviceUrl: "http://10.0.0.5:8100/base" });
   assert.equal(volatileValue(config.serviceUrl), "http://10.0.0.5:8100/base");
-  assert.equal(volatileValue(config.mcpEnabled), false);
+});
+
+test("schema 只声明 serviceUrl；MCP 接入不经本插件配置", () => {
+  const config = Config({});
+  assert.deepEqual(Object.keys(config), ["serviceUrl"]);
 });
 
 test("normalizeHttpUrl 边界：空串、超长、非 http 协议拒绝", () => {

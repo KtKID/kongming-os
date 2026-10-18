@@ -15,17 +15,11 @@ import { normalizeHttpUrl } from "../config.ts";
 export interface MadeMeSettings {
   /** MadeMe 服务地址（内嵌网页目标）。 */
   serviceUrl?: string;
-  /** MCP 接入地址（streamable-http 端点）。 */
-  mcpUrl?: string;
-  /** 是否把 MadeMe 工具接入助手。 */
-  mcpEnabled?: boolean;
 }
 
 /** 页面渲染的表单状态。 */
 export interface MadeMeConfigState extends SettingsFormShell {
   serviceUrl: SettingsFieldState;
-  mcpUrl: SettingsFieldState;
-  mcpEnabled: SettingsFieldState;
 }
 
 /** 注册侧注入页面的 face：快照 hook 加表单动作。 */
@@ -52,15 +46,6 @@ function settingsHttpUrlField(field: string): SettingsFieldSpec {
   };
 }
 
-/** 布尔字段：以 "true"/"false" 文本暂存，控件用 Checkbox 呈现。 */
-function settingsBooleanField(field: string): SettingsFieldSpec {
-  return {
-    field,
-    format: (value) => (value === true ? "true" : "false"),
-    parse: (text) => ({ kind: "set", value: text === "true" }),
-  };
-}
-
 /** 把一个配置条目的共享表单桥接到页面的暂存表单。 */
 export class MadeMeConfigController {
   private readonly form: SettingsFormModel<MadeMeSettings>;
@@ -70,8 +55,6 @@ export class MadeMeConfigController {
   constructor(scope: SettingsFormScope<MadeMeSettings>) {
     this.form = new SettingsFormModel(scope, [
       settingsHttpUrlField("serviceUrl"),
-      settingsHttpUrlField("mcpUrl"),
-      settingsBooleanField("mcpEnabled"),
     ]);
     this.store = this.form.bind(() => this.projection());
   }
@@ -80,8 +63,6 @@ export class MadeMeConfigController {
     return {
       ...this.form.shell(),
       serviceUrl: this.form.field("serviceUrl"),
-      mcpUrl: this.form.field("mcpUrl"),
-      mcpEnabled: this.form.field("mcpEnabled"),
     };
   }
 
