@@ -56,6 +56,10 @@
       # 八个配置项的默认值见包内 src/config.ts；暗号只填环境变量名，
       # 暗号本身从启动 KMH 的进程环境读取，不写入本文件。
       # 运行时经插件详情页表单修改并持久化回本 patch。
+    - id: kmh-xmusic
+      name: '@kmh/xmusic'
+      # boardUrl（x-music Web 端地址）的默认值见包内 src/config.ts；
+      # 第一阶段没有配置表单，改地址在本条目加 config 后重启 Web。
 - id: webserver
   name: '@deepseek-ai/dsh-host-webserver'
   config:
