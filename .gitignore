@@ -55,6 +55,7 @@ htmlcov/
 
 # 本地缓存（pre-commit / verify 工具产物）
 .cache/
+/.pnpm-store/
 
 # AI 学习产出本地缓存（不入仓）
 .learnings/
@@ -107,14 +108,23 @@ vendor/**/src/**/*.d.ts.map
 # codegraph 本地索引缓存与可视化产物（SQLite 索引 + 生成的 HTML，不入仓）
 /.codegraph/
 
-# 报告证据图片保留本地，报告与文本证据继续跟踪
-/reports/**/evidence/**/*.png
-/reports/**/evidence/**/*.jpg
-/reports/**/evidence/**/*.jpeg
-/reports/**/evidence/**/*.gif
-/reports/**/evidence/**/*.webp
-/reports/**/evidence/**/*.svg
-/reports/**/evidence/**/*.avif
+# reports 下全部图片保留本地，报告与经核对的文本证据继续跟踪。
+/reports/**/*.[pP][nN][gG]
+/reports/**/*.[jJ][pP][gG]
+/reports/**/*.[jJ][pP][eE][gG]
+/reports/**/*.[gG][iI][fF]
+/reports/**/*.[wW][eE][bB][pP]
+/reports/**/*.[sS][vV][gG]
+/reports/**/*.[aA][vV][iI][fF]
+/reports/**/*.[bB][mM][pP]
+/reports/**/*.[tT][iI][fF]
+/reports/**/*.[tT][iI][fF][fF]
+/reports/**/*.[iI][cC][oO]
+/reports/**/*.[hH][eE][iI][cC]
+/reports/**/*.[hH][eE][iI][fF]
+/reports/**/*.[aA][pP][nN][gG]
+/reports/**/*.[jJ][fF][iI][fF]
+/reports/**/*.[jJ][xX][lL]
 
 # 本地临时目录（kmh 运行数据与迁移备份）
 /tmp/

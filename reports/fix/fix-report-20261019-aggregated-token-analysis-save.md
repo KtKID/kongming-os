@@ -41,13 +41,13 @@ DSH 子模块的代码、构建文件与 Git 指针保持原状。工作区既�
    settings namespace "aggregated-token-analysis" changed since it was read (expected revision 1, now 2)
    ```
 
-   第一页面继续显示 `8700` 草稿。原文错误的完整页面截图作为本机验收证据保存；本报告附下方插件配置区域的截图。
+   第一页面继续显示 `8700` 草稿。原文错误的完整页面截图与插件配置区域截图作为本机验收证据保存。
 4. 离开并重进详情页，以当前宿主配置重新编辑，将超时保存为最终值 `8000`；原错误消失，地址保持 `60009/`。
 5. 点击 Token 分析，DOM 中 iframe 的 src 为 `http://127.0.0.1:60009/`，内嵌页面显示“x-token / 本地 Token 消耗洞察”。
 6. 执行同一实例的 `./kmh.sh restart`，服务 PID 从 80488 变为 84120。浏览器重新加载后，配置页显示地址 `60009/`、超时 `8000`、一个运行组件、禁用的保存按钮。
 7. 重启后再用实际配置组合函数读取，结果为 `count=1`，config 为上述最终值；60000 端口由 PID 84120 监听。
 
-![重启后保留的配置](assets/aggregated-token-analysis/restart-retained.png)
+重启后配置截图保存在本机 `reports/fix/assets/aggregated-token-analysis/restart-retained.png`；报告图片统一由 Git 忽略。
 
 ## 检查结果
 
