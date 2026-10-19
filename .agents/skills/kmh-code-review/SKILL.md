@@ -9,7 +9,7 @@ description: 审查 Kongming 仓库的 PR 或提交改动时使用：把审查�
 
 ## 标准上下文
 
-- 根 [AGENTS.md](../../../AGENTS.md)：脚本顶部中文说明与函数注释三要素（输入、输出与失败行为）、TypeScript 严格类型与包名导入、提交拆分（代码、测试与文档分别提交，type(scope): 中文 subject）、文档单点归属与链接引用。
+- 根 [AGENTS.md](../../../AGENTS.md)：脚本顶部中文说明与函数注释三要素（输入、输出与失败行为）、TypeScript 严格类型与包名导入、提交信息（type(scope): 中文 subject）、文档单点归属与链接引用。
 - [docs/architecture/kongming-runtime.md](../../../docs/architecture/kongming-runtime.md)：当前架构与 Kongming/DSH 职责边界。
 - [docs/kmh/README.md](../../../docs/kmh/README.md)：启动与升级流程。
 - [docs/kmh/plugin-index.md](../../../docs/kmh/plugin-index.md)：插件功能索引。
@@ -21,8 +21,8 @@ description: 审查 Kongming 仓库的 PR 或提交改动时使用：把审查�
 1. **新增文字接受语义审查。** 按 [kmh-prose-standard](../kmh-prose-standard/SKILL.md) 审查每个新增或修改的 Markdown 段落、JSDoc、注释与用户可见字符串。新增脚本顶部有中文功能说明，函数注释说明输入、输出与失败行为；自动检查不能确立这些性质，需要对照所属代码或行为核对覆盖、准确与位置。
 2. **文档与行为一致。** 配置键、默认值、命令行为或公开行为变化时，同步更新其唯一归属文档；其他位置链接引用，不复制说明。命令说明以实际执行结果为依据。
 3. **TypeScript 约定成立。** 严格类型与包名导入；`packages/kmh-*` 插件的参数与协议依照源码定义。
-4. **提交拆分符合规范。** 代码、测试与文档分别提交；type(scope): 中文 subject，scope 为英文 kebab-case，同一功能保持相同 scope。
-5. **存在相应证据。** 核对作者按改动面运行过 [kmh-pre-push-checks](../kmh-pre-push-checks/SKILL.md) 选出的本地检查。钩子覆盖不到的语义缺口（pre-commit 只查暂存格式、代码文档分离与脚本语法，pre-push 只跑 Node 启动测试）需要人工审查补上。
+4. **提交信息符合规范。** type(scope): 中文 subject，scope 为英文 kebab-case，同一功能保持相同 scope。
+5. **存在相应证据。** 核对作者按改动面运行过 [kmh-pre-push-checks](../kmh-pre-push-checks/SKILL.md) 选出的本地检查。钩子覆盖不到的语义缺口（pre-commit 只查暂存格式与脚本语法，pre-push 只跑 Node 启动测试）需要人工审查补上。
 6. **公开内容经过核对。** 待发布 diff 与授权范围一致；模型凭据、本地运行数据与机器专用设置保留在忽略目录或机器覆盖中。
 
 ## 人工审查点

@@ -89,6 +89,6 @@ Kongming 层的优化只能改变 Kongming 拥有的东西：`scripts/kmh.mjs`�
 
 ## 交付有边界的可复查结果
 
-按约定提交：代码、测试与文档分别提交，提交信息 type(scope): 中文 subject（scope 英文 kebab-case）。推送前的检查选择参照 [kmh-pre-push-checks](../kmh-pre-push-checks/SKILL.md)，只报告实际执行过的证据。
+按约定提交：提交信息 type(scope): 中文 subject（scope 英文 kebab-case）。推送前的检查选择参照 [kmh-pre-push-checks](../kmh-pre-push-checks/SKILL.md)，只报告实际执行过的证据。
 
 每项结果按以下格式总结：工作负载 → 优化前后绝对值与比率 → 端点与内存语义（适用时）→ 行为证据（dump-config 一致、pnpm test）→ 负控制 → 实际运行的命令 → 排除项。区分历史报告数字与本次本地实测。停在约定的场景与修复范围；留下简短的候选清单，不追逐无关机会。

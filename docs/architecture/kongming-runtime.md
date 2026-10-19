@@ -102,7 +102,7 @@ Web 的 DSH 基础服务、GUI/API、Web 承载和 standard/PTC/minimal/Cordis �
 
 当前检查为 `pnpm lint`、`pnpm typecheck:kmh`、`pnpm format:check` 和 `pnpm test`。运行测试覆盖插件生命周期与文件追加、配置校验、目录链接冲突、配置保持、真实 profile 加载、Web 端口与欢迎版本编辑、配置文件选择 profile、headless 启动和 SDK shutdown。测试前自动构建 Kongming 自有插件；涉及仓库配置修改的测试按文件串行执行。Web 启动与用户流程另外使用实际浏览器验证。
 
-`pnpm hooks` 安装 Node Git 钩子。pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前启动测试。
+`pnpm hooks` 安装 Node Git 钩子。pre-commit 检查暂存格式与脚本语法；pre-push 运行当前启动测试。
 
 ## 官方资料
 

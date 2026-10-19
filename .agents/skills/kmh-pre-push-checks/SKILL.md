@@ -5,7 +5,7 @@ description: 在 push、force-push、把改动标记为 ready 或声称检查通
 
 # KMH Push 前检查
 
-在向 kongming-os 的 main 推送之前，用本技能收集一次与改动相关的本地证据。Git 钩子刻意保持精简：pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前 Node 启动测试。钩子之外没有普适的本地全量基线，更广的覆盖不会因 push 而自动发生。
+在向 kongming-os 的 main 推送之前，用本技能收集一次与改动相关的本地证据。Git 钩子刻意保持精简：pre-commit 检查暂存格式与脚本语法；pre-push 运行当前 Node 启动测试。钩子之外没有普适的本地全量基线，更广的覆盖不会因 push 而自动发生。
 
 ## 先确认检出与分支
 
@@ -13,7 +13,7 @@ description: 在 push、force-push、把改动标记为 ready 或声称检查通
 git status --short --branch
 ```
 
-确认当前分支、与远端的关系以及未提交改动。Kongming 的推送目标是 main。提交遵循 type(scope): 中文 subject（scope 为英文 kebab-case），代码、测试与文档分别提交。
+确认当前分支、与远端的关系以及未提交改动。Kongming 的推送目标是 main。提交遵循 type(scope): 中文 subject（scope 为英文 kebab-case）。
 
 再确认待推送的改动面：取得已验证的基线 ref（通常为 origin/main），对照它检查完整改动范围。
 
@@ -65,7 +65,7 @@ rebase 允许用于本地分支，包括审查之后。重写已推送分支前�
 ## 推送流程
 
 1. 把所选相关检查跑一次。
-2. 正常提交；pre-commit 拦下暂存格式、代码文档分离或脚本语法问题时，先修复再继续。
+2. 正常提交；pre-commit 拦下暂存格式或脚本语法问题时，先修复再继续。
 3. push 前用 `git status --short --branch` 再次确认分支与未提交改动，然后 `git push origin main` 正常推送，让 pre-push 钩子运行 Node 启动测试；仅对获准重写的分支使用准确 lease。
 4. 核对远端 ref 与本地 HEAD 一致。
 

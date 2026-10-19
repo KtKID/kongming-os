@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Kongming Node 提交检查：检查暂存格式、代码文档分离和启动脚本语法。
+# Kongming Node 提交检查：检查暂存格式和启动脚本语法。
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 git diff --cached --check
-bash bin/check-commit-separation.sh
 pnpm lint

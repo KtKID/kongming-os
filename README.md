@@ -52,4 +52,4 @@ pnpm test
 
 当前系统说明见 [Kongming 架构](docs/architecture/kongming-runtime.md)，完整 Web 插件说明见 [插件索引](docs/kmh/plugin-index.md)，配置与升级流程见 [DSH 底座接入](docs/kmh/README.md)。
 
-运行 `pnpm hooks` 安装当前 Node Git 钩子：提交时检查暂存格式、代码文档分离与脚本语法，推送前运行启动集成测试。
+运行 `pnpm hooks` 安装当前 Node Git 钩子：提交时检查暂存格式与脚本语法，推送前运行启动集成测试。

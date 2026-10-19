@@ -24,12 +24,12 @@ Web 的 DSH 基础配置位于 bundles/dsh-web/cordis.patch.yml，profiles/kmh-w
 
 ## 提交与发布
 
-代码、测试与文档分别提交。提交信息使用 type(scope): 中文 subject，scope 为英文 kebab-case；同一功能保持相同 scope。pre-commit 检查暂存格式、代码文档分离与脚本语法；pre-push 运行当前 Node 启动测试。真实凭据、.env 和运行数据保留在忽略目录。
+提交信息使用 type(scope): 中文 subject，scope 为英文 kebab-case；同一功能保持相同 scope。pre-commit 检查暂存格式与脚本语法；pre-push 运行当前 Node 启动测试。真实凭据、.env 和运行数据保留在忽略目录。
 
 ### Git 维护
 
 本仓为独立公开仓库 `KtKID/kongming-os`，日常工作使用 `main`，远端为 `origin`。开始提交或推送前确认所在仓库、分支、远端与已有工作区修改，只暂存本次授权范围的文件。创建新分支需要用户确认。
 
-提交与推送遵循用户授权和 [KMH Push 前检查](.agents/skills/kmh-pre-push-checks/SKILL.md)。代码、测试与文档分别提交；迁入原仓历史时保留作者、日期、说明与改动内容，核对来源和迁入后的对应关系。说明实际执行的检查和依赖缺口，运行结果与历史验收记录分别报告。
+提交与推送遵循用户授权和 [KMH Push 前检查](.agents/skills/kmh-pre-push-checks/SKILL.md)。迁入原仓历史时保留作者、日期、说明与改动内容，核对来源和迁入后的对应关系。说明实际执行的检查和依赖缺口，运行结果与历史验收记录分别报告。
 
 推送前核对待发布内容中的凭据、本地数据与机器专用配置。重写已推送历史使用绑定已观察远端提交的 `--force-with-lease`，远端出现并发更新时中止推送。子模块修改与指针更新需要单独授权，并遵循 DSH 自身规则。
