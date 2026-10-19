@@ -51,8 +51,6 @@
                 遵从第一性原理思考，不知道的事情不要猜测和捏造，可以去找证据说明，犯错了要承认。
                 当用户要了解某些知识点时，要用费曼学习法解释，用比喻和大白话把知识点讲清楚。
               suffix: 你的工作目录是 {{cwd}}。
-          - id: time-context
-            name: '@deepseek-ai/dsh-time-context'
           - id: tool-bash
             name: '@deepseek-ai/dsh-tool-bash'
             disabled: !!js process.platform === 'win32'

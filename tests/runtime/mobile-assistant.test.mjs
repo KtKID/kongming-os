@@ -19,6 +19,7 @@ test('mobile-assistant profile 加载助手 preset 与精简工具', t => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /id: mobile-assistant/);
   assert.match(result.stdout, /includeDefaultRoots: false/);
+  assert.doesNotMatch(result.stdout, /@deepseek-ai\/dsh-time-context/);
   for (const value of ['@kmh/codex-cli', '@kmh/zcode-cli', 'provider: codex-cli', 'model: gpt-6.1-sol', 'reasoningEffort: medium']) assert.ok(result.stdout.includes(value), value);
   assert.doesNotMatch(result.stdout, /dsh-experimental-computer-use|dsh-browser-use/);
   const catalog = JSON.parse(readFileSync(join(root, 'bundles/mobile-assistant/skills.json'), 'utf8'));
@@ -128,6 +129,7 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
   assert.equal(names.some(name => /computer|browser|cua/i.test(name)), false);
   assert.deepEqual(names, JSON.parse(readFileSync(join(root, 'tests/runtime/expected/mobile-assistant-tools.json'), 'utf8')));
   const firstRequest = JSON.stringify(requests[0]);
+  for (const request of requests) assert.doesNotMatch(JSON.stringify(request), /Time sampled while preparing|Browser time zone for this request|Elapsed since the preceding/);
   assert.match(firstRequest, /Kongming 移动助手/);
   assert.doesNotMatch(firstRequest, /x-learn|x-vocal-separate/);
   for (const skill of JSON.parse(readFileSync(join(root, 'bundles/mobile-assistant/skills.json'), 'utf8')).skills) assert.ok(firstRequest.includes(skill), skill);
@@ -138,5 +140,6 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
   const resumed = JSON.stringify(requests.at(-1).messages);
   assert.match(resumed, /MOBILE_FIRST_TURN_EVIDENCE/);
   assert.match(resumed, /MOBILE_SECOND_TURN_EVIDENCE/);
+  assert.doesNotMatch(resumed, /Time sampled while preparing|Browser time zone for this request|Elapsed since the preceding/);
   await second.close();
 });

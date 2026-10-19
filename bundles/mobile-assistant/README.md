@@ -2,6 +2,8 @@
 
 移动助手组合使用 `mobile-assistant` preset，面向持续沟通、文件整理、记录、资料检索与设备状态查看。运行入口为 [kmh-mobile-assistant profile](../../profiles/kmh-mobile-assistant/README.md)，通过 SDK stdio 接入小艺网关。
 
+移动助手只转发用户输入与任务上下文，关闭 `time-context` 自动采样时间、浏览器时区和轮次间隔的附加消息。已有会话的历史记录按原样保留。
+
 ## 工具与技能
 
 本组合裁剪 CUA 与浏览器控制，保留子代理、开发工作流、插件管理、规划、目标与 MCP 资源服务。文件和精选技能工具由 preset 提供，协作与规划工具沿用 DSH base。当前 macOS 实际模型工具目录为 25 项：
