@@ -60,9 +60,12 @@
       name: '@kmh/xmusic'
       # boardUrl（x-music Web 端地址）的默认值见包内 src/config.ts；
       # 第一阶段没有配置表单，改地址在本条目加 config 后重启 Web。
-# 实例由 package.json 选择的 bundle 插入；本层负责持久化表单配置。
+      # 实例由 package.json 选择的 bundle 插入；本层负责持久化表单配置。
 - id: aggregated-token-analysis
   name: '@kmh/aggregated-token-analysis'
+  config:
+    pageUrl: http://127.0.0.1:60009/
+    pageLoadTimeoutMs: 8000
 - id: webserver
   name: '@deepseek-ai/dsh-host-webserver'
   config:
@@ -80,7 +83,7 @@
   config:
     provider: codex-cli
     model: gpt-5.6-luna
-    reasoningEffort: high
+    reasoningEffort: medium
 - id: subagent-model-selection-settings
   name: "@deepseek-ai/dsh-tool-subagent/model-selection-settings"
   config:
@@ -455,3 +458,15 @@
         - source: codex/native
           name: view_image
           enabled: false
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      minimax-cn:
+        apiKeyEnv: MINIMAX_CN_API_KEY
+      zai-coding-cn:
+        apiKeyEnv: ZAI_CODING_CN_API_KEY
+- id: kmh-mademe
+  name: "@kmh/mademe"
+  config:
+    serviceUrl: http://127.0.0.1:30006/
