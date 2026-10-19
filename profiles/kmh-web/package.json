@@ -15,6 +15,7 @@
     "@kmh/kmh-team": "link:../../packages/kmh-team",
     "@kmh/mademe": "link:../../packages/kmh-mademe",
     "@kmh/kmh-infra": "link:../../packages/kmh-infra",
+    "@kmh/aggregated-token-analysis": "link:../../packages/aggregated-token-analysis",
     "@kmh/xmusic": "link:../../packages/kmh-xmusic",
     "@kmh/bundle-dsh-web": "link:../../bundles/dsh-web",
     "@kmh/codex-cli-trace": "link:../../packages/codex-cli-trace"
@@ -25,7 +26,8 @@
         "@kmh/dev-preset",
         "@deepseek-ai/dsh-experimental-inspector-profile",
         "dsh-context",
-        "@kmh/bundle-dsh-web"
+        "@kmh/bundle-dsh-web",
+        "@kmh/aggregated-token-analysis"
       ]
     }
   }

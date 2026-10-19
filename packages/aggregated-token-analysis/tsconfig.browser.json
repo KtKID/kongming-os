@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.host.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": [],
+    "tsBuildInfoFile": "lib/browser.tsbuildinfo",
+    "outDir": "lib/browser-types",
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx",
+    "src/normalize-url.ts"
+  ],
+  "exclude": []
+}

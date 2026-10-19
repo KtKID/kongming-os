@@ -57,7 +57,7 @@ test('保存源码保持现有代码，手动构建后 Web 连续热重载并更
     }
     symlinkSync(join(source, 'node_modules'), join(target, 'node_modules'), 'dir');
   }
-  for (const name of ['codex-cli', 'codex-cli-trace', 'cli-tools-selector', 'runtime-log', 'web-surface-zh', 'kmh-dev-preset', 'kmh-team', 'kmh-mademe', 'kmh-infra', 'kmh-xmusic']) symlinkSync(join(root, 'packages', name), join(dir, 'packages', name), 'dir');
+  for (const name of ['codex-cli', 'codex-cli-trace', 'cli-tools-selector', 'runtime-log', 'web-surface-zh', 'kmh-dev-preset', 'kmh-team', 'kmh-mademe', 'kmh-infra', 'aggregated-token-analysis', 'kmh-xmusic']) symlinkSync(join(root, 'packages', name), join(dir, 'packages', name), 'dir');
   const port = await freePort();
   for (const name of ['kmh-web', 'kmh-headless', 'kmh-sdk']) {
     const target = join(dir, 'profiles', name);

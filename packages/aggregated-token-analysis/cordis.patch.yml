@@ -1,0 +1,5 @@
+# 聚合 Token 分析视图的组合包 patch：把宿主半挂进 profile；
+# 浏览器半由 client runner 依 package.json 的 dsh.client 声明自动发现。
+- insert:
+    - id: aggregated-token-analysis
+      name: "@kmh/aggregated-token-analysis"
