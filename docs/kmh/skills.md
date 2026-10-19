@@ -6,7 +6,7 @@ description: "Kongming 层技能（kmh-*）的清单、文件归属、与 DSH �
 
 ## 概述
 
-`.agents/skills/` 中每个子目录是一个技能，`SKILL.md` 为入口。其中九个 `kmh-*` 技能是 Kongming 自有技能：由 DSH 子模块的同源技能翻译适配而来，全文简体中文，只规范 kongming-os 的 KMH 这一层（启动器、配置、bundles、自有插件、文档与发布）；进入 `third_party/dsh` 开发时遵循子模块自己的规则，kmh 技能对 DSH 内部只做引用。`agent-experience` 与 `record-browser-gif` 仍是指向子模块的符号链接。仓库提交与推送按 [AGENTS.md](../../AGENTS.md#git-维护) 和 `kmh-pre-push-checks` 执行。Kongming 的运行和配置说明见 [底座入口](README.md)。
+`.agents/skills/` 中每个子目录是一个技能，`SKILL.md` 为入口。其中十个 `kmh-*` 技能是 Kongming 自有技能：九个由 DSH 子模块的同源技能翻译适配而来，`kmh-plugin-guide` 为 Kongming 原生；全文简体中文，只规范 kongming-os 的 KMH 这一层（启动器、配置、bundles、自有插件、文档与发布）；进入 `third_party/dsh` 开发时遵循子模块自己的规则，kmh 技能对 DSH 内部只做引用。`agent-experience` 与 `record-browser-gif` 仍是指向子模块的符号链接。仓库提交与推送按 [AGENTS.md](../../AGENTS.md#git-维护) 和 `kmh-pre-push-checks` 执行。Kongming 的运行和配置说明见 [底座入口](README.md)。
 
 ## 目录
 
@@ -29,6 +29,7 @@ description: "Kongming 层技能（kmh-*）的清单、文件归属、与 DSH �
 | [kmh-create-upgrade-guide](../../.agents/skills/kmh-create-upgrade-guide/SKILL.md) | KMH 外部可感知面（launch.config.json、profiles/bundles 键、KMH_HOME、插件入口）变更时的升级说明 | `dsh-create-upgrade-guide` |
 | [kmh-find-simplifications](../../.agents/skills/kmh-find-simplifications/SKILL.md) | 找有证据支撑的简化点，写提案与小清理 | `dsh-find-simplifications` |
 | [kmh-speed-up-perf](../../.agents/skills/kmh-speed-up-perf/SKILL.md) | Kongming 可控面性能：启动链路、配置组合、插件装载；运行时性能归子模块 | `dsh-speed-up-perf` |
+| [kmh-plugin-guide](../../.agents/skills/kmh-plugin-guide/SKILL.md) | 服务插件制作：侧栏入口 + 内嵌指定地址的 Web 服务页面 + 详情页按需展示可配置项 + 可选 MCP 接入，含 profile 登记、验证与 DSH 插件教程副本及索引 | —（Kongming 原生） |
 
 ## 使用前提与文件归属
 
