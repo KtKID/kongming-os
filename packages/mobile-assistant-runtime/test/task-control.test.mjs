@@ -299,7 +299,7 @@ const binding = {
 };
 const log = (reason = { kind: "completed" }) => [
   { seq: 0, type: "turn/start", data: { turn: 0 } },
-  { seq: 1, type: "user/message", data: { id: "m" } },
+  { seq: 1, type: "user/message", data: { id: "m", source: { kind: "user" } } },
   {
     seq: 2,
     type: "assistant/message",

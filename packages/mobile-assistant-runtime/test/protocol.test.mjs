@@ -131,7 +131,7 @@ import { fileURLToPath } from "node:url";
 test("T22 临时生成结果被改动时检查失败", async (t) => {
   const harmony = await mkdtemp(join(tmpdir(), "kmh-protocol-drift-"));
   t.after(() => rm(harmony, { recursive: true, force: true }));
-  const gateway = join(harmony, "xiaoyi2agent-server");
+  const gateway = join(harmony, "kmh-mobile-server");
   await mkdir(gateway);
   await mkdir(join(gateway, "node_modules"));
   const require = createRequire(import.meta.url);
@@ -153,7 +153,7 @@ test("T22 临时生成结果被改动时检查失败", async (t) => {
   await appendFile(
     join(
       harmony,
-      "xiaoyi_e2e/entry/src/main/ets/a2a/generated/TaskProtocol.ets",
+      "kmh-mobile-hm/entry/src/main/ets/a2a/generated/TaskProtocol.ets",
     ),
     "\n// drift\n",
   );
