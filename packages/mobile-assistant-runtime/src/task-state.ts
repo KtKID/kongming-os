@@ -1,6 +1,6 @@
 /** 从原会话日志投影任务结果，并通过公开 Agent 能力执行受归属保护的停止和继续。 */
 import { createHash, randomUUID } from "node:crypto";
-import type { Agent } from "@deepseek-ai/dsh-agent";
+import { foldConsumedWork, type Agent } from "@deepseek-ai/dsh-agent";
 import type { SessionEvent } from "@deepseek-ai/dsh-session";
 import { brandString } from "@deepseek-ai/dsh-brand";
 import type { MessageId } from "@deepseek-ai/dsh-llm";
@@ -36,6 +36,7 @@ export function projectTask(
   status: SessionState,
   epoch: string,
   revision: number,
+  includeContinuations = false,
 ): TaskSnapshot {
   let turn = binding.turn;
   let nearestTurn: number | undefined;
@@ -45,6 +46,16 @@ export function projectTask(
     if (event.type === "user/message" && event.data.id === binding.messageId)
       turn = nearestTurn;
   }
+  if (!includeContinuations && turn !== undefined) {
+    const next = events.find(
+      (event) =>
+        event.seq > binding.beforeSeq &&
+        event.type === "turn/start" &&
+        event.data.turn > turn,
+    );
+    if (next !== undefined)
+      events = events.filter((event) => event.seq < next.seq);
+  }
   let projection: TaskProjection = { outcome: { kind: "pending" } };
   let answer = "";
   let reasoning = "";
@@ -52,30 +63,46 @@ export function projectTask(
   let sawStart = false;
   for (const event of events) {
     if (event.seq <= binding.beforeSeq) continue;
-    if (event.type === "turn/start" && event.data.turn === turn)
+    if (
+      event.type === "turn/start" &&
+      turn !== undefined &&
+      (event.data.turn === turn ||
+        (includeContinuations && event.data.turn > turn))
+    )
       sawStart = true;
-    if (event.type === "assistant/message" && event.data.turn === turn) {
-      const hasTool = event.data.message.content.some(
-        (block) => block.type === "tool-call",
-      );
+    if (
+      event.type === "assistant/message" &&
+      turn !== undefined &&
+      (event.data.turn === turn ||
+        (includeContinuations && event.data.turn > turn))
+    ) {
       for (const block of event.data.message.content) {
         if (block.type === "text") {
-          if (hasTool) reasoning += block.text;
-          else answer += block.text;
+          answer += block.text;
         } else if (block.type === "reasoning") reasoning += block.text;
-      }
-    }
-    if (event.type === "tool/call" && event.data.turn === turn)
-      reasoning += `\n调用工具 ${event.data.name}\n${event.data.arguments}\n`;
-    if (event.type === "tool/result" && event.data.turn === turn) {
-      for (const block of event.data.message.content) {
-        if (block.type === "text") reasoning += block.text;
       }
     }
     if (event.type === "turn/end" && event.data.turn === turn) {
       projection = projectTurnReason(event.data.reason);
       sawEnd = true;
     }
+  }
+  const nextPrimary = events.find(
+    (event) =>
+      event.type === "turn/start" &&
+      turn !== undefined &&
+      event.data.turn > turn,
+  );
+  const consumed = foldConsumedWork(
+    events.filter(
+      (event) =>
+        event.seq > binding.beforeSeq &&
+        (nextPrimary === undefined || event.seq < nextPrimary.seq),
+    ),
+  );
+  if (consumed.end !== undefined) {
+    projection = projectTurnReason(consumed.end.data.reason);
+    sawEnd = true;
   }
   if (!sawEnd && status === "unavailable")
     projection = {
@@ -191,6 +218,44 @@ export function createTaskRuntime(deps: TaskRuntimeDeps) {
     task: TaskIdentity,
   ): Promise<TaskBinding | undefined> =>
     deps.store.get(task.contextId, task.taskId);
+  const eventsFor = async (
+    binding: TaskBinding,
+  ): Promise<readonly SessionEvent[]> => {
+    await deps.flush();
+    const bindings =
+      (await deps.store.listSession?.(binding.internalSessionId)) ?? [];
+    const next = bindings
+      .filter(
+        (row) =>
+          row.admission === "accepted" && row.beforeSeq > binding.beforeSeq,
+      )
+      .sort((a, b) => a.beforeSeq - b.beforeSeq)[0];
+    const events = (await deps.readEvents(binding.internalSessionId)).filter(
+      (event) =>
+        event.seq > binding.beforeSeq &&
+        (next === undefined || event.seq <= next.beforeSeq),
+    );
+    let start: number | undefined;
+    let ownStart: number | undefined;
+    for (const event of events) {
+      if (event.type === "turn/start") start = Number(event.seq);
+      if (
+        event.type === "user/message" &&
+        String(event.data.id) === binding.messageId
+      )
+        ownStart = start;
+      if (
+        event.type === "user/message" &&
+        event.data.source.kind === "user" &&
+        String(event.data.id) !== binding.messageId
+      )
+        return events.filter(
+          (row) =>
+            row.seq < (start === ownStart ? event.seq : (start ?? event.seq)),
+        );
+    }
+    return events;
+  };
   const get = async (task: TaskIdentity | TaskQuery): Promise<TaskSnapshot> => {
     try {
       const binding = await bindingFor(task);
@@ -226,8 +291,8 @@ export function createTaskRuntime(deps: TaskRuntimeDeps) {
         /* 写 ownership 冲突等情况保留 unavailable。 */
       }
       await deps.flush();
-      const events = await deps.readEvents(binding.internalSessionId);
-      return stamp(projectTask(binding, events, status, epoch, 0));
+      const events = await eventsFor(binding);
+      return stamp(projectTask(binding, events, status, epoch, 0, true));
     } catch {
       return stamp(
         unavailable(
@@ -242,6 +307,16 @@ export function createTaskRuntime(deps: TaskRuntimeDeps) {
   const ownsLatestTurn = async (binding: TaskBinding): Promise<boolean> => {
     await deps.flush();
     const events = await deps.readEvents(binding.internalSessionId);
+    if (
+      events.some(
+        (event) =>
+          event.seq > binding.beforeSeq &&
+          event.type === "user/message" &&
+          event.data.source.kind === "user" &&
+          String(event.data.id) !== binding.messageId,
+      )
+    )
+      return false;
     let target = binding.turn;
     let latest: number | undefined;
     for (const event of events) {
@@ -257,6 +332,36 @@ export function createTaskRuntime(deps: TaskRuntimeDeps) {
   };
   return {
     get,
+    bindingFor,
+    async isLatestBinding(binding: TaskBinding): Promise<boolean> {
+      const rows =
+        (await deps.store.listSession?.(binding.internalSessionId)) ?? [];
+      const events = await deps.readEvents(binding.internalSessionId);
+      if (
+        events.some(
+          (event) =>
+            event.seq > binding.beforeSeq &&
+            ((event.type === "user/message" &&
+              event.data.source.kind === "user" &&
+              String(event.data.id) !== binding.messageId) ||
+              (event.type === "agent/inbox/spliced" &&
+                event.data.inserted.some(
+                  (message) =>
+                    message.source.kind === "user" &&
+                    String(message.id) !== binding.messageId,
+                ))),
+        )
+      )
+        return false;
+      return !rows.some(
+        (row) =>
+          row.admission === "accepted" &&
+          row.taskId !== binding.taskId &&
+          (row.beforeSeq > binding.beforeSeq ||
+            row.createdAt > binding.createdAt),
+      );
+    },
+    eventsFor,
     async admit(binding: TaskBinding): Promise<void> {
       const existing = await bindingFor(binding);
       if (existing !== undefined)

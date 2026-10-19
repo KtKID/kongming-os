@@ -16,7 +16,7 @@ const check = process.argv.includes("--check");
 const source = await readFile(join(packageRoot, "src/protocol.ts"), "utf8");
 const digest = createHash("sha256").update(source).digest("hex");
 const requireGateway = createRequire(
-  join(harmonyRoot, "xiaoyi2agent-server/package.json"),
+  join(harmonyRoot, "kmh-mobile-server/package.json"),
 );
 const importedPrettier = await import(
   pathToFileURL(requireGateway.resolve("prettier")).href
@@ -189,10 +189,7 @@ const document =
     .join("\n");
 const targets = [
   [
-    join(
-      harmonyRoot,
-      "xiaoyi2agent-server/src/protocol/task-state.generated.ts",
-    ),
+    join(harmonyRoot, "kmh-mobile-server/src/protocol/task-state.generated.ts"),
     header + source,
     {
       parser: "typescript",
@@ -204,7 +201,7 @@ const targets = [
   [
     join(
       harmonyRoot,
-      "xiaoyi_e2e/entry/src/main/ets/a2a/generated/TaskProtocol.ets",
+      "kmh-mobile-hm/entry/src/main/ets/a2a/generated/TaskProtocol.ets",
     ),
     ets,
     { parser: "typescript", singleQuote: true, printWidth: 100 },

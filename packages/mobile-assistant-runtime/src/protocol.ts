@@ -4,12 +4,14 @@ import { z } from "zod";
 export const MobileCapabilitiesSchema = z.object({
   kmhTaskControlVersion: z.literal(1),
   kmhSessionObservationVersion: z.literal(1).optional(),
+  kmhAssistantStreamVersion: z.literal(1).optional(),
 });
 
 /** SDK 握手中的自有能力字段；各端从此定义读取版本校验。 */
 export const SdkCapabilitiesSchema = z.object({
   kmhTaskControl: z.object({ version: z.literal(1) }),
   kmhSessionObservation: z.object({ version: z.literal(1) }),
+  kmhAssistantStream: z.object({ version: z.literal(1) }),
 });
 export type SdkCapabilities = z.infer<typeof SdkCapabilitiesSchema>;
 
@@ -163,6 +165,184 @@ export const TaskQuerySchema = TaskIdentitySchema.extend({
   sessionId: z.string().min(1),
   afterCursor: z.number().int().min(-1).optional(),
 });
+/** DSH 公共帧的移动边界：额外原生资料原样保留，手机只消费公开展示字段。 */
+const NativeInnerBlockSchema = z.looseObject({
+  type: z.string(),
+  text: z.string().optional(),
+});
+export const NativeBlockSchema = z.looseObject({
+  type: z.string(),
+  text: z.string().optional(),
+  id: z.string().optional(),
+  name: z.string().optional(),
+  arguments: z.string().optional(),
+  toolCallId: z.string().optional(),
+  content: z.array(NativeInnerBlockSchema).optional(),
+  isError: z.boolean().optional(),
+});
+const NativeIndexSchema = z.number().int().nonnegative();
+export const NativeChunkSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("block-start"),
+    index: NativeIndexSchema,
+    blockType: z.string(),
+  }),
+  z.object({
+    type: z.literal("text-delta"),
+    index: NativeIndexSchema,
+    text: z.string(),
+  }),
+  z.object({
+    type: z.literal("reasoning-delta"),
+    index: NativeIndexSchema,
+    text: z.string(),
+  }),
+  z.object({
+    type: z.literal("tool-call-delta"),
+    index: NativeIndexSchema,
+    id: z.string(),
+    name: z.string().optional(),
+    argumentsDelta: z.string(),
+  }),
+  z.object({
+    type: z.literal("block-end"),
+    index: NativeIndexSchema,
+    block: NativeBlockSchema,
+  }),
+  z.object({
+    type: z.literal("usage"),
+    usage: z.looseObject({ inputTokens: z.number(), outputTokens: z.number() }),
+  }),
+  z.looseObject({
+    type: z.literal("finish"),
+    reason: z.looseObject({ kind: z.string() }),
+  }),
+]);
+export const NativeStreamRecordSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("text-chunks"),
+    time0: z.number().int(),
+    index: NativeIndexSchema,
+    dt: z.array(z.number().int()),
+    texts: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal("reasoning-chunks"),
+    time0: z.number().int(),
+    index: NativeIndexSchema,
+    dt: z.array(z.number().int()),
+    texts: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal("tool-call-chunks"),
+    time0: z.number().int(),
+    index: NativeIndexSchema,
+    dt: z.array(z.number().int()),
+    id: z.string(),
+    name: z.string().optional(),
+    args: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal("chunk"),
+    time: z.number().int(),
+    chunk: NativeChunkSchema,
+  }),
+]);
+export const NativeAssistantFrameSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("start"),
+    attemptId: z.string().min(1),
+    revision: NativeIndexSchema,
+    turn: NativeIndexSchema,
+    step: NativeIndexSchema,
+  }),
+  z.object({
+    type: z.literal("chunk"),
+    attemptId: z.string().min(1),
+    revision: NativeIndexSchema,
+    index: NativeIndexSchema,
+    time: z.number().int(),
+    chunk: NativeChunkSchema,
+  }),
+  z.object({
+    type: z.literal("end"),
+    attemptId: z.string().min(1),
+    revision: NativeIndexSchema,
+    index: NativeIndexSchema,
+    outcome: z.discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("committed"),
+        eventType: z.enum(["assistant/message", "assistant/attempt"]),
+        seq: NativeIndexSchema,
+      }),
+      z.object({ kind: z.literal("abandoned") }),
+    ]),
+  }),
+]);
+export const NativeEventSchema = z.looseObject({
+  type: z.string(),
+  seq: NativeIndexSchema,
+  time: z.number(),
+  data: z.looseObject({
+    turn: NativeIndexSchema.optional(),
+    step: NativeIndexSchema.optional(),
+    callId: z.string().optional(),
+    name: z.string().optional(),
+    arguments: z.string().optional(),
+    interrupted: z.boolean().optional(),
+    message: z
+      .looseObject({
+        content: z.array(NativeBlockSchema),
+        toolCallId: z.string().optional(),
+        isError: z.boolean().optional(),
+      })
+      .optional(),
+    stream: z.array(NativeStreamRecordSchema).optional(),
+    error: z.looseObject({ message: z.string().optional() }).optional(),
+  }),
+});
+export const NativeBaselineSchema = z.object({
+  revision: NativeIndexSchema,
+  activeAttempt: z
+    .object({
+      attemptId: z.string(),
+      startedAfterSeq: z.number().int().min(-1),
+      turn: NativeIndexSchema,
+      step: NativeIndexSchema,
+      nextIndex: NativeIndexSchema,
+      stream: z.array(NativeStreamRecordSchema),
+    })
+    .optional(),
+});
+export const TaskFollowFrameSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("snapshot"),
+    cursor: z.number().int().min(-1),
+    records: z.array(NativeEventSchema),
+    assistantStream: NativeBaselineSchema,
+  }),
+  z.object({ type: z.literal("event"), event: NativeEventSchema }),
+  z.object({
+    type: z.literal("assistant-stream"),
+    frame: NativeAssistantFrameSchema,
+  }),
+]);
+export const TaskStreamNotificationSchema = TaskIdentitySchema.extend({
+  sessionId: z.string().min(1),
+  frame: TaskFollowFrameSchema,
+});
+export const TaskFollowResultSchema = z.object({ observing: z.boolean() });
+export type TaskFollowResult = z.infer<typeof TaskFollowResultSchema>;
+export type NativeBlock = z.infer<typeof NativeBlockSchema>;
+export type NativeChunk = z.infer<typeof NativeChunkSchema>;
+export type NativeEvent = z.infer<typeof NativeEventSchema>;
+export type NativeStreamRecord = z.infer<typeof NativeStreamRecordSchema>;
+export type NativeAssistantFrame = z.infer<typeof NativeAssistantFrameSchema>;
+export type NativeBaseline = z.infer<typeof NativeBaselineSchema>;
+export type TaskFollowFrame = z.infer<typeof TaskFollowFrameSchema>;
+export type TaskStreamNotification = z.infer<
+  typeof TaskStreamNotificationSchema
+>;
 export const TaskControlSchema = TaskQuerySchema.extend({
   operationId: z.string().min(1),
 });
@@ -203,6 +383,7 @@ const WirePartSchema = z.object({
   kind: z.string(),
   text: z.string().optional(),
   reasoningText: z.string().optional(),
+  data: TaskFollowFrameSchema.optional(),
 });
 const WireMessageSchema = z.object({
   parts: z.array(WirePartSchema).optional(),
@@ -257,6 +438,7 @@ export const WireTaskActionParamsSchema = z.object({
   operationId: z.string().min(1).optional(),
   afterCursor: z.number().int().min(-1).optional(),
   kmhSessionObservationVersion: z.literal(1).optional(),
+  kmhAssistantStreamVersion: z.literal(1).optional(),
 });
 export const WireTaskActionRequestSchema = z.object({
   jsonrpc: z.literal("2.0"),
@@ -504,6 +686,15 @@ export function a2aStateForOutcome(outcome: TaskOutcome): A2aTaskState {
 
 /** 供生成器读取的公开定义；值域、类型和校验产物均从这些 schema 导出。 */
 export const taskContracts = {
+  TaskFollowResult: TaskFollowResultSchema,
+  NativeBlock: NativeBlockSchema,
+  NativeChunk: NativeChunkSchema,
+  NativeEvent: NativeEventSchema,
+  NativeStreamRecord: NativeStreamRecordSchema,
+  NativeAssistantFrame: NativeAssistantFrameSchema,
+  NativeBaseline: NativeBaselineSchema,
+  TaskFollowFrame: TaskFollowFrameSchema,
+  TaskStreamNotification: TaskStreamNotificationSchema,
   MobileCapabilities: MobileCapabilitiesSchema,
   SdkCapabilities: SdkCapabilitiesSchema,
   SessionObservation: SessionObservationSchema,

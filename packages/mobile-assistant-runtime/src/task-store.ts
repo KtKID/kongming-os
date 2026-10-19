@@ -1,12 +1,20 @@
 /** 保存任务到 KMH 会话/消息的薄索引；串行原子写入，只记录定位信息。 */
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { TaskBindingSchema, type TaskBinding } from "./protocol.js";
 
 export interface TaskStore {
   get(contextId: string, taskId: string): Promise<TaskBinding | undefined>;
   put(binding: TaskBinding): Promise<void>;
+  listSession?(sessionId: string): Promise<TaskBinding[]>;
 }
 
 /** 配置给出绝对根目录；损坏记录和写入失败明确抛出，后续读取等待本任务的写入收尾。 */
@@ -30,6 +38,30 @@ export function createTaskStore(root: string): TaskStore {
     }
   };
   return {
+    listSession: async (sessionId) => {
+      await Promise.all(writes.values());
+      let names: string[];
+      try {
+        names = await readdir(root);
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return [];
+        throw error;
+      }
+      const rows = await Promise.all(
+        names
+          .filter((name) => name.endsWith(".json"))
+          .map((name) => read(join(root, name))),
+      );
+      return rows.filter(
+        (row): row is TaskBinding =>
+          row !== undefined && row.internalSessionId === sessionId,
+      );
+    },
     get: async (contextId, taskId) => {
       const path = file(contextId, taskId);
       await writes.get(path);

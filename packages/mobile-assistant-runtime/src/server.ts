@@ -4,8 +4,12 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { isAbsolute, join } from "node:path";
 import { createTaskRuntime, TaskControlError } from "./task-state.js";
+import { TaskAssistantStream } from "./task-stream.js";
 import { createTaskStore } from "./task-store.js";
 import {
+  TaskStreamNotificationSchema,
+  type TaskFollowFrame,
+  type TaskFollowResult,
   SdkCapabilitiesSchema,
   type SdkCapabilities,
   SessionObservationSchema,
@@ -83,6 +87,18 @@ export const PromptSchema = z.object({
 
 /** 绑定助手 preset 的 SDK server，复用 DSH 的协议事件和模型配置验证。 */
 export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
+  private readonly assistantStreams = new Map<
+    string,
+    { task: TaskIdentity | undefined; source: TaskAssistantStream }
+  >();
+  private readonly streamListeners = new Set<
+    (
+      sessionId: string,
+      task: TaskIdentity | undefined,
+      frame: TaskFollowFrame,
+    ) => void
+  >();
+  private readonly followers = new Map<string, () => void>();
   private readonly sessionEpoch = randomUUID();
   private readonly sessionContexts = new Map<string, string>();
   private readonly awaitingTurn = new Set<string>();
@@ -122,10 +138,25 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
       }
       if (
         event.type === "user/message" &&
+        event.data.source.kind === "user" &&
         this.activeInputs.get(id) !== String(event.data.id)
-      )
+      ) {
         this.activeTasks.delete(id);
+        const source = this.assistantStreams.get(id);
+        if (source !== undefined) source.task = undefined;
+      }
       this.publishSession(id);
+      const frame: TaskFollowFrame =
+        TaskStreamNotificationSchema.shape.frame.parse({
+          type: "event",
+          event,
+        });
+      for (const listener of this.streamListeners)
+        listener(
+          id,
+          this.activeTasks.get(id) ?? this.assistantStreams.get(id)?.task,
+          frame,
+        );
       this.tasks?.onEvent(String(session.id), event).catch(() => {
         this.mobileCtx.logger.warn("TASK_INDEX_WRITE_FAILED");
       });
@@ -154,6 +185,7 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
       ...SdkCapabilitiesSchema.parse({
         kmhTaskControl: { version: 1 },
         kmhSessionObservation: { version: 1 },
+        kmhAssistantStream: { version: 1 },
       }),
     };
   }
@@ -178,7 +210,6 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
         sessionId: params.sessionId,
         contextId: params.task.contextId,
       });
-      this.activeTasks.set(params.sessionId, params.task);
       this.submitting.add(params.sessionId);
       const pending = new Promise<void>((resolve) => {
         settled = resolve;
@@ -238,7 +269,9 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
     const message = createUserMessage({ content, source: { kind: "user" } });
     if (params.task === undefined) {
       this.activeTasks.delete(params.sessionId);
-      this.activeInputs.delete(params.sessionId);
+      this.activeInputs.set(params.sessionId, String(message.id));
+      const source = this.assistantStreams.get(params.sessionId);
+      if (source !== undefined) source.task = undefined;
       handle.agent.followup(message);
       return { messageId: message.id };
     }
@@ -257,6 +290,7 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
         "TASK_BUSY",
         "接纳期间会话开始了其他执行，请核对原任务",
       );
+    this.activeTasks.set(params.sessionId, params.task);
     this.activeInputs.set(params.sessionId, String(message.id));
     handle.agent.followup(message);
     await this.taskState().accepted(binding);
@@ -467,6 +501,7 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
       if (operation === "cancel") {
         const input = this.activeInputs.get(params.sessionId);
         const removed =
+          task !== undefined &&
           input !== undefined &&
           handle.agent.inbox.remove(brandString<MessageId>(input));
         handle.agent.cancel({ kind: "user" }, { keepInbox: true });
@@ -510,6 +545,108 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
     await this.waitForSubmission(task);
     return this.taskState().get(task);
   }
+  /** 先安装观察，再取历史与原生前缀；本地队列切点覆盖基线前的旧来源。 */
+  async followTask(task: TaskQuery): Promise<TaskFollowResult> {
+    await this.waitForSubmission(task);
+    const runtime = this.taskState();
+    const binding = await runtime.bindingFor(task);
+    if (binding === undefined || binding.internalSessionId !== task.sessionId)
+      throw new TaskControlError("TASK_STATUS_UNKNOWN", "原任务定位尚未取得");
+    const key = JSON.stringify([task.sessionId, task.contextId, task.taskId]);
+    this.followers.get(key)?.();
+    let closed = false;
+    let ready = false;
+    const buffered: TaskFollowFrame[] = [];
+    const publish = (frame: TaskFollowFrame): void => {
+      if (!closed)
+        this.mobilePeer.notify(
+          "kmh/task/stream",
+          TaskStreamNotificationSchema.parse({ ...task, frame }),
+        );
+    };
+    const listener = (
+      id: string,
+      identity: TaskIdentity | undefined,
+      frame: TaskFollowFrame,
+    ): void => {
+      if (
+        id !== task.sessionId ||
+        identity?.taskId !== task.taskId ||
+        identity.contextId !== task.contextId
+      )
+        return;
+      if (ready) publish(frame);
+      else buffered.push(frame);
+    };
+    const close = (): void => {
+      closed = true;
+      this.streamListeners.delete(listener);
+      if (this.followers.get(key) === close) this.followers.delete(key);
+    };
+    this.followers.set(key, close);
+    this.streamListeners.add(listener);
+    try {
+      await this.acquire(task.sessionId);
+      const currentHandle = this.handles.get(task.sessionId);
+      const observed = this.observeSession(task.sessionId);
+      const latest = await runtime.isLatestBinding(binding);
+      const records = await runtime.eventsFor(binding);
+      if (closed) return { observing: true };
+      // 读盘期间已提交的同任务事件也归入本次基线；以下捕获均同步执行。
+      const merged = new Map(
+        records.map((event) => [
+          Number(event.seq),
+          TaskStreamNotificationSchema.shape.frame.options[1].shape.event.parse(
+            event,
+          ),
+        ]),
+      );
+      for (const frame of buffered)
+        if (frame.type === "event") merged.set(frame.event.seq, frame.event);
+      const rows = [...merged.values()].sort((a, b) => a.seq - b.seq);
+      const cursor = rows.at(-1)?.seq ?? binding.beforeSeq;
+      const source = this.assistantStreams.get(task.sessionId);
+      if (
+        source !== undefined &&
+        source.task === undefined &&
+        !this.activeInputs.has(task.sessionId) &&
+        currentHandle !== undefined &&
+        (observed.status === "running" || observed.status === "suspended") &&
+        latest
+      ) {
+        const now = this.observeSession(task.sessionId);
+        if (
+          !closed &&
+          now.epoch === observed.epoch &&
+          now.executionRef === observed.executionRef &&
+          this.handles.get(task.sessionId) === currentHandle &&
+          this.sessionContexts.get(task.sessionId) === task.contextId
+        )
+          source.task = { contextId: task.contextId, taskId: task.taskId };
+      }
+      const assistantStream =
+        source?.task?.taskId === task.taskId &&
+        source.task.contextId === task.contextId
+          ? source.source.snapshot()
+          : { revision: 0 };
+      const cut = buffered.length;
+      publish({ type: "snapshot", cursor, records: rows, assistantStream });
+      ready = true;
+      for (const frame of buffered.slice(cut))
+        if (frame.type !== "event" || frame.event.seq > cursor) publish(frame);
+      return { observing: true };
+    } catch (error: unknown) {
+      close();
+      throw error;
+    }
+  }
+  /** 释放本任务观察；Agent 与其他任务继续沿既有生命周期运行。 */
+  unfollowTask(task: TaskQuery): TaskFollowResult {
+    this.followers.get(
+      JSON.stringify([task.sessionId, task.contextId, task.taskId]),
+    )?.();
+    return { observing: false };
+  }
   /** 真实中止并等待活动收尾；重复请求复用原操作。 */
   async cancelTask(task: TaskControl): Promise<TaskSnapshot> {
     await this.waitForSubmission(task);
@@ -530,6 +667,34 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
       await pending.settled;
   }
 
+  /** 在已持有的 Agent 自身上下文注册，事件作用域及实例校验共同限定来源。 */
+  private observeAssistant(handle: AgentHandle): void {
+    handle.agent.ctx.on("agent/assistant-stream", ({ agent, frame }) => {
+      const id = String(agent.session.id);
+      if (agent !== handle.agent || this.handles.get(id) !== handle) return;
+      let source = this.assistantStreams.get(id);
+      if (
+        source === undefined ||
+        (frame.type === "start" && frame.revision === 1)
+      ) {
+        source = {
+          task: this.activeTasks.get(id),
+          source: new TaskAssistantStream(),
+        };
+        this.assistantStreams.set(id, source);
+      }
+      if (frame.type === "start" && this.activeTasks.has(id))
+        source.task = this.activeTasks.get(id);
+      source.source.accept(frame, Number(agent.session.seq) - 1);
+      const value: TaskFollowFrame =
+        TaskStreamNotificationSchema.shape.frame.parse({
+          type: "assistant-stream",
+          frame,
+        });
+      for (const listener of this.streamListeners)
+        listener(id, source.task, value);
+    });
+  }
   private async acquire(id: string): Promise<AgentHandle> {
     if (this.route === undefined) throw new Error("移动助手 SDK 尚未初始化");
     if (this.abort.signal.aborted) throw new Error("移动助手 SDK 正在关闭");
@@ -542,6 +707,7 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
     try {
       const handle = await opening;
       this.handles.set(id, handle);
+      this.observeAssistant(handle);
       return handle;
     } finally {
       this.opening.delete(id);
@@ -596,6 +762,8 @@ export class MobileAssistantServer extends HarnessSdkJsonRpcServer {
 
   private async closeAll(): Promise<Record<string, never>> {
     this.abort.abort();
+    for (const close of this.followers.values()) close();
+    this.assistantStreams.clear();
     await Promise.allSettled(this.opening.values());
     const results = await Promise.allSettled(
       [...this.handles.values()].map((handle) => handle.dispose()),

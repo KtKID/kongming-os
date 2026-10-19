@@ -55,6 +55,10 @@ export function apply(ctx: Context, config: { preset: string }): void {
           SessionControlSchema.parse(params),
           "resume",
         );
+      case "kmh/task/follow":
+        return server.followTask(TaskQuerySchema.parse(params));
+      case "kmh/task/unfollow":
+        return server.unfollowTask(TaskQuerySchema.parse(params));
       case "kmh/task/get":
         return server.getTask(TaskQuerySchema.parse(params));
       case "kmh/task/cancel":
