@@ -1,5 +1,5 @@
 ---
-description: 移动助手SDK的会话三态观察、目标保护控制和原任务结果恢复接口。
+description: 移动助手SDK的原生流式、会话三态观察、目标保护控制和原任务结果恢复接口。
 ---
 
 # Mobile Assistant Runtime
@@ -27,6 +27,14 @@ description: 移动助手SDK的会话三态观察、目标保护控制和原任�
 任务薄索引位于 `DSH_HOME/mobile-assistant/tasks`，仅保存任务与原会话、输入和轮次的定位、接纳阶段，以及执行前移除已确认的事实。正文、思考和结束原因从原会话日志读取；查询会恢复已有 Agent 观察句柄，原输入保持原样。持有其他写 ownership 时返回状态暂不可取，缺索引保持未知。
 
 `kmh/task/cancel` 校验原任务归属，移除该输入仍待处理的消息，调用公开 `Agent.cancel(user, {keepInbox:true})`，等待 `whenIdle()` 并核对原结束记录。确认停止与收到请求分别处理；其他已有输入留在挂起会话，由 `kmh/task/resume` 显式继续。旧任务的控制操作保持旧归属，已完成任务继续返回原结果。服务关闭后原会话和薄索引继续用于查询。
+
+## 原生流式观察
+
+初始化通过 `kmhAssistantStream.version=1` 声明能力。`kmh/task/follow` 接收与 get 相同的原任务定位，验证绑定后注册观察并首先发布 `kmh/task/stream` snapshot，随后发布 event 与 assistant-stream；应答 `{observing:true}` 表示观察建立。`kmh/task/unfollow` 释放该定位的观察，Agent 继续按已有任务规则执行。
+
+snapshot 包含原会话事件和 DSH 当前生成的紧凑前缀，保留原 attemptId、turn/step、revision/index 与块资料。缓存使用 DSH 公开的 AssistantStreamAccumulator。事件与原生流在读取基线期间排队，再按切点发布；重新 follow 重建同一任务基线。监听安装在本服务持有的 Agent 上，旧实例释放后监听随其生命周期结束。
+
+任务事件窗口沿用原输入和索引定位。运行时上下文与技能目录消息保持当前轮归属；独立用户输入开启后续输入边界。进程恢复时，仅显式 follow 且原绑定、当前执行目标与最新输入一致时恢复关联。工具结果保留 DSH 原 `message.toolCallId` 与 `message.isError` 字段。最终任务结果及会话控制继续使用原接口。
 
 从仓库根生成 Harmony 网关校验、ArkTS 类型/运行时校验和中文状态目录：
 
