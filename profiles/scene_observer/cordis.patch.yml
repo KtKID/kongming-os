@@ -1,0 +1,26 @@
+# 屏幕观察的独立单次任务配置；中间档使用 ZCode low/high/max 中的 high。
+- insert:
+    - id: runtime-log
+      name: '@kmh/runtime-log'
+      config:
+        file: !!js dshHomePath('logs', 'plugins', `runtime-${process.pid}.jsonl`)
+    - id: kmh-zcode-cli
+      name: '@kmh/zcode-cli'
+      config:
+        providerId: account:bigmodel-individual-coding-plan
+        model: glm-5.3-flash
+        reasoningLevel: high
+        cwd: !!js process.cwd()
+        dataDir: !!js dshHomePath('zcode-cli')
+- id: agent-default-model
+  name: '@deepseek-ai/dsh-agent-default-model'
+  config:
+    provider: zcode-cli
+    model: glm-5.3-flash
+    reasoningEffort: high
+- id: spill-local
+  config:
+    root: !!js dshHomePath('spill')
+- id: plugin-manager
+  config:
+    logRoot: !!js dshHomePath('logs', 'plugin-manager', 'scene_observer')
