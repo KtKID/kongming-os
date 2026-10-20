@@ -1,0 +1,23 @@
+{
+  "head": "2b834b451e055fcfce22b00296eec65e92ced398",
+  "files": {
+    "packages/codex-cli/src/client/quota-store.ts": "d4b16ff27f82639badbf248ee9ac6223c61350189e71ea94e44b371c0477a294",
+    "packages/codex-cli/src/client/LiveBall.tsx": "c3c558c940815df0acb2b6ad4802c7879349d00e319a2d2226514e782b21b2f1",
+    "packages/codex-cli/src/client/locales.ts": "d08309c56b84d840f33f9fbbeaebcbcec5ceefc5a8504616c18aa0afa96c4b69",
+    "packages/codex-cli/src/client/quota.module.css": "d3e76cd5226a7b938529a37d3001eef942d245374bac58ea38ac58eb907c7382",
+    "packages/codex-cli/src/client/QuotaCard.tsx": "5177b556bd4648f28504a54420a4097255448e19e407b491579e7db31adf1367",
+    "packages/codex-cli/src/client/ComposerQuota.tsx": "3ae18be9955e367433ab8043a4ead017f8d947e5a2c2b581fc1f5f6e66cd6828",
+    "packages/codex-cli/src/client/QuotaDisplaySettings.tsx": "f3c5353579f1798c1b7d095ddb0e973c585be220c5e01e54ec98e4bb459ee346",
+    "packages/codex-cli/src/client/styles.d.ts": "f7ce63573f9d262120963834704f26368719e7925579f9900b179aa27d1d0c72",
+    "packages/codex-cli/src/client/DetailCard.tsx": "bf47927d12d8784f7c7c0c44763b2f81e8fe9d9653de87af4a9cde8a618d8592",
+    "packages/codex-cli/src/client/index.ts": "780d723fc3906cf2ef990360503ad74040de57b46f01b4ee25a9cfaf275e782a",
+    "packages/codex-cli/build.mjs": "04bd211fc3637a277adb0adbe03ed9733b8c5d8519233172530e7b19dab9c453",
+    "packages/codex-cli/test/quota-client.test.mjs": "1c7a699d08ba91b2d8125e0a47e06bfb9ec7169a66c566ba1096344bd3861cee",
+    "packages/codex-cli/test/quota-browser-harness.mjs": "968e3102d9d4ac8b9e5c6c7a537fbd1354dc945851d95a96b43f27e6f605c141",
+    "tests/runtime/codex-cli.test.mjs": "60749bb1ebb6adc4e5fde26fc8dd8b5431bc18d106993dfb7e4b9aa7f991ecdb",
+    "docs/spec/codex-cli-quota-display/spec.md": "f1d153bcbce99a8c41aad4051b479a1c81eaff0282dbc693e4ea80b0f1775565",
+    "docs/spec/codex-cli-quota-display/tech-design.md": "3e79887702812bdca34a05dddd9b435c474a91ef18602c64f630de246a425e17",
+    "packages/codex-cli/README.md": "fa2559e85525e041e79a36dc0da3fbc0707575f87b90beda466ebde3c0d2232e",
+    "packages/codex-cli/.gitignore": "9cab835fe4a918ddad517681b726f72febaf8c26c8a1bde69460bb449b7af9ea"
+  }
+}

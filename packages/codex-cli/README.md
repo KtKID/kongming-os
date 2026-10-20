@@ -64,7 +64,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 | `requestTimeoutMs`       | `360000`  | 单次生成总时限，包含排队、启动与官方重试；主对话、标题及压缩评估共用此限制，收尾另有时限                                           |
 | `cancelReceiptTimeoutMs` | `5000`    | 停止后等待 interrupted 终止通知的时限                                                                                              |
 | `cleanupTimeoutMs`       | `5000`    | 进程干净退出的等待时限，超时强制回收                                                                                               |
-| `probeTimeoutMs`         | `15000`   | 测试连接与目录探针时限                                                                                                             |
+| `probeTimeoutMs`         | `15000`   | 测试连接、目录探针与官方额度读取时限                                                                                               |
 | `probeMaxTokens`         | `1`       | 测试连接请求传递的输出上限                                                                                                         |
 | `loginTimeoutMs`         | `1200000` | 官方授权页完成登录的等待时限                                                                                                       |
 | `graceMs`                | `1500`    | 子进程托管终止宽限                                                                                                                 |
@@ -80,6 +80,18 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 ### 详情页
 
 Web 插件管理区提供 Codex CLI 卡片：CLI 版本（对照支持基线 0.160.0）、账号状态与凭据来源、默认模型、最近连接测试结果、原生能力逐项选择（命令执行、文件修改、查看图片、网络搜索与独立的原生技能，每项显示可用状态），以及登录/取消登录/退出账号/测试连接。工具调整立即保存，对之后普通新建的会话生效；原生技能独立调整，在下一回合生效。原生图片生成默认保留。账号状态按 `~/.codex/auth.json` 存在性判定，打开页面不发起模型请求；退出账号作用于本机官方 Codex CLI 的登录态。
+
+### 额度与显示设置
+
+现有插件详情页展示账号实际提供的额度周期、剩余进度、重置时间、额外 Credits、消费上限和可用重置卡。官方返回的零值保持为零，缺失值显示“账号暂未提供”；卡片只提供查看能力。Credits 的到期日期以官方数据为准，当前 CLI 未提供时标为未知。
+
+额度由官方 CLI 的 `account/read` 与 `account/rateLimits/read` 读取，详情页与输入框共用宿主缓存。自动更新、点击刷新和多个窗口共同遵守五分钟最短间隔，失败也保留冷却；刷新期间及失败后保留原数据和原成功时间。界面显示下次可刷新时间。浏览器读取最多等待 30 秒，超时显示“额度读取超时”并结束加载；成功记录继续保留。只有实际在途时显示“正在读取额度”，冷却中的空快照显示“状态待更新”。设置读取采用同一等待上限，重新连接后可恢复。账号状态变化清除旧账号数据。
+
+会话输入框通过公开模型目录订阅当前确认的选择。来源为 `codex-cli` 时默认显示百分比，切换来源或会话时随选择更新；普通模型复用主额度，Spark 和 Reserve 采用各自分组。窄输入框显示剩余最低的周期，悬浮、点击或键盘聚焦可查看全部周期与重置时间。
+
+详情页支持百分比、进度条、关闭，以及提醒开关和两个周期的独立阈值（1–100 整数，默认各 20%）。最近五分钟内且尚未到重置时间的结果，剩余严格低于阈值时在详情进度条与输入框同步变红。设置由宿主配置持久化，保存失败保留草稿与原文原因。远程只读浏览器采用宿主已接受的显示偏好，并展示保存限制。
+
+字段和分组规则参考 `dsh-codex-subscription` 的 `usage.js`、`sidebar-quota.js`，并核对官方 CLI 0.162 生成协议。参考版本为 `f73887098e75a8f1929b886a11b22470c1572dbd`。展示范围见[额度展示规格](../../docs/spec/codex-cli-quota-display/spec.md)；官方 CLI 方法、本地接口、字段映射及模型和设置服务统一记录在[接口接入清单](../../docs/spec/codex-cli-quota-display/tech-design.md#quota-interface-map)。
 
 ---
 
@@ -115,6 +127,8 @@ token 用量：`turn/completed` 的 turn 不携带用量（0.162 wire 实测）�
 | `src/session-store.ts`                              | 绑定与游标持久化                                 |
 | `src/account.ts` / `src/probe.ts` / `src/status.ts` | 账号操作、测试连接、版本基线检查                 |
 | `src/web.ts` / `src/client/`                        | 详情页路由、详情卡片与状态小球                   |
+
+额度详情、显示设置和输入框浮层遵循 [统一 Web 样式](../../third_party/dsh/docs/web-styling.md)。局部样式位于 `src/client/quota.module.css`，构建器将生成的样式嵌入 `lib/client.js`，插件卸载时一同释放。界面与验证记录见 [统一额度界面任务](../../docs/spec/codex-cli-quota-display/tasks/task-quota-ui.md)。
 
 ### 构建与验证
 
@@ -220,5 +234,36 @@ KMH_CODEX_TEST_TMP=/private/tmp/kmh-codex-retry-20261009 pnpm --filter @kmh/code
 <summary>维护者的工作上下文——点击展开</summary>
 
 - canonical namespace 注册的模型侧名称是无点拼接，已回退平铺真名。
+
+</details>
+
+<details>
+<summary>额度分组规则参考许可</summary>
+
+参考 `dsh-codex-subscription/src/sidebar-quota.js` 的模型匹配规则，保留原 MIT 许可：
+
+```text
+MIT License
+
+Copyright (c) 2026 WSL043
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 </details>

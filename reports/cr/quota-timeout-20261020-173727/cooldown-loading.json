@@ -1,0 +1,9 @@
+{
+  "case": "account update returns cooldown snapshot",
+  "firstState": "loading",
+  "cooldownState": "loading",
+  "groups": 0,
+  "fetchedAtMs": null,
+  "nextRefreshAtMs": 1300000,
+  "actualCodexRequests": 0
+}

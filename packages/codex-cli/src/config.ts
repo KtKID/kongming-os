@@ -53,6 +53,23 @@ export const Config = schema.object({
   graceMs: schema.natural().min(1).max(2147483647).default(1500),
   // 原生 Codex 工具与技能开关：默认关闭，模型只见 KMH 的工具与技能。
   nativeToolsEnabled: schema.boolean().default(false),
+  quotaDisplayMode: schema
+    .union(["percent", "bar", "off"])
+    .default("percent")
+    .volatile(),
+  quotaAlertsEnabled: schema.boolean().default(true).volatile(),
+  quotaShortThresholdPercent: schema
+    .natural()
+    .min(1)
+    .max(100)
+    .default(20)
+    .volatile(),
+  quotaWeeklyThresholdPercent: schema
+    .natural()
+    .min(1)
+    .max(100)
+    .default(20)
+    .volatile(),
   toolSelection: codexToolSelection.volatile(),
   env: schema.dict(schema.string()).default({}),
 });

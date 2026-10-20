@@ -1,0 +1,9 @@
+{
+  "case": "host abort deadline and cooldown",
+  "probeTimeoutMs": 10,
+  "state": "error",
+  "requests": 1,
+  "stops": 1,
+  "nextRefreshAtMs": 1300000,
+  "actualCodexRequests": 0
+}

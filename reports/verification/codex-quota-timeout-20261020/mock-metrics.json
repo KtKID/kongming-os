@@ -1,0 +1,12 @@
+{
+  "reads": 1,
+  "quotaHttpRequests": 3,
+  "hang": false,
+  "now": 1792490813649,
+  "settings": {
+    "quotaDisplayMode": "percent",
+    "quotaAlertsEnabled": true,
+    "quotaShortThresholdPercent": 20,
+    "quotaWeeklyThresholdPercent": 20
+  }
+}

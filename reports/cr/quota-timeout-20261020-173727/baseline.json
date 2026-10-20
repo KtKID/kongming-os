@@ -1,0 +1,7 @@
+{
+  "packages/codex-cli/src/client/quota-store.ts": "d4b16ff27f82639badbf248ee9ac6223c61350189e71ea94e44b371c0477a294",
+  "packages/codex-cli/src/client/ComposerQuota.tsx": "3ae18be9955e367433ab8043a4ead017f8d947e5a2c2b581fc1f5f6e66cd6828",
+  "packages/codex-cli/src/quota.ts": "5a51f6283065cb38142bf76bef5001b2e99d806916dd16b7d2a9ce2f4655ee12",
+  "packages/codex-cli/src/config.ts": "97144707829b578bd22ad21fe6a01e70067b17ab15125d40d192f5ae2f18d7b4",
+  "packages/codex-cli/src/connection.ts": "26bfd0c5b95b01d42708f9e1f7b93eefdc21f29633f81aaf6c9b992f5febf32e"
+}

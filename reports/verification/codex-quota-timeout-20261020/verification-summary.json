@@ -1,0 +1,43 @@
+{
+  "verifiedAt": "2026-10-20T10:18:13.814Z",
+  "checks": {
+    "hostTests": 14,
+    "clientTests": 20,
+    "codexRegression": 46,
+    "totalPassed": 80,
+    "totalFailed": 0,
+    "typecheck": "pass",
+    "packageLint": "pass",
+    "rootLint": "pass",
+    "format": "pass",
+    "diffWhitespace": "pass"
+  },
+  "realWeb": {
+    "isolatedProfile": true,
+    "independentHome": true,
+    "originalRuntimePreserved": true,
+    "officialReadIntervalAtLeastFiveMinutes": true,
+    "initialReadSucceeded": true,
+    "detailsRendered": true,
+    "settingsRendered": true,
+    "providerSelectionUpdatesComposer": true,
+    "unexpectedBrowserErrors": 0
+  },
+  "faultTest": {
+    "browserTimeoutMs": 30000,
+    "localQuotaHttpRequests": 3,
+    "mockedHostReads": 1,
+    "officialRequests": 0,
+    "accountLogoutOrDeletionActions": 0
+  },
+  "sourceHashes": {
+    "packages/codex-cli/src/quota-rules.ts": "b24a87f62a896a773413ed50a5c0f782cb9a44bf830c5314ccde236db5106974",
+    "packages/codex-cli/src/quota.ts": "591c9be0e588759b4607508a2c433f1698511c43cfbe2a00bdef4c5c152947e4",
+    "packages/codex-cli/src/client/quota-store.ts": "7ffacbea863c9d2d45e2535176203c138ea1a83f648602dc12eb339744070774",
+    "packages/codex-cli/src/client/ComposerQuota.tsx": "65684b70c4efb781d808b5a48d1be4af8958e918841650dd5425a2ec1bc8f8a3",
+    "packages/codex-cli/src/client/QuotaCard.tsx": "6bfbd305585d0bc9c5e5d29d5f826b9e50f816b53af79378157e68fc9d706d71",
+    "packages/codex-cli/src/client/QuotaDisplaySettings.tsx": "8ba531810004ddbc6a174e428fc7a9d9ddf2cb3f21d1abcf80f4ca7838965d82",
+    "packages/codex-cli/src/client/locales.ts": "618e9141e4710a922e3f85aeb7b71bc635df31402b2dbbe7cb3bb7490d429fdf",
+    "packages/codex-cli/src/client/index.ts": "783f6a50ff02e4ccad70fb2c566059da745a7927534a23f7142ba5638356aa7c"
+  }
+}

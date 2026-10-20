@@ -1939,11 +1939,27 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { readFileSync as readFileSyncForClient } from "node:fs";
 
-test("client registers the live ball dock and renders the three states", () => {
+test("client registers the live ball and provider quota slots and renders the three states", () => {
   let handoff;
+  const installedStyles = [];
+  const disposers = [];
   runInNewContext(
-    readFileSyncForClient("packages/codex-cli/lib/client.js", "utf8"),
+    readFileSyncForClient(
+      process.env.KMH_CODEX_CLIENT_BUNDLE ?? "packages/codex-cli/lib/client.js",
+      "utf8",
+    ),
     {
+      setTimeout,
+      clearTimeout,
+      document: {
+        addEventListener() {},
+        removeEventListener() {},
+        createElement: () => {
+          const style = { textContent: "", remove: () => installedStyles.splice(installedStyles.indexOf(style), 1) };
+          return style;
+        },
+        head: { append: (style) => installedStyles.push(style) },
+      },
       window: {
         __ModuleLoader__: {
           load: (value) => {
@@ -1964,19 +1980,53 @@ test("client registers the live ball dock and renders the three states", () => {
       return {
         Button: ({ children }) => react.createElement("button", {}, children),
       };
-    assert.ok(
-      ["react", "react/jsx-runtime"].includes(name),
-      name,
-    );
+    assert.ok(["react", "react/jsx-runtime", "react-dom"].includes(name), name);
     return require(name);
   });
   let copy;
   let dockEntry;
   let dockComponent;
+  let quotaEntry;
+  let quotaComponent;
+  let bundleEntry;
+  let bundleComponent;
   const injected = [];
+  const directory = {};
+  const slots = {
+    inject: (name, setup) => {
+      injected.push(name);
+      return setup();
+    },
+    register: (entry, component) => {
+      if (entry.name === "conversation.composer.dock") {
+        dockEntry = entry;
+        dockComponent = component;
+      }
+      if (entry.name === "conversation.input.right") {
+        quotaEntry = entry;
+        quotaComponent = component;
+      }
+      if (entry.name === "plugins.bundle.config") {
+        bundleEntry = entry;
+        bundleComponent = component;
+      }
+      return () => {};
+    },
+  };
   client.apply({
-    inject: () => () => {},
-    effect: (setup) => setup(),
+    inject: (dependencies, setup) => {
+      if (dependencies.includes("modelDirectories")) {
+        assert.ok(dependencies.includes("remote.session"));
+        assert.ok(dependencies.includes("sessions"));
+        setup({
+          slots,
+          modelDirectories: { directoryFor: () => directory },
+          pluginNavigation: { openBundle: () => {} },
+        });
+      }
+      return () => {};
+    },
+    effect: (setup) => { const dispose = setup(); if (typeof dispose === "function") disposers.push(dispose); },
     locale: {
       bind: () => (key) => copy.zh[key],
       register: (_namespace, dictionaries) => {
@@ -1984,21 +2034,25 @@ test("client registers the live ball dock and renders the three states", () => {
         return () => {};
       },
     },
-    slots: {
-      inject: (name, setup) => {
-        injected.push(name);
-        return setup();
-      },
-      register: (entry, component) => {
-        if (entry.name === "conversation.composer.dock") {
-          dockEntry = entry;
-          dockComponent = component;
-        }
-        return () => {};
-      },
-    },
+    slots,
   });
-  assert.deepEqual(injected, ["plugins.item", "conversation.composer.dock"]);
+  assert.equal(installedStyles.length, 1);
+  assert.match(installedStyles[0].textContent, /--dsw-alias-settings-card-fill/);
+  assert.match(installedStyles[0].textContent, /--dsw-radius-panel/);
+  assert.match(installedStyles[0].textContent, /--dsw-elevation-panel/);
+  assert.deepEqual(injected, [
+    "conversation.input.right",
+    "plugins.item",
+    "plugins.bundle.config",
+    "conversation.composer.dock",
+  ]);
+  assert.equal(quotaEntry.id, "codex-cli-quota");
+  assert.equal(typeof quotaComponent, "function");
+  assert.equal(quotaEntry.inject("session-a").directory, directory);
+  assert.equal(bundleEntry.key, "@kmh/codex-cli");
+  const page = bundleComponent({t:key=>key});
+  assert.equal(page.props.view,"page");
+  assert.equal(page.props.quota,quotaEntry.inject("session-a").quota);
   assert.equal(dockEntry.id, "codex-cli-live");
   // 排在活动/用量药丸之后（第 n 轮第 n 步行最右）。
   assert.ok(dockEntry.order > 1);
@@ -2023,6 +2077,8 @@ test("client registers the live ball dock and renders the three states", () => {
   assert.match(ball("gray"), /已停止/);
   assert.match(ball("red"), /state-error-primary/);
   assert.match(ball("red"), /状态异常/);
+  for (const dispose of disposers.reverse()) dispose();
+  assert.equal(installedStyles.length, 0);
 });
 
 // ---- 生图投影整链（真实 CLI + fixture 注入 imageGeneration 完成通知） ----
