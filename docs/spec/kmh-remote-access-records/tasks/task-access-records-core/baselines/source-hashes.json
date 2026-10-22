@@ -1,0 +1,7 @@
+{
+  "host/proxy.mjs": "56be86d2e2bfddebb81e4e95af0865663a5ae92b7a55b4fa792e0aeada099d77",
+  "host/index.js": "ab947f6e29700a19418ea63148ed8c0530f09e11a5e6147c4e8bd4ff047397f6",
+  "host/service.mjs": "10121d82fdb5b5ea819926e421676c8759c0f3b6ab389454e5b8763117999906",
+  "host/web-rpc.js": "75ca3d9c2fd07810cae4d9b860f0159a73e600016dac4f5247528705701aa8dc",
+  "client/index.jsx": "30bec290e9ced40e06793d989f67cb8be8414f0de3f0b4427fd2f8ef1c2d452d"
+}

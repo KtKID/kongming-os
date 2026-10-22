@@ -19,6 +19,54 @@ import {
   constants as zlibConstants,
 } from 'node:zlib';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
+import {
+  isRecordsPath,
+  RecordsRequestIdSchema,
+  MAX_RECORD_QUERY_BYTES,
+} from './access-records-shared.js';
+
+/** 拒绝远程记录查询；POST 保留原 RPC 信封与关联 ID，使客户端能够原样显示 code/desc。 */
+function rejectRecordsRequest(req, res) {
+  const code = 'REMOTE_RECORD_LOCAL_ONLY';
+  const desc = '访问记录仅供电脑本机查看';
+  if (req.method !== 'POST') {
+    res.writeHead(403, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ code, desc }));
+    return;
+  }
+  let body = '';
+  let exceeded = false;
+  req.on('data', (chunk) => {
+    if (Buffer.byteLength(body) + chunk.length > MAX_RECORD_QUERY_BYTES) {
+      exceeded = true;
+      body = '';
+    } else if (!exceeded) body += chunk.toString();
+  });
+  req.on('end', () => {
+    let rpcId = 'invalid-request';
+    if (!exceeded) {
+      try {
+        const parsed = RecordsRequestIdSchema.safeParse(JSON.parse(body));
+        if (parsed.success) rpcId = parsed.data.rpcId;
+      } catch {
+        /* 非法信封仍明确拒绝。 */
+      }
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        type: 'server-response',
+        rpcId,
+        result: {
+          ok: false,
+          error: { code, message: desc, details: { desc } },
+        },
+      }),
+    );
+  });
+  req.on('error', () => res.destroy());
+}
 
 const DEFAULT_UPSTREAM = { host: '127.0.0.1', port: 3080 };
 
@@ -227,6 +275,11 @@ function parseCookies(header) {
  * credentialKind: 'persistent'（可长期复用）|'ephemeral'（短期轮换，不建议保存）。
  * error: false|true|'locked'（locked 带剩余秒数）。
  */
+const LOGIN_REJECTED_DESC = '密码错误，请重试 | Wrong PIN, try again';
+/** 返回原有受限提示全文；登录页面与保存记录共用同一份当次原因。 */
+function loginLimitedDesc(retryAfter) {
+  return `尝试次数过多，请 ${retryAfter} 秒后再试 | Too many attempts — try again in ${retryAfter}s`;
+}
 function loginPageHtml(
   error,
   isPublic,
@@ -243,9 +296,9 @@ function loginPageHtml(
       : '';
   const errMsg =
     error === 'locked'
-      ? `尝试次数过多，请 ${retryAfter} 秒后再试 | Too many attempts — try again in ${retryAfter}s`
+      ? loginLimitedDesc(retryAfter)
       : error
-        ? '密码错误，请重试 | Wrong PIN, try again'
+        ? LOGIN_REJECTED_DESC
         : '';
   return `<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -859,6 +912,7 @@ function attachWebSocketHeartbeat(
  * @param {object|false} [opts.rateLimit] 登录速率限制参数覆盖（issue #40；测试用短窗口）
  * @param {object|false} [opts.heartbeat] WebSocket 心跳注入（PR #41）：{ intervalMs, missLimit }；false 关闭（默认开：30s/容忍 2 个静默周期）
  * @param {() => boolean} [opts.lanAccessEnabled] 局域网访问是否开启（默认开启）。关闭时拦截经局域网 Host 的请求（公网/loopback 不受影响）。
+ * @param {(attempt: object) => unknown} [opts.onPasswordAttempt] 每次显式密码提交交付首个终态；回调异常由代理隔离。
  * @returns {Promise<{server:import('node:http').Server, close:()=>Promise<void>}>}
  */
 export function createPocketProxy({
@@ -874,7 +928,52 @@ export function createPocketProxy({
   launchToken = () => '',
   handshakeLimit,
   internals = {},
+  onPasswordAttempt = null,
 } = {}) {
+  // 一次显式密码提交只交付首个终态；原始凭据留在密码判断内。
+  const beginAttempt = (req, entryKind) => {
+    const peer = String(req.socket?.remoteAddress ?? '').replace(
+      /^::ffff:/i,
+      '',
+    );
+    const claims = [
+      req.headers['x-forwarded-for'],
+      req.headers['x-real-ip'],
+      req.headers.forwarded,
+    ]
+      .flatMap((value) => String(value ?? '').split(/[;,]/))
+      .map((value) =>
+        value
+          .trim()
+          .replace(/^for=/i, '')
+          .replaceAll('"', '')
+          .replace(/^\[|\]$/g, ''),
+      )
+      .filter((value) => isIP(value));
+    let completed = false;
+    return (result) => {
+      if (completed) return;
+      completed = true;
+      if (!onPasswordAttempt) return;
+      const value = {
+        peerAddress: isIP(peer) ? peer : null,
+        ...(isIP(peer) ? {} : { sourceNote: '实际访问者来源无法确认' }),
+        claimedAddresses: [...new Set(claims)].map((address) => ({
+          address,
+          trust: 'unverified',
+        })),
+        entryKind,
+        ...result,
+      };
+      try {
+        Promise.resolve(onPasswordAttempt(value)).catch((error) =>
+          log?.(`记录保存失败：${error.message}`),
+        );
+      } catch (error) {
+        log?.(`记录保存失败：${error.message}`);
+      }
+    };
+  };
   const getClientIp = internals.clientIp ?? clientIp;
   const limiter = auth ? createRateLimiter(rateLimit ?? {}) : null;
   // 会话握手重试计数（issue #91）：Safari 在 http://IP 源上丢 3xx 的 cookie → 死循环
@@ -882,6 +981,10 @@ export function createPocketProxy({
     typeof handshakeLimit === 'number' ? { max: handshakeLimit } : {},
   );
   const server = createServer((req, res) => {
+    if (isRecordsPath(req.url)) {
+      rejectRecordsRequest(req, res);
+      return;
+    }
     // 策略判定一律用 policyHost（issue #90）：Host 头可伪造，用不可伪造的 TCP 源地址
     // 给它设下限。转发给上游的 Host 由 loopbackAuthority 单独改写，不受这里影响。
     const host = policyHost(req, String(req.headers.host ?? ''));
@@ -924,8 +1027,31 @@ export function createPocketProxy({
         const ip = getClientIp(req);
         // 登录提交：速率限制（issue #40）→ 校验密码 → 种持久 HttpOnly cookie（30 天，绑定进程会话密钥）→ 回首页
         if (req.method === 'POST' && req.url?.startsWith('/pocket-login')) {
+          const finish = beginAttempt(req, isPublic ? 'public' : 'lan');
+          req.on('aborted', () =>
+            finish({
+              outcome: 'failure',
+              error: { code: 'REMOTE_LOGIN_ABORTED', desc: '密码提交中断' },
+            }),
+          );
+          req.on('error', (error) =>
+            finish({
+              outcome: 'failure',
+              error: {
+                code: error.code ?? 'REMOTE_LOGIN_IO_FAILED',
+                desc: error.message,
+              },
+            }),
+          );
           const rl = limiter?.status(ip) ?? { locked: false, retryAfter: 0 };
           if (rl.locked) {
+            finish({
+              outcome: 'failure',
+              error: {
+                code: 'REMOTE_LOGIN_LIMITED',
+                desc: loginLimitedDesc(rl.retryAfter),
+              },
+            });
             res.writeHead(429, {
               'content-type': 'text/html; charset=utf-8',
               'cache-control': 'no-store',
@@ -939,7 +1065,16 @@ export function createPocketProxy({
           let body = '';
           req.on('data', (c) => {
             body += c;
-            if (body.length > 1024) req.destroy();
+            if (body.length > 1024) {
+              finish({
+                outcome: 'failure',
+                error: {
+                  code: 'REMOTE_LOGIN_BODY_TOO_LARGE',
+                  desc: '密码提交体超过 1024 字符',
+                },
+              });
+              req.destroy();
+            }
           });
           req.on('end', () => {
             // 请求体读取期间其他并发请求可能已触发锁定，比较密码前必须再次检查。
@@ -949,6 +1084,13 @@ export function createPocketProxy({
               retryAfter: 0,
             };
             if (finalRl.locked) {
+              finish({
+                outcome: 'failure',
+                error: {
+                  code: 'REMOTE_LOGIN_LIMITED',
+                  desc: loginLimitedDesc(finalRl.retryAfter),
+                },
+              });
               res.writeHead(429, {
                 'content-type': 'text/html; charset=utf-8',
                 'cache-control': 'no-store',
@@ -974,6 +1116,7 @@ export function createPocketProxy({
               safeEqual(submitted, candidate),
             );
             if (matched !== undefined) {
+              finish({ outcome: 'success' });
               limiter?.clear(ip);
               res.writeHead(302, {
                 // 带上 kmh-remote-auth=1：登录成功后强制重做一次浏览器会话握手，
@@ -984,6 +1127,13 @@ export function createPocketProxy({
               });
               res.end();
             } else {
+              finish({
+                outcome: 'failure',
+                error: {
+                  code: 'REMOTE_LOGIN_REJECTED',
+                  desc: LOGIN_REJECTED_DESC,
+                },
+              });
               limiter?.record(ip);
               log?.(`kmh-remote: login failed from ${ip} | 登录失败 IP: ${ip}`);
               res.writeHead(200, {
@@ -999,11 +1149,21 @@ export function createPocketProxy({
         // 分支调用 limiter.record()，这条通道既不计数也不受锁定约束，等于给攻击者留了
         // 一个可全速穷举 8 位 PIN 的旁路。下面把它并入同一套限速。
         const isGuess = hasQueryToken(req);
+        const finishGuess = isGuess
+          ? beginAttempt(req, isPublic ? 'public' : 'lan')
+          : null;
         if (isGuess) {
           const rl = limiter?.status(ip) ?? { locked: false, retryAfter: 0 };
           // 锁定期内直接拒绝、不做比对——否则锁定窗口本身就是免费的穷举窗口。
           // 正确密码也一并拒绝，与 POST 登录的锁定语义保持一致。
           if (rl.locked) {
+            finishGuess?.({
+              outcome: 'failure',
+              error: {
+                code: 'REMOTE_LOGIN_LIMITED',
+                desc: loginLimitedDesc(rl.retryAfter),
+              },
+            });
             if (isHtmlRequest(req)) {
               res.writeHead(200, {
                 'content-type': 'text/html; charset=utf-8',
@@ -1031,6 +1191,13 @@ export function createPocketProxy({
         const authResult = authCheck(req, acceptedTokens, sessionKey);
         if (!authResult.ok) {
           if (isGuess) {
+            finishGuess?.({
+              outcome: 'failure',
+              error: {
+                code: 'REMOTE_LOGIN_REJECTED',
+                desc: LOGIN_REJECTED_DESC,
+              },
+            });
             limiter?.record(ip);
             log?.(
               `kmh-remote: bad ?token= from ${ip} | URL 密码错误 IP: ${ip}`,
@@ -1060,6 +1227,7 @@ export function createPocketProxy({
           }
           return;
         }
+        finishGuess?.({ outcome: 'success' });
         // ?token=<原始 PIN> 直达时种 HttpOnly cookie，让浏览器后续子资源也走 cookie 路径（issue #35）
         if (authResult.rawQueryToken) {
           limiter?.clear(ip); // 与 POST 登录成功一致：正确的分享链接不该逐步累积到锁定
@@ -1300,6 +1468,12 @@ export function createPocketProxy({
 
   // WebSocket upgrade（DSH 的 /api/events.mux + events.host 流式通道）原样透传
   server.on('upgrade', (req, socket, head) => {
+    if (isRecordsPath(req.url)) {
+      socket.end(
+        'HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\nREMOTE_RECORD_LOCAL_ONLY',
+      );
+      return;
+    }
     // 与 HTTP 侧同一套判定（issue #90）：否则伪造 Host 的 WS 握手仍可绕过局域网开关
     const host = policyHost(req, String(req.headers.host ?? ''));
     const isPublic = classifyHost(host) === 'public';
@@ -1323,9 +1497,20 @@ export function createPocketProxy({
       // 只要把穷举换到 upgrade 请求上就照样不受限。
       const wsIp = getClientIp(req);
       const wsGuess = hasQueryToken(req);
+      const finishWs =
+        token && wsGuess
+          ? beginAttempt(req, isPublic ? 'public' : 'lan')
+          : null;
       if (token && wsGuess) {
         const rl = limiter?.status(wsIp) ?? { locked: false, retryAfter: 0 };
         if (rl.locked) {
+          finishWs?.({
+            outcome: 'failure',
+            error: {
+              code: 'REMOTE_LOGIN_LIMITED',
+              desc: loginLimitedDesc(rl.retryAfter),
+            },
+          });
           socket.write(
             `HTTP/1.1 429 Too Many Requests\r\nRetry-After: ${rl.retryAfter}\r\nConnection: close\r\n\r\n`,
           );
@@ -1336,6 +1521,10 @@ export function createPocketProxy({
       const wsAuth = authCheck(req, acceptedTokens, auth.sessionKey ?? null);
       if (token && !wsAuth.ok) {
         if (wsGuess) {
+          finishWs?.({
+            outcome: 'failure',
+            error: { code: 'REMOTE_LOGIN_REJECTED', desc: LOGIN_REJECTED_DESC },
+          });
           limiter?.record(wsIp);
           log?.(
             `kmh-remote: bad ws ?token= from ${wsIp} | WS 密码错误 IP: ${wsIp}`,
@@ -1345,7 +1534,10 @@ export function createPocketProxy({
         socket.destroy();
         return;
       }
-      if (token && wsAuth.ok && wsGuess) limiter?.clear(wsIp);
+      if (token && wsAuth.ok && wsGuess) {
+        finishWs?.({ outcome: 'success' });
+        limiter?.clear(wsIp);
+      }
     }
     const headers = loopbackAuthority({ ...req.headers }, upstream);
     const proxyReq = httpRequest({

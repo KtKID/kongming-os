@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-23",
+  "source": "git index snapshot",
+  "baseline": "aa46100d7086f72bb1a80c17423b36e343a91d78",
+  "cwd": "packages/kmh-remote",
+  "node": "25.6.1",
+  "commands": [
+    {
+      "check": "build",
+      "command": "node build.mjs",
+      "exitCode": 0
+    },
+    {
+      "check": "coverage",
+      "command": "node node_modules/vitest/vitest.mjs run --coverage && node test/access-records-coverage.mjs",
+      "exitCode": 0
+    },
+    {
+      "check": "regression",
+      "command": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs",
+      "exitCode": 0
+    },
+    {
+      "check": "typecheck",
+      "command": "node node_modules/typescript/bin/tsc --noEmit",
+      "exitCode": 0
+    },
+    {
+      "check": "lint",
+      "command": "node check.mjs && node ../../node_modules/eslint/bin/eslint.js client host shared --max-warnings 0",
+      "exitCode": 0
+    },
+    {
+      "check": "format",
+      "command": "node ../../node_modules/prettier/bin/prettier.cjs host client shared test '*.mjs' '*.ts' '*.json' '*.yml' README.md --check",
+      "exitCode": 0
+    }
+  ],
+  "tests": {
+    "scenarios": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    "remoteRegression": {
+      "passed": 138,
+      "failed": 0,
+      "skipped": 0
+    }
+  }
+}

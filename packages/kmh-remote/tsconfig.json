@@ -22,5 +22,10 @@
     "skipLibCheck": true,
     "types": ["react", "node"]
   },
-  "include": ["client/**/*.ts", "client/**/*.tsx"]
+  "include": [
+    "client/**/*.ts",
+    "client/**/*.tsx",
+    "host/**/*.ts",
+    "shared/**/*.ts"
+  ]
 }

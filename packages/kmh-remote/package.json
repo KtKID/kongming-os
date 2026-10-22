@@ -23,9 +23,11 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "node check.mjs && eslint client/mobile --max-warnings 0",
-    "format:check": "prettier host client test *.mjs *.json *.yml README.md --check",
-    "test": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs"
+    "lint": "node check.mjs && eslint client host shared --max-warnings 0",
+    "format:check": "prettier host client shared test *.mjs *.ts *.json *.yml README.md --check",
+    "test": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs",
+    "test:records": "vitest run",
+    "test:records:coverage": "vitest run --coverage && node test/access-records-coverage.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
@@ -59,7 +61,15 @@
     "@deepseek-ai/dsh-client-store": "link:../../third_party/dsh/packages/client/store",
     "@deepseek-ai/dsh-client-ui-renderer": "link:../../third_party/dsh/packages/client/ui-renderer",
     "@deepseek-ai/dsh-client-ui-conversation": "link:../../third_party/dsh/packages/client/ui-conversation",
-    "@deepseek-ai/dsh-client-ui-sidebar": "link:../../third_party/dsh/packages/client/ui-sidebar"
+    "@deepseek-ai/dsh-client-ui-sidebar": "link:../../third_party/dsh/packages/client/ui-sidebar",
+    "vitest": "4.1.8",
+    "@vitest/coverage-v8": "4.1.8",
+    "react-dom": "^18.3.1",
+    "@types/react-dom": "^18.3.7",
+    "@testing-library/react": "16.3.2",
+    "jsdom": "29.1.1",
+    "@types/jsdom": "^28.0.3",
+    "vite": "8.0.16"
   },
   "dsh": {
     "client": {

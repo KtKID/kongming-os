@@ -196,6 +196,7 @@ export function createPocketService({
   injectHtml,
   auth,
   launchToken = () => '',
+  onPasswordAttempt = null,
 } = {}) {
   const createProxy = internals.createProxy ?? createPocketProxy;
   const encodeQr = internals.encodeQr ?? qrDataUrl;
@@ -243,6 +244,7 @@ export function createPocketService({
             ...(auth ? { auth } : {}),
             lanAccessEnabled: getLanEnabled,
             launchToken,
+            onPasswordAttempt,
           }),
         )
         .then(async (instance) => {

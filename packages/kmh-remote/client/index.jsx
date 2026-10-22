@@ -14,6 +14,7 @@ import {
   MOBILE_RIGHTBAR_EVENT,
   RemoteStatusSchema,
 } from './api.js';
+import { RemotePluginPanel } from './RemotePluginPanel.tsx';
 import { mobileApply } from './mobile/mobile-apply.tsx';
 import { NS, zh, en } from './pocket-locales.js';
 
@@ -404,7 +405,13 @@ export function apply(ctx) {
     ),
   );
   const renderConfig = ({ view, rpcCall, t }) =>
-    view === 'page' ? h(RemoteSettings, { rpcCall, t }) : null;
+    view === 'page'
+      ? h(RemotePluginPanel, {
+          rpcCall,
+          t,
+          settings: h(RemoteSettings, { rpcCall, t }),
+        })
+      : null;
   for (const [slot, key] of [
     ['plugins.bundle.config', name],
     ['plugins.row.config', `${name}#kmh-remote`],

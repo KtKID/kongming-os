@@ -1,11 +1,11 @@
-/** 构建 KMH Remote：保留手写 Host 模块，打包移动端源码为 Web 模块工厂。 */
+/** 构建 KMH Remote：复制 Host、编译记录与共享约定，打包浏览器模块工厂。 */
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
-/** 清理 lib 后复制 Host、编译浏览器入口；构建失败向调用方抛出异常。 */
+/** 清理 lib 后复制 Host、编译 TS 与浏览器入口；构建失败向调用方抛出异常。 */
 export async function buildRemote() {
   await rm(new URL('lib/', import.meta.url), { recursive: true, force: true });
   await mkdir(new URL('lib/', import.meta.url), { recursive: true });
@@ -16,6 +16,28 @@ export async function buildRemote() {
       recursive: true,
     },
   );
+  await build({
+    absWorkingDir: root,
+    entryPoints: ['shared/access-records.ts'],
+    outfile: 'lib/access-records-shared.js',
+    bundle: true,
+    external: ['zod'],
+    format: 'esm',
+    platform: 'node',
+    target: ['node22'],
+    sourcemap: true,
+  });
+  await build({
+    absWorkingDir: root,
+    entryPoints: ['host/access-records.ts'],
+    outfile: 'lib/access-records.js',
+    bundle: true,
+    external: ['zod'],
+    format: 'esm',
+    platform: 'node',
+    target: ['node22'],
+    sourcemap: true,
+  });
   const result = await build({
     absWorkingDir: root,
     entryPoints: ['client/index.jsx'],
