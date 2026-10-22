@@ -1,0 +1,24 @@
+#!/bin/sh
+# 固定 CLI 的统一入口：定位本平台运行包、核对完整版本，再转交参数与退出状态。
+set -eu
+bin_dir=$(CDPATH= cd -P -- "$(dirname -- "$0")" && pwd)
+IFS= read -r version < "$bin_dir/version"
+case "$(uname -s)/$(uname -m)" in
+  Darwin/arm64) platform=darwin-arm64 ;;
+  *) printf 'CODEX_BUNDLED_PLATFORM_UNSUPPORTED: %s/%s\n' "$(uname -s)" "$(uname -m)" >&2; exit 78 ;;
+esac
+executable="$bin_dir/$version/$platform/bin/codex"
+if [ ! -x "$executable" ]; then
+  printf 'CODEX_BUNDLED_RUNTIME_MISSING: %s\n' "$executable" >&2
+  exit 78
+fi
+actual=$("$executable" --version)
+if [ "$actual" != "codex-cli $version" ]; then
+  printf 'CODEX_VERSION_MISMATCH: expected %s; actual %s\n' "$version" "$actual" >&2
+  exit 78
+fi
+if [ "$#" -eq 1 ] && [ "$1" = --version ]; then
+  printf '%s\n' "$actual"
+  exit 0
+fi
+exec "$executable" "$@"

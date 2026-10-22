@@ -9,10 +9,7 @@
     - id: kmh-codex-cli
       name: '@kmh/codex-cli'
       config:
-        command: !!js >-
-          process.env.KMH_CODEX_COMMAND || (process.platform === 'darwin' ?
-          '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex'
-          : 'codex')
+        command: !!js process.env.KMH_CODEX_COMMAND || undefined
         cwd: !!js process.cwd()
         dataDir: !!js dshHomePath('codex-cli')
         toolSelection:

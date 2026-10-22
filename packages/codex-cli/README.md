@@ -38,14 +38,15 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 
 ### 配置
 
+默认使用插件 [bin 目录中的固定官方 CLI](bin/README.md)，每次启动精确核对完整版本号；当前部署版本为 `0.163.0-alpha.10.2`，平台为 macOS arm64。程序与配套资源由插件目录持有，现有 Codex 登录、配置与原生会话目录继续沿用。
+
 在 `profiles/<name>/cordis.patch.yml` 挂载（kmh-web 已内置）：
 
 ```yaml
 - id: kmh-codex-cli
   name: "@kmh/codex-cli"
   config:
-    # 本机 PATH 里的 codex 损坏时改为绝对路径（如 ChatGPT.app 自带二进制）
-    command: codex
+    # 默认使用插件自带启动器；显式 command 可指定其他经过验证的程序。
     cwd: !!js process.cwd()
     dataDir: !!js dshHomePath('codex-cli')
 ```

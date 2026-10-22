@@ -1,0 +1,9 @@
+{
+  "version": "0.163.0-alpha.10.2",
+  "platform": "darwin-arm64",
+  "files": 46,
+  "bytes": 340775935,
+  "executableSha256": "1afb28c01d7d49e892bd75f11076b10f1451e34e0ee308a95e5ab7f69f9c84fe",
+  "source": "ChatGPT.app bundled official Codex runtime",
+  "entrypoint": "bin/codex"
+}

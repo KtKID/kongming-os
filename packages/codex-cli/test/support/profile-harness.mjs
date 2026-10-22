@@ -26,7 +26,7 @@ export async function profileHarness(t, options = {}) {
   const cwd = join(home, 'workspace');
   const codexHome = join(home, 'codex-home');
   mkdirSync(cwd); mkdirSync(codexHome);
-  let command = process.env.KMH_CODEX_BINARY ?? '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex';
+  let command = process.env.KMH_CODEX_BINARY ?? Codex.Config({ cwd, dataDir: home }).command;
   const versionGate = join(home, 'native-version-ready');
   if (options.versionGate) {
     const wrapper = join(home, 'codex-version-gate');

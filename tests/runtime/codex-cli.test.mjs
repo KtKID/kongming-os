@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { createFrameBridge } from "../../packages/codex-cli/lib/src/protocol.js";
 import {
   DynamicToolCallParams,
@@ -847,13 +848,12 @@ import { join } from "node:path";
 import { spawn as spawnRaw, spawnSync } from "node:child_process";
 
 const codexCandidates = [
-  "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
-  "codex",
+  process.env.KMH_CODEX_BINARY ?? fileURLToPath(new URL("../../packages/codex-cli/bin/codex", import.meta.url)),
 ];
 function findCodexBinary() {
   for (const candidate of codexCandidates)
     if (candidate.includes("/")) {
-      if (existsSync(candidate)) return candidate;
+      if (existsSync(candidate) && spawnSync(candidate, ["--version"], { encoding: "utf8" }).status === 0) return candidate;
     } else {
       // PATH 查找交给 spawn 的 shell 语义不可靠，用 which。
       try {

@@ -5,6 +5,7 @@
   "description": "Official Codex CLI app-server transport and KMH account UI",
   "license": "MIT",
   "files": [
+    "bin",
     "lib/src",
     "lib/client.js",
     "README.md",

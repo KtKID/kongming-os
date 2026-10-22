@@ -105,6 +105,9 @@ vendor/**/src/**/*.d.ts.map
 /profiles/*/pnpm-lock.yaml
 /packages/*/lib/
 
+# Codex 官方完整运行包保存在本机，版本与启动器由插件跟踪。
+/packages/codex-cli/bin/0.163.0-alpha.10.2/
+
 # codegraph 本地索引缓存与可视化产物（SQLite 索引 + 生成的 HTML，不入仓）
 /.codegraph/
 
