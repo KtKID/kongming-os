@@ -92,8 +92,8 @@ function RemoteSettings({ rpcCall, t }) {
     const response = await rpcCall(endpoint, payload, signal);
     if (!response?.ok)
       throw new Error(response?.error?.message ?? t('loadFailed'));
-    // 局域网开关返回局部结果；保存后读取完整状态，供表单与二维码共同刷新。
-    if (endpoint === POCKET_ENDPOINTS.lanSetEnabled)
+    // 写入响应包含各操作的结果；统一回读完整状态，供表单、密码与二维码共同刷新。
+    if (endpoint !== POCKET_ENDPOINTS.status)
       return request(POCKET_ENDPOINTS.status, {}, signal);
     return RemoteStatusSchema.parse(response.value);
   };
@@ -145,7 +145,9 @@ function RemoteSettings({ rpcCall, t }) {
     }
   };
   const setRightbar = async (enabled) => {
-    if (await save(POCKET_ENDPOINTS.mobileRightbarSetEnabled, { enabled })) {
+    if (
+      await save(POCKET_ENDPOINTS.mobileRightbarSetEnabled, { on: enabled })
+    ) {
       document.body?.setAttribute(
         MOBILE_RIGHTBAR_ATTRIBUTE,
         enabled ? 'on' : 'off',
@@ -220,7 +222,7 @@ function RemoteSettings({ rpcCall, t }) {
           checked: status.lanAuthEnabled,
           disabled: busy,
           onChange: (enabled) =>
-            save(POCKET_ENDPOINTS.lanAuthSetEnabled, { enabled }),
+            save(POCKET_ENDPOINTS.lanAuthSetEnabled, { on: enabled }),
         }),
       ),
       status.lanAuthEnabled ? pin('lan', status.lanToken) : null,

@@ -1,4 +1,4 @@
-// 设置页通过真实 RPC 处理器保存局域网开关，再读取完整状态。
+// 设置页通过真实 RPC 处理器保存开关与密码，再读取完整状态。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,8 +8,8 @@ import { installPocketRpc } from '../lib/web-rpc.js';
 import { POCKET_ENDPOINTS, RemoteStatusSchema } from '../client/api.js';
 
 /** 在实例内模拟 React 状态与宿主设置；返回可操作的组件树和 RPC 记录。 */
-async function settingsFixture() {
-  const values = { lan: false };
+async function settingsFixture({ lanAuth = false } = {}) {
+  const values = { lan: false, lanAuth, rightbar: false, lanPin: 'oldpin88' };
   let handler;
   installPocketRpc(
     { connection: { rpc: { handle: (_channel, fn) => (handler = fn) } } },
@@ -26,6 +26,12 @@ async function settingsFixture() {
       },
       getLanEnabled: () => values.lan,
       setLanEnabled: (on) => (values.lan = on),
+      getLanAuthEnabled: () => values.lanAuth,
+      setLanAuthEnabled: (on) => (values.lanAuth = on),
+      getMobileRightbarEnabled: () => values.rightbar,
+      setMobileRightbarEnabled: (on) => (values.rightbar = on),
+      getLanToken: () => values.lanPin,
+      setCustomPin: (_which, value) => (values.lanPin = value),
     },
   );
   const initial = await handler(POCKET_ENDPOINTS.status);
@@ -99,7 +105,7 @@ async function settingsFixture() {
       return settings({
         t: (key) => key,
         rpcCall: async (endpoint, payload) => {
-          calls.push({ endpoint, payload });
+          calls.push({ endpoint, payload: structuredClone(payload) });
           return handler(endpoint, payload);
         },
       });
@@ -135,4 +141,68 @@ test('设置页局域网访问保存双向开关并保留完整状态', async ()
     );
     assert.equal(fixture.calls.at(-2).payload.on, enabled);
   }
+});
+
+for (const [label, endpoint, field, setting] of [
+  [
+    'lanPassword',
+    POCKET_ENDPOINTS.lanAuthSetEnabled,
+    'lanAuthEnabled',
+    'lanAuth',
+  ],
+  [
+    'rightbar',
+    POCKET_ENDPOINTS.mobileRightbarSetEnabled,
+    'mobileRightbarEnabled',
+    'rightbar',
+  ],
+]) {
+  test(`设置页 ${label} 双向保存真实设置并刷新完整状态`, async () => {
+    const fixture = await settingsFixture();
+    for (const enabled of [true, false]) {
+      const [control] = controls(
+        fixture.render(),
+        (node) => node.props?.label === label,
+      );
+      await control.props.onChange(enabled);
+      assert.equal(fixture.state[1], '', '保存完成后校验通过');
+      assert.equal(fixture.values[setting], enabled, '服务端保存目标值');
+      assert.equal(fixture.state[0][field], enabled, '界面读取保存后的值');
+      RemoteStatusSchema.parse(fixture.state[0]);
+      assert.deepEqual(fixture.calls.slice(-2), [
+        { endpoint, payload: { on: enabled } },
+        { endpoint: POCKET_ENDPOINTS.status, payload: {} },
+      ]);
+    }
+  });
+}
+
+test('设置页保存局域网密码后显示最新密码并关闭编辑框', async () => {
+  const fixture = await settingsFixture({ lanAuth: true });
+  const [edit] = controls(
+    fixture.render(),
+    (node) => node.type === 'Button' && node.props.children === 'setPassword',
+  );
+  await edit.props.onClick();
+  const [input] = controls(
+    fixture.render(),
+    (node) => node.props?.['aria-label'] === 'newPassword',
+  );
+  input.props.onChange({ target: { value: 'newpin88' } });
+  const [save] = controls(
+    fixture.render(),
+    (node) => node.type === 'Button' && node.props.children === 'save',
+  );
+  await save.props.onClick();
+  assert.equal(fixture.state[1], '', '保存完成后校验通过');
+  assert.equal(fixture.values.lanPin, 'newpin88');
+  assert.equal(fixture.state[0].lanToken, 'newpin88');
+  assert.equal(fixture.state[5], null, '成功后关闭密码编辑框');
+  assert.deepEqual(fixture.calls.slice(-2), [
+    {
+      endpoint: POCKET_ENDPOINTS.pinSetCustom,
+      payload: { which: 'lan', value: 'newpin88' },
+    },
+    { endpoint: POCKET_ENDPOINTS.status, payload: {} },
+  ]);
 });
