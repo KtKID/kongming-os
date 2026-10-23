@@ -4,7 +4,6 @@
   "files": {
     "packages/kmh-remote/shared/access-records.ts": {
       "sha256": "d14d33835db6376cc7b0c9fce652ab8779d29654a40fc4cca5977ac8959b6475",
-      "baselineSha256": null,
       "scope": "full",
       "changedLines": [
         1,
@@ -151,7 +150,6 @@
     },
     "packages/kmh-remote/host/access-records.ts": {
       "sha256": "67b1a6f95bd7993d73fa2f25f9650ff07a2984624aa6272b20928c8d50218093",
-      "baselineSha256": null,
       "scope": "full",
       "changedLines": [
         1,
@@ -574,7 +572,6 @@
     },
     "packages/kmh-remote/client/RemotePluginPanel.tsx": {
       "sha256": "b7af36a5f6cde43ff5cee9ffa88043fb261741448afb27040a2e7f13e66bea65",
-      "baselineSha256": null,
       "scope": "full",
       "changedLines": [
         1,
@@ -857,7 +854,6 @@
     },
     "packages/kmh-remote/host/proxy.mjs": {
       "sha256": "471ecf4fe512021b1f70d0d1335085321184afb6c638de17b42ec17a13ada5ea",
-      "baselineSha256": "56be86d2e2bfddebb81e4e95af0865663a5ae92b7a55b4fa792e0aeada099d77",
       "scope": "added-or-replaced-lines",
       "changedLines": [
         22,
@@ -960,6 +956,7 @@
         973,
         974,
         975,
+        976,
         984,
         985,
         986,
@@ -1081,7 +1078,6 @@
     },
     "packages/kmh-remote/host/index.js": {
       "sha256": "1a89025f705904172beda0f02e551b0fe607b918198ee5cdd1c73d49b70b0d6f",
-      "baselineSha256": "ab947f6e29700a19418ea63148ed8c0530f09e11a5e6147c4e8bd4ff047397f6",
       "scope": "added-or-replaced-lines",
       "changedLines": [
         6,
@@ -1119,7 +1115,6 @@
     },
     "packages/kmh-remote/host/service.mjs": {
       "sha256": "4edc624f8ddf1bf3f703345bcaeb006f0a02937c5902a7d11b256c482121c3dc",
-      "baselineSha256": "10121d82fdb5b5ea819926e421676c8759c0f3b6ab389454e5b8763117999906",
       "scope": "added-or-replaced-lines",
       "changedLines": [
         199,
@@ -1150,7 +1145,6 @@
     },
     "packages/kmh-remote/host/web-rpc.js": {
       "sha256": "1230b07b0d5f95f224f8fcf05b5148ce9282bc9c7b2dc0a8f9113d0d3f83dafc",
-      "baselineSha256": "75ca3d9c2fd07810cae4d9b860f0159a73e600016dac4f5247528705701aa8dc",
       "scope": "added-or-replaced-lines",
       "changedLines": [
         12,
@@ -1230,10 +1224,8 @@
     },
     "packages/kmh-remote/client/index.jsx": {
       "sha256": "25c0c6dafca6bb27ab3e70dd7295b9968647b6899588d7f2e63180db83dacf65",
-      "baselineSha256": "30bec290e9ced40e06793d989f67cb8be8414f0de3f0b4427fd2f8ef1c2d452d",
       "scope": "added-or-replaced-lines",
       "changedLines": [
-        17,
         408,
         409,
         410,

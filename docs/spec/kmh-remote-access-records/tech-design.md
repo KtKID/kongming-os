@@ -1,5 +1,5 @@
 ---
-description: Remote 访问记录的核心技术设计草案，围绕保存和本机查看，定义记录格式、文件读写及与 spec 十三个场景一一对应的测试安排。
+description: Remote 访问记录的技术设计，围绕保存和本机查看，定义记录格式、文件读写及与 spec 十三个场景一一对应的测试安排。
 ---
 
 # Remote 访问记录技术设计
@@ -10,18 +10,18 @@ description: Remote 访问记录的核心技术设计草案，围绕保存和本
 
 ## 现有代码与改动位置
 
-现状依据为本轮源码阅读；下表“计划改动”用于后续开发。
+下表列出保存与查看的接线位置及职责。
 
-| 位置 | 当前能力与计划改动 |
+| 位置 | 当前能力与接线 |
 | --- | --- |
-| [host/proxy.mjs](../../../packages/kmh-remote/host/proxy.mjs)，`createPocketProxy` | 已处理表单、显式 URL 密码及 WebSocket 握手密码；现有探针只在部分表单结果处收到通知。计划增加一次密码提交完成的回调，补齐成功、拒绝、受限与提交错误的观察点 |
-| [host/index.js](../../../packages/kmh-remote/host/index.js)、[host/service.mjs](../../../packages/kmh-remote/host/service.mjs) | 已管理代理挂载、卸载与可选观察器；计划持有文件模块，连接密码结果回调和记录查询，卸载时等待写入结束 |
-| [host/web-rpc.js](../../../packages/kmh-remote/host/web-rpc.js)，`installPocketRpc` | 已有 `/kmh-remote` 请求通道和宿主认证；计划增加一个 `records.list` 方法，并把原请求的本机来源判断传到记录处理处 |
-| [client/index.jsx](../../../packages/kmh-remote/client/index.jsx)，`RemoteSettings`、`renderConfig` | 已有设置页及插件条目、插件包详情插槽；计划在详情外包一层 Tab 与记录组件，原设置组件继续复用 |
+| [host/proxy.mjs](../../../packages/kmh-remote/host/proxy.mjs)，`createPocketProxy` | 处理表单、显式 URL 密码及 WebSocket 握手密码；一次密码提交完成的回调交付成功、拒绝、受限与提交错误 |
+| [host/index.js](../../../packages/kmh-remote/host/index.js)、[host/service.mjs](../../../packages/kmh-remote/host/service.mjs) | 管理代理挂载、卸载与文件模块，连接密码结果回调和记录查询，卸载时等待写入结束 |
+| [host/web-rpc.js](../../../packages/kmh-remote/host/web-rpc.js)，`installPocketRpc` | 通过 `/kmh-remote` 请求通道和宿主认证处理 `records.list`，把原请求的本机来源判断传到记录处理处 |
+| [client/index.jsx](../../../packages/kmh-remote/client/index.jsx)，`RemoteSettings`、`renderConfig` | 在插件条目和插件包详情插槽注册 Tab 与记录组件，原设置组件继续复用 |
 
-计划新增的位置及调用关系如下。共享约定只依赖 Zod；文件模块依赖共享约定和 Node；详情组件依赖共享约定、React 与公开 UI 包；现有入口负责把各部分连接起来。
+访问记录模块及调用关系如下。共享约定只依赖 Zod；文件模块依赖共享约定和 Node；详情组件依赖共享约定、React 与公开 UI 包；现有入口负责把各部分连接起来。
 
-| 计划位置 | 公开入口与职责 |
+| 位置 | 公开入口与职责 |
 | --- | --- |
 | `packages/kmh-remote/shared/access-records.ts` | 记录、查询和返回值的 Zod schema、推导类型、方法名及具名常量；由 Host 和客户端共用 |
 | `packages/kmh-remote/host/access-records.ts` | `createAccessRecords({ home, clock, fs, log })` 返回 `save(attempt)`、`list(query, signal)`、`close()`；拥有文件、串行写入状态、分页位置和最近保存错误 |
@@ -125,11 +125,11 @@ description: Remote 访问记录的核心技术设计草案，围绕保存和本
 
 ## 测试执行与规范依据
 
-用例共 13 条：SAVE-01—08 与 feat01 场景1—8逐项对应，VIEW-01—05 与 feat02 场景1—5逐项对应。每行是唯一用例主定义，参数组和前后端检查均归入该编号。场景覆盖缺口为零，实际执行状态统一为待实现验证。
+用例共 13 条：SAVE-01—08 与 feat01 场景1—8逐项对应，VIEW-01—05 与 feat02 场景1—5逐项对应。每行是唯一用例主定义，参数组和前后端检查均归入该编号。场景覆盖与实际执行结果见[任务记录](tasks/README.md)。
 
 测试使用每例独占的临时 Home、真实文件、代理及请求通道；替身仅用于时钟、外部上游及指定文件故障，文件保存和分页保持真实执行。时区与进程重启用隔离子进程，网络监听用系统分配端口，以明确的完成信号等待，结束时依次收回请求、写入链、句柄与临时目录。
 
-新增测试计划集中在 `packages/kmh-remote/test/access-records.spec.ts` 和 `access-records-panel.spec.tsx`。为直接执行 TS/TSX、真实组件测试及四项覆盖率，计划在本包声明 Vitest、`@vitest/coverage-v8`、React DOM、`@testing-library/react` 和 jsdom 开发依赖，版本沿用仓库已有声明与锁定结果；现有 Node 测试继续作为原功能回归。本轮依赖与配置保持计划状态。
+场景测试集中在 `packages/kmh-remote/test/access-records.spec.ts` 和 `access-records-panel.spec.tsx`。本包使用 Vitest、`@vitest/coverage-v8`、React DOM、`@testing-library/react` 和 jsdom 执行 TS/TSX、真实组件测试及四项覆盖率，版本由包声明与锁文件确定；现有 Node 测试继续作为原功能回归。
 
 实施时汇总行、语句、函数、分支四项覆盖率，新增文件全量计入，既有文件的新增接线按变更范围逐项核对，门槛均为 100%。原始覆盖报告与本次范围清单一并保留；组件测试验证逻辑，浏览器验证实际插件插槽、滚动、主题和密码输入流程，各类证据沿用对应的 13 个用例编号。
 
@@ -151,5 +151,3 @@ description: Remote 访问记录的核心技术设计草案，围绕保存和本
 2026-10-23 用户回复“同意，走 req dev verify”，确认本版方案及原默认文件细则，授权任务拆解、开发和验证。
 
 保存与查看的实现、场景执行状态及验收证据统一见[任务记录](tasks/README.md)。上文测试主定义保持确认时的范围，实际结果以任务报告为准。
-
-2026-10-23 提交收尾按用户要求移除临时 qdev 探针的运行实现、标记与观察接线。现行生产代码仅承接保存与查看，旧任务及开发前快照保留为历史证据。

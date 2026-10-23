@@ -73,6 +73,6 @@ pnpm --filter @kmh/remote test
 pnpm --filter @kmh/remote test:records:coverage
 ```
 
-访问记录专项包含 13 条场景用例。`test:records:coverage` 先生成 V8 原始报告，再由 `test/access-records-coverage.mjs` 按开发前快照核对新增模块与接线的行、语句、函数和分支，四项门槛均为 100%；范围与原始证据见[任务记录](../../docs/spec/kmh-remote-access-records/tasks/README.md)。
+访问记录专项包含 13 条场景用例。`test:records:coverage` 先生成 V8 原始报告，再由 `test/access-records-coverage.mjs` 按固定 Git 基线核对新增模块与密码记录接线的行、语句、函数和分支，四项门槛均为 100%；范围与原始证据见[任务记录](../../docs/spec/kmh-remote-access-records/tasks/README.md)。
 
 本机测试覆盖二维码、密码隔离、HTTP/WebSocket 透传、宿主握手和卸载清理。浏览器验证使用独立临时 profile；真实手机和现有 frp 公网链路的可达性由对应部署环境验收。包接入步骤见[包接入指南](../../docs/kmh/adding-a-plugin-package.md)，Web 实例归属见 [Web profile](../../profiles/kmh-web/README.md)，功能导航见[插件索引](../../docs/kmh/plugin-index.md)。

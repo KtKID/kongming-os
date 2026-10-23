@@ -5,8 +5,8 @@
 
  Test Files  2 passed (2)
       Tests  13 passed (13)
-   Start at  01:34:12
-   Duration  1.52s (transform 95ms, setup 0ms, import 214ms, tests 2.14s, environment 236ms)
+   Start at  09:24:37
+   Duration  1.57s (transform 103ms, setup 0ms, import 221ms, tests 2.19s, environment 239ms)
 
  % Coverage report from v8
 -------------------|---------|----------|---------|---------|-------------------

@@ -34,6 +34,12 @@
       "check": "format",
       "command": "node ../../node_modules/prettier/bin/prettier.cjs host client shared test '*.mjs' '*.ts' '*.json' '*.yml' README.md --check",
       "exitCode": 0
+    },
+    {
+      "check": "root-lint",
+      "command": "pnpm lint",
+      "cwd": "repository root",
+      "exitCode": 0
     }
   ],
   "tests": {
@@ -47,5 +53,6 @@
       "failed": 0,
       "skipped": 0
     }
-  }
+  },
+  "verificationParent": "b6cad436f9d538bf7292d42de1bf4c47b469af8d"
 }

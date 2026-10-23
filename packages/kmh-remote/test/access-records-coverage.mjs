@@ -1,4 +1,4 @@
-// 核对访问记录变更的四项覆盖率；新增模块全量计入，接线由开发前快照与固定 Git 基线共同界定，低于 100% 时失败。
+// 核对访问记录变更的四项覆盖率；新增模块全量计入，接线按固定 Git 基线计算，低于 100% 时失败。
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -26,9 +26,6 @@ const wiring = [
   'host/web-rpc.js',
   'client/index.jsx',
 ];
-const baselineHashes = JSON.parse(
-  await readFile(resolve(task, 'baselines/source-hashes.json'), 'utf8'),
-);
 const gitBase = JSON.parse(
   await readFile(resolve(task, 'baselines/git-base.json'), 'utf8'),
 ).commit;
@@ -47,30 +44,6 @@ function diffLines(diff) {
   return result;
 }
 
-/** 比较开发前快照；排除开始开发前已经存在的其他工作区修改。 */
-function changedLines(baseline, file) {
-  try {
-    return diffLines(
-      execFileSync(
-        'git',
-        [
-          'diff',
-          '--no-index',
-          '--no-ext-diff',
-          '--diff-algorithm=myers',
-          '--unified=0',
-          baseline,
-          file,
-        ],
-        { encoding: 'utf8' },
-      ),
-    );
-  } catch (error) {
-    if (error.status !== 1) throw error;
-    return diffLines(error.stdout);
-  }
-}
-
 const files = {};
 let failed = false;
 for (const short of [...complete, ...wiring]) {
@@ -82,16 +55,7 @@ for (const short of [...complete, ...wiring]) {
   if (complete.has(short))
     changed = new Set(source.split('\n').map((_, i) => i + 1));
   else {
-    const baseline = resolve(
-      task,
-      'baselines/source/packages/kmh-remote',
-      short,
-    );
-    if (sha(await readFile(baseline)) !== baselineHashes[short])
-      throw Error(`开发前基线发生变化：${short}`);
-    const taskChanges = changedLines(baseline, path);
-    // 同时对照固定 Git 基线，排除提交时保留在工作区、恢复为原提交内容的其他改动。
-    const commitChanges = diffLines(
+    changed = diffLines(
       execFileSync(
         'git',
         [
@@ -106,9 +70,14 @@ for (const short of [...complete, ...wiring]) {
         { cwd: root, encoding: 'utf8' },
       ),
     );
-    changed = new Set(
-      [...taskChanges].filter((line) => commitChanges.has(line)),
-    );
+    if (short === 'client/index.jsx') {
+      // 记录详情仅在 apply 注册；原设置表单的独立修复由设置测试承接。
+      const entry = source
+        .split('\n')
+        .findIndex((line) => line.startsWith('export function apply('));
+      if (entry < 0) throw Error('访问记录的客户端注册入口缺失');
+      changed = new Set([...changed].filter((line) => line > entry));
+    }
   }
   const overlaps = (loc) =>
     [...changed].some((line) => line >= loc.start.line && line <= loc.end.line);
@@ -142,7 +111,6 @@ for (const short of [...complete, ...wiring]) {
   }
   files[relative(root, path)] = {
     sha256: sha(source),
-    baselineSha256: baselineHashes[short] ?? null,
     scope: complete.has(short) ? 'full' : 'added-or-replaced-lines',
     changedLines: [...changed].sort((a, b) => a - b),
     metrics: result,
