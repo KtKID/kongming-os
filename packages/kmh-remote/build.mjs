@@ -29,8 +29,11 @@ export async function buildRemote() {
   });
   await build({
     absWorkingDir: root,
-    entryPoints: ['host/access-records.ts'],
-    outfile: 'lib/access-records.js',
+    entryPoints: [
+      'host/access-records.ts',
+      'host/access-records-integration.ts',
+    ],
+    outdir: 'lib',
     bundle: true,
     external: ['zod'],
     format: 'esm',

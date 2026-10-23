@@ -51,7 +51,9 @@ KMH Remote 由 KMH 维护手机访问、本地鉴权代理、移动端布局及�
 | `host/settings.mjs`                            | 本插件设置的校验与持久化                                                           |
 | `shared/access-records.ts`                     | 记录与查询的 Zod 约定、推导类型及具名常量                                          |
 | `host/access-records.ts`                       | 顺序保存、容量分文件、历史索引重建与倒读分页；`save/list/close` 返回结果并收回句柄 |
+| `host/access-records-integration.ts`           | 严格类型的密码终态采集、原始错误、代理拦截、本机权限和查询处理                     |
 | `client/RemotePluginPanel.tsx`                 | 详情 Tab、保留设置挂载、分页及原始错误；旧请求取消后保持当前页                     |
+| `client/access-records-locales.ts`             | 访问记录的中英文文案，编译检查两种语言的键集合                                     |
 | `host/web-rpc.js`、`client/api.js`             | 宿主信任检查、设置通道与共享契约                                                   |
 | `client/index.jsx`、`client/pocket-locales.js` | 复用宿主控件的设置页、插件详情与中英文文案                                         |
 | `client/mobile/`                               | 移动端布局、导航、文件操作与主题样式                                               |
@@ -59,7 +61,7 @@ KMH Remote 由 KMH 维护手机访问、本地鉴权代理、移动端布局及�
 | `check.mjs`、`eslint.config.mjs`               | JavaScript 语法检查与移动端严格类型规则                                            |
 | `test/`                                        | 代理、鉴权、frp 地址、资源回收与移动端回归                                         |
 
-`host/` 保存宿主模块，访问记录使用 TypeScript；`client/` 保存浏览器端 JSX、TSX 和样式源码。构建时复制宿主模块、将记录文件模块和共享约定编译为 ESM JavaScript，并将浏览器端源码打包为 `lib/client.js`。构建产物遵循仓库忽略规则。更新和进程生命周期由 Kongming 管理。
+`host/` 保存宿主模块，访问记录使用 TypeScript；`client/` 保存浏览器端 JSX、TSX 和样式源码。构建时复制宿主模块、将访问记录的 Host TS 业务模块和共享约定编译为 ESM JavaScript，并将浏览器端源码打包为 `lib/client.js`。构建产物遵循仓库忽略规则。更新和进程生命周期由 Kongming 管理。
 
 ## 验证
 
@@ -67,12 +69,11 @@ KMH Remote 由 KMH 维护手机访问、本地鉴权代理、移动端布局及�
 
 ```sh
 pnpm --filter @kmh/remote build
-pnpm --filter @kmh/remote typecheck
-pnpm --filter @kmh/remote lint
+pnpm --filter @kmh/remote check
 pnpm --filter @kmh/remote test
 pnpm --filter @kmh/remote test:records:coverage
 ```
 
-访问记录专项包含 13 条场景用例。`test:records:coverage` 先生成 V8 原始报告，再由 `test/access-records-coverage.mjs` 按固定 Git 基线核对新增模块与密码记录接线的行、语句、函数和分支，四项门槛均为 100%；范围与原始证据见[任务记录](../../docs/spec/kmh-remote-access-records/tasks/README.md)。
+访问记录专项包含 13 条场景用例。`test:records:coverage` 先生成 V8 原始报告，再由 `test/access-records-coverage.mjs` 按固定 Git 基线核对五个 TS/TSX 业务模块与密码记录接线的行、语句、函数和分支，四项门槛均为 100%；范围与原始证据见[任务记录](../../docs/spec/kmh-remote-access-records/tasks/README.md)。
 
 本机测试覆盖二维码、密码隔离、HTTP/WebSocket 透传、宿主握手和卸载清理。浏览器验证使用独立临时 profile；真实手机和现有 frp 公网链路的可达性由对应部署环境验收。包接入步骤见[包接入指南](../../docs/kmh/adding-a-plugin-package.md)，Web 实例归属见 [Web profile](../../profiles/kmh-web/README.md)，功能导航见[插件索引](../../docs/kmh/plugin-index.md)。

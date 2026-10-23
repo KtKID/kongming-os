@@ -4,7 +4,7 @@ description: Remote 访问记录的技术设计，围绕保存和本机查看，
 
 # Remote 访问记录技术设计
 
-在现有密码处理处取得结果，保存到当前 Home 的文件，再由插件详情按页读取。生产部分沿用现有 TypeScript、Zod、Node 文件接口和 React；新增一份共享约定、一个文件模块和一个详情组件。
+在现有密码处理处取得结果，保存到当前 Home 的文件，再由插件详情按页读取。访问记录的业务处理、共享约定、界面和文案使用严格检查的 TypeScript；现有 JavaScript 入口保留原鉴权与代理流程，并调用这些模块。
 
 依据：[spec v4](spec.md)，2026-10-22；用户本轮明确要求“按这版 spec 重写”，承接保存 8 个场景、查看 5 个场景。spec SHA-256：`eb386468ccffabb91f800d9f674965f7969ba8b78722431f45d3a67e4a2ca94c`。状态：**2026-10-23 用户确认并授权 req、dev、verify**；实施依据为本版保存与查看设计。
 
@@ -14,10 +14,10 @@ description: Remote 访问记录的技术设计，围绕保存和本机查看，
 
 | 位置 | 当前能力与接线 |
 | --- | --- |
-| [host/proxy.mjs](../../../packages/kmh-remote/host/proxy.mjs)，`createPocketProxy` | 处理表单、显式 URL 密码及 WebSocket 握手密码；一次密码提交完成的回调交付成功、拒绝、受限与提交错误 |
-| [host/index.js](../../../packages/kmh-remote/host/index.js)、[host/service.mjs](../../../packages/kmh-remote/host/service.mjs) | 管理代理挂载、卸载与文件模块，连接密码结果回调和记录查询，卸载时等待写入结束 |
-| [host/web-rpc.js](../../../packages/kmh-remote/host/web-rpc.js)，`installPocketRpc` | 通过 `/kmh-remote` 请求通道和宿主认证处理 `records.list`，把原请求的本机来源判断传到记录处理处 |
-| [client/index.jsx](../../../packages/kmh-remote/client/index.jsx)，`RemoteSettings`、`renderConfig` | 在插件条目和插件包详情插槽注册 Tab 与记录组件，原设置组件继续复用 |
+| [host/proxy.mjs](../../../packages/kmh-remote/host/proxy.mjs)，`createPocketProxy` | 在原密码判断分支调用 TS 终态方法，HTTP 与 WebSocket 入口调用 TS 查询拦截函数 |
+| [host/index.js](../../../packages/kmh-remote/host/index.js)、[host/service.mjs](../../../packages/kmh-remote/host/service.mjs) | 通过 TS 工厂创建记录器，连接保存回调和记录查询，卸载时等待写入结束 |
+| [host/web-rpc.js](../../../packages/kmh-remote/host/web-rpc.js)，`installPocketRpc` | 宿主认证后调用 TS 构造本机上下文，把 `records.list` 及参数交给 TS 查询处理 |
+| [client/index.jsx](../../../packages/kmh-remote/client/index.jsx)，`RemoteSettings`、`renderConfig` | 调用 TS 渲染工厂，在插件条目和插件包详情插槽注册记录面板，原设置组件继续复用 |
 
 访问记录模块及调用关系如下。共享约定只依赖 Zod；文件模块依赖共享约定和 Node；详情组件依赖共享约定、React 与公开 UI 包；现有入口负责把各部分连接起来。
 
@@ -25,9 +25,11 @@ description: Remote 访问记录的技术设计，围绕保存和本机查看，
 | --- | --- |
 | `packages/kmh-remote/shared/access-records.ts` | 记录、查询和返回值的 Zod schema、推导类型、方法名及具名常量；由 Host 和客户端共用 |
 | `packages/kmh-remote/host/access-records.ts` | `createAccessRecords({ home, clock, fs, log })` 返回 `save(attempt)`、`list(query, signal)`、`close()`；拥有文件、串行写入状态、分页位置和最近保存错误 |
-| `packages/kmh-remote/client/RemotePluginPanel.tsx` | 包含两个 Tab、原设置内容和访问列表；负责加载、翻页、刷新与原始错误显示 |
+| `packages/kmh-remote/host/access-records-integration.ts` | 创建当前 Home 的记录器；按原请求采集来源，提供成功、拒绝、受限和提交错误终态方法；拦截代理查询，构造可信本机上下文并处理查询与原始错误 |
+| `packages/kmh-remote/client/RemotePluginPanel.tsx` | `createRemotePluginRenderer` 适配详情插槽；面板包含两个 Tab、原设置内容和访问列表，负责加载、翻页、刷新与原始错误显示 |
+| `packages/kmh-remote/client/access-records-locales.ts` | 保存记录面板的中英文文案，英文键集合由中文键集合推导并严格检查 |
 
-构建沿用 [build.mjs](../../../packages/kmh-remote/build.mjs)，补齐上述 TS 与共享文件的输出；类型检查覆盖 `shared/`。跨包依赖使用公开包名导入，宿主行为通过已有公开服务接入。
+构建沿用 [build.mjs](../../../packages/kmh-remote/build.mjs)，将 Host TS 模块和共享约定编译为 ESM JavaScript，浏览器入口打包面板与文案。严格类型及 typed ESLint 覆盖 `host/**/*.ts`、`shared/**/*.ts` 与 `client/**/*.{ts,tsx}`，现有 JS 入口承担调用接线。跨包依赖使用公开包名导入，宿主行为通过已有公开服务接入。
 
 ## 保存访问记录（feat01）
 
@@ -37,9 +39,9 @@ description: Remote 访问记录的技术设计，围绕保存和本机查看，
 
 ### 取得一次密码提交的结果
 
-`proxy.mjs` 在进入实际密码提交路径时建立本次上下文，用 `completeAttempt(result)` 完成一次结果通知。同一上下文首次完成后结束；同 IP、同毫秒或同时到来的其他提交各有自己的上下文。已有表单、显式 URL 密码及握手密码路径共用此规则，自动登录和后续业务活动沿用原流程。
+`proxy.mjs` 在进入实际密码提交路径时调用 `createPasswordAttemptRecorder` 返回的记录入口。TS 模块捕获本次来源，提供 `success`、`rejected`、`limited`、`bodyTooLarge` 及提交中断、错误监听。同一上下文首次完成后结束；同 IP、同毫秒或同时到来的其他提交各有自己的上下文。已有表单、显式 URL 密码及握手密码路径共用此规则，自动登录和后续业务活动沿用原流程。
 
-原判断位置传出已确认的 `entryKind`、连接来源与结果。提交前后已有的限速拒绝、密码拒绝、成功、请求中断、大小限制及请求错误均在对应终态交付记录；密码值、Cookie、完整请求和 URL 留在原鉴权流程内。
+原判断位置传入请求与既有公网分类结果，TS 模块生成 `entryKind`、连接来源与结果。提交前后已有的限速拒绝、密码拒绝、成功、请求中断、大小限制及请求错误均在对应终态交付记录；密码值、Cookie、完整请求和 URL 留在原鉴权流程内。
 
 失败原因沿用原处理处的文字或原生 `Error.message`。已有 `code` 保持原值；主动识别的密码错误、受限、中断和提交体过大分别采用 `REMOTE_LOGIN_REJECTED`、`REMOTE_LOGIN_LIMITED`、`REMOTE_LOGIN_ABORTED`、`REMOTE_LOGIN_BODY_TOO_LARGE`。这些原因在处理处定义一次，登录提示与记录引用同一来源。
 

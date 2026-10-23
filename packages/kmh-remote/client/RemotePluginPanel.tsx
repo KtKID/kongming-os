@@ -1,6 +1,6 @@
 // Remote 插件详情：复用设置面板，通过本机查询显示稳定分页和原始错误，切换保留草稿。
 import { useEffect, useId, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 import { Button, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
 import {
   PageResultSchema,
@@ -12,6 +12,26 @@ import type {
   RecordFailure,
   RecordsCall,
 } from '../shared/access-records.ts';
+
+type SettingsProps = { rpcCall: RecordsCall; t: (key: string) => string };
+
+/** 为现有详情插槽提供渲染器；page 视图保留设置组件，其他视图返回空内容。 */
+export function createRemotePluginRenderer(
+  Settings: ComponentType<SettingsProps>,
+) {
+  return ({
+    view,
+    rpcCall,
+    t,
+  }: SettingsProps & { view: string }): ReactElement | null =>
+    view === 'page' ? (
+      <RemotePluginPanel
+        rpcCall={rpcCall}
+        t={t}
+        settings={<Settings rpcCall={rpcCall} t={t} />}
+      />
+    ) : null;
+}
 
 /** 查询当前 Home 的一页记录；旧请求取消或失效后保持当前界面状态。 */
 export function RemotePluginPanel({

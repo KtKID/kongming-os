@@ -25,6 +25,7 @@ const OutcomeSchema = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal('success') }),
   z.object({ outcome: z.literal('failure'), error: FailureSchema }),
 ]);
+export type PasswordResult = z.infer<typeof OutcomeSchema>;
 export const AttemptSchema = z.intersection(SourceSchema, OutcomeSchema);
 export type PasswordAttempt = z.infer<typeof AttemptSchema>;
 export const RecordSchema = z.intersection(
@@ -74,6 +75,11 @@ export const PageResultSchema = z.discriminatedUnion('ok', [
 ]);
 export type RecordPage = z.infer<typeof PageSchema>;
 export type PageResult = z.infer<typeof PageResultSchema>;
+export const RecordsContextSchema = z.object({
+  local: z.boolean(),
+  authenticated: z.boolean(),
+});
+export type RecordsContext = z.infer<typeof RecordsContextSchema>;
 export type RecordsCall = (
   endpoint: string,
   payload: unknown,

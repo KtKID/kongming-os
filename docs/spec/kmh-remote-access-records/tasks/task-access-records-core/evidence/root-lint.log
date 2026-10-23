@@ -14,17 +14,17 @@ packages/codex-cli lint: Done
 packages/runtime-log lint$ eslint src --max-warnings 0
 packages/codex-cli-trace lint: Done
 packages/web-surface-zh lint$ eslint src --max-warnings 0
-packages/runtime-log lint: Done
-packages/kmh-mademe lint$ eslint src --max-warnings 0
 packages/cli-tools-selector lint: Done
-packages/kmh-infra lint$ eslint src --max-warnings 0
+packages/kmh-mademe lint$ eslint src --max-warnings 0
 packages/mobile-assistant-runtime lint: Done
+packages/kmh-infra lint$ eslint src --max-warnings 0
+packages/runtime-log lint: Done
 packages/aggregated-token-analysis lint$ eslint src --max-warnings 0
 packages/web-surface-zh lint: Done
 packages/kmh-xmusic lint$ eslint src --max-warnings 0
 packages/kmh-mademe lint: Done
 packages/kmh-remote lint$ node check.mjs && eslint client host shared --max-warnings 0
-packages/aggregated-token-analysis lint: Done
 packages/kmh-xmusic lint: Done
+packages/aggregated-token-analysis lint: Done
 packages/kmh-infra lint: Done
 packages/kmh-remote lint: Done

@@ -9,11 +9,11 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { RECORDS_METHOD } from './access-records-shared.js';
 import {
-  QuerySchema,
-  RECORDS_METHOD,
-  recordFailure,
-} from './access-records-shared.js';
+  recordsRequestContext,
+  queryAccessRecords,
+} from './access-records-integration.js';
 import {
   POCKET_RPC_CHANNEL,
   POCKET_ENDPOINTS,
@@ -290,14 +290,7 @@ function mountPocketWebRoute(ctx, { channel, handler, log }) {
         res.end(rejection === 401 ? 'unauthorized' : 'forbidden');
         return;
       }
-      const address = String(req.socket?.remoteAddress ?? '').replace(
-        /^::ffff:/i,
-        '',
-      );
-      const context = {
-        local: address === '127.0.0.1' || address === '::1',
-        authenticated: typeof connection?.requestRejection === 'function',
-      };
+      const context = recordsRequestContext(req, connection);
       const fetchHandler = pocketFetchHandler(channel, handler, log, context);
       await pocketHttpBridge(req, res, fetchHandler, POCKET_RPC_BODY_MAX);
     },
@@ -378,34 +371,8 @@ export function installPocketRpc(
   },
 ) {
   const pocketRpcHandler = async (endpoint, payload = {}, signal, context) => {
-    if (endpoint === RECORDS_METHOD) {
-      const reject = (code, desc) => ({
-        ok: false,
-        error: { code, message: desc, details: { desc } },
-      });
-      if (!context)
-        return reject(
-          'REMOTE_RECORD_LOCAL_CONTEXT_REQUIRED',
-          '记录查看需要原始本机请求上下文',
-        );
-      if (!context.local || !context.authenticated)
-        return reject(
-          'REMOTE_RECORD_LOCAL_ONLY',
-          '访问记录仅供电脑本机授权查看',
-        );
-      if (!records)
-        return reject('REMOTE_RECORD_NOT_READY', '访问记录尚未就绪');
-      try {
-        return await records.list(QuerySchema.parse(payload), signal);
-      } catch (error) {
-        const detail = recordFailure(
-          error,
-          'REMOTE_RECORD_QUERY_FAILED',
-          'query',
-        );
-        return reject(detail.code, detail.desc);
-      }
-    }
+    if (endpoint === RECORDS_METHOD)
+      return queryAccessRecords(records, payload, signal, context);
     if (signal?.aborted) return fail('cancelled', 'The request was cancelled.');
 
     // status 响应：服务状态 + 重启提示 + 停止命令 + 桌面端标志 + 公网/局域网访问密码 + 局域网密码开关

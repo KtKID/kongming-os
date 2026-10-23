@@ -1,0 +1,6 @@
+$ pnpm typecheck && pnpm lint && pnpm format:check
+$ tsc --noEmit
+$ node check.mjs && eslint client host shared --max-warnings 0
+$ prettier host client shared test *.mjs *.ts *.json *.yml README.md --check
+Checking formatting...
+All matched files use Prettier code style!

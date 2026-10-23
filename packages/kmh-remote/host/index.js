@@ -3,7 +3,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { randomBytes, randomInt } from 'node:crypto';
-import { createAccessRecords } from './access-records.js';
+import { createHostAccessRecords } from './access-records-integration.js';
 
 import { createPocketService } from './service.mjs';
 import { installPocketRpc } from './web-rpc.js';
@@ -183,18 +183,14 @@ export function apply(ctx, config = {}, internals = {}) {
   const logger = ctx.logger?.(name) ?? console;
   const dshPort = internals.dshPort ?? ctx.webServer?.port;
   if (!dshPort) throw new Error('KMH Remote 需要宿主 Web 服务端口');
-  const records = createAccessRecords({
-    home: process.env.DSH_HOME ?? join(homedir(), '.dsh'),
-    log: (error) =>
-      logger.error('Remote 记录保存失败：%s %s', error.code, error.desc),
-  });
+  const records = createHostAccessRecords(logger);
   const service =
     internals.service ??
     createPocketService({
       dshPort,
       port: internals.port ?? config.port ?? (proxyPort() || 60001),
       internals,
-      onPasswordAttempt: (attempt) => records.save(attempt),
+      onPasswordAttempt: records.save,
       getLanIpOverride: lanIpOverride,
       getLanEnabled: lanEnabled,
       getPublicUrl: publicUrl,

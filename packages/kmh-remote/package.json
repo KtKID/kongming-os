@@ -27,7 +27,8 @@
     "format:check": "prettier host client shared test *.mjs *.ts *.json *.yml README.md --check",
     "test": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs",
     "test:records": "vitest run",
-    "test:records:coverage": "vitest run --coverage && node test/access-records-coverage.mjs"
+    "test:records:coverage": "vitest run --coverage && node test/access-records-coverage.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check"
   },
   "dependencies": {
     "qrcode": "^1.5.4",

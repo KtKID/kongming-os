@@ -5,6 +5,12 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^\.\/access-records-integration\.js$/,
+        replacement: fileURLToPath(
+          new URL('./host/access-records-integration.ts', import.meta.url),
+        ),
+      },
+      {
         find: /^\.\/access-records\.js$/,
         replacement: fileURLToPath(
           new URL('./host/access-records.ts', import.meta.url),
@@ -28,12 +34,15 @@ export default defineConfig({
       include: [
         'shared/access-records.ts',
         'host/access-records.ts',
+        'host/access-records-integration.ts',
         'client/RemotePluginPanel.tsx',
+        'client/access-records-locales.ts',
         'host/proxy.mjs',
         'host/service.mjs',
         'host/index.js',
         'host/web-rpc.js',
         'client/index.jsx',
+        'client/pocket-locales.js',
       ],
     },
   },

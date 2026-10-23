@@ -4,13 +4,24 @@ import { WebSocket, WebSocketServer } from 'ws';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createServer, request } from 'node:http';
+import {
+  createServer,
+  request,
+  IncomingMessage,
+  ServerResponse,
+} from 'node:http';
+import { Socket } from 'node:net';
+import { PassThrough } from 'node:stream';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createAccessRecords } from '../host/access-records.ts';
 import { MAX_FILE_BYTES, RecordSchema } from '../shared/access-records.ts';
 import { createPocketProxy } from '../host/proxy.mjs';
 import { installPocketRpc } from '../host/web-rpc.js';
+import {
+  rejectRemoteRecordsRequest,
+  rejectRemoteRecordsUpgrade,
+} from '../host/access-records-integration.ts';
 const cleanups: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
@@ -829,6 +840,16 @@ test('SAVE-08 保存故障原文可见，恢复保留原历史', async () => {
   await disabledProxy.visit('/pocket-login', 'correct88');
 });
 test('VIEW-05 本机授权可读，远程及无上下文拒绝', async () => {
+  const source = new Socket();
+  const noPath = new IncomingMessage(source);
+  noPath.url = undefined;
+  const response = new ServerResponse(noPath);
+  const upgrade = new PassThrough();
+  expect(rejectRemoteRecordsRequest(noPath, response)).toBe(false);
+  expect(rejectRemoteRecordsUpgrade(noPath, upgrade)).toBe(false);
+  response.destroy();
+  source.destroy();
+  upgrade.destroy();
   const { store } = await fixture();
   await store.save(attempt());
   const reads = vi.spyOn(store, 'list');

@@ -40,6 +40,12 @@
       "command": "pnpm lint",
       "cwd": "repository root",
       "exitCode": 0
+    },
+    {
+      "check": "aggregate-check",
+      "command": "pnpm --filter @kmh/remote check",
+      "cwd": "repository root",
+      "exitCode": 0
     }
   ],
   "tests": {
@@ -54,5 +60,36 @@
       "skipped": 0
     }
   },
-  "verificationParent": "b6cad436f9d538bf7292d42de1bf4c47b469af8d"
+  "verificationParent": "58d63d8cd73321293dc4d16a1c900ace7d3b2e70",
+  "migration": "password records business logic to strict TypeScript; persisted schema and store source unchanged",
+  "coverage": {
+    "lines": {
+      "covered": 372,
+      "total": 372
+    },
+    "statements": {
+      "covered": 434,
+      "total": 434
+    },
+    "functions": {
+      "covered": 68,
+      "total": 68
+    },
+    "branches": {
+      "covered": 216,
+      "total": 216
+    }
+  },
+  "browser": {
+    "environment": "existing Docker trial instance",
+    "checks": [
+      "records tab shows original 3 records and raw errors",
+      "refresh succeeds",
+      "settings draft survives tab switch and is restored",
+      "record file bytes unchanged",
+      "unauthenticated query 401",
+      "Remote query 403"
+    ],
+    "consoleErrors": 0
+  }
 }

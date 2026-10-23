@@ -17,7 +17,9 @@ const coverage = JSON.parse(
 const complete = new Set([
   'shared/access-records.ts',
   'host/access-records.ts',
+  'host/access-records-integration.ts',
   'client/RemotePluginPanel.tsx',
+  'client/access-records-locales.ts',
 ]);
 const wiring = [
   'host/proxy.mjs',
@@ -25,6 +27,7 @@ const wiring = [
   'host/service.mjs',
   'host/web-rpc.js',
   'client/index.jsx',
+  'client/pocket-locales.js',
 ];
 const gitBase = JSON.parse(
   await readFile(resolve(task, 'baselines/git-base.json'), 'utf8'),
