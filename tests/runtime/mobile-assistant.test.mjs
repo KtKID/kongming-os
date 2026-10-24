@@ -47,6 +47,13 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
   const home = mkdtempSync(join(tmpdir(), 'kmh-mobile-sdk-'));
   const cwd = join(home, 'workspace');
   mkdirSync(cwd);
+  const mcpLog = join(home, 'mademe-calls.jsonl');
+  const overlay = join(home, 'mcp.patch.json');
+  writeFileSync(overlay, JSON.stringify([{ id: 'mcp-mademe', config: {
+    serverName: 'mademe', transport: 'stdio', command: process.execPath,
+    args: [join(root, 'tests/runtime/fixtures/mademe-mcp.mjs')], cwd: home,
+    env: { KMH_MADEME_FIXTURE_LOG: mcpLog }, failOnStartupError: true,
+  } }]));
   const requests = [];
   const model = createServer(async (req, res) => {
     let body = '';
@@ -57,6 +64,7 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
     const scripted = [
       { name: 'skill', input: { name: 'mademe-save' } },
       ...['x-writer', 'feynman-learn', 'x-paper-baseread', 'xmusic-recommend', 'x-vidkit'].map(name => ({ name: 'skill', input: { name } })),
+      { name: 'mcp__mademe__mademe_list_tags', input: {} },
       { name: 'write', input: { file_path: 'assistant-note.txt', content: 'MOBILE_FILE_EVIDENCE\n' } },
       { name: 'read', input: { file_path: 'assistant-note.txt' } },
     ][requests.length - 1];
@@ -82,7 +90,7 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
     rmSync(home, { recursive: true, force: true });
   });
   function start() {
-    const child = spawn(process.execPath, [join(root, 'scripts/kmh.mjs'), 'dsh', '--profile', 'kmh-mobile-assistant'], {
+    const child = spawn(process.execPath, [join(root, 'scripts/kmh.mjs'), 'dsh', '--profile', 'kmh-mobile-assistant', '--patch', overlay], {
       cwd, stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...mobileEnvironment(home), DEEPSEEK_API_KEY: 'test-key', DEEPSEEK_BASE_URL: `http://127.0.0.1:${port}`, DSH_TELEMETRY_DISABLED: '1' },
     });
@@ -134,6 +142,8 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
   await first.prompt('MOBILE_FIRST_TURN_EVIDENCE');
   assert.equal(readFileSync(join(cwd, 'assistant-note.txt'), 'utf8'), 'MOBILE_FILE_EVIDENCE\n');
   const loadedSkills = JSON.stringify(requests.at(-1).messages);
+  assert.match(loadedSkills, /MOBILE_MADEME_TOOL_RESULT/);
+  assert.deepEqual(readFileSync(mcpLog, 'utf8').trim().split('\n').map(line => JSON.parse(line).name), ['mademe_list_tags']);
   for (const name of ['mademe-save', 'x-writer', 'feynman-learn', 'x-paper-baseread', 'xmusic-recommend', 'x-vidkit']) assert.ok(loadedSkills.includes(`MOBILE_SKILL_BODY:${name}`), name);
   await first.prompt('MOBILE_SECOND_TURN_EVIDENCE');
   assert.match(JSON.stringify(requests.at(-1).messages), /MOBILE_FIRST_TURN_EVIDENCE/);

@@ -158,6 +158,30 @@
     {
       "file": "records-coverage.log",
       "sha256": "611b3862820cd36b4765ed24cd32685dbd3f04b6a205979ec8ef620b66f90502"
+    },
+    {
+      "file": "github-linux-x64-failed.log",
+      "sha256": "d0ba7a297296ac3ba58c46ef0ed6567618308b22ecac07e9ec243cb0915b206d"
+    },
+    {
+      "file": "linux-native-file-debug.log",
+      "sha256": "b660742ada19b0ccca8a3e9219add1f0f179ca4996abcd6da0a148315ad2a79d"
+    },
+    {
+      "file": "linux-native-file-focused.log",
+      "sha256": "af1255720720717c2695aa805de807e776bc10fc02ae90f1f7bd7f2080e7a934"
+    },
+    {
+      "file": "linux-mobile-mcp-focused.log",
+      "sha256": "ebd39fc3862134db9f7e4de903baffeb64cbdc293c86d602515fa7a8b24eb954"
+    },
+    {
+      "file": "mobile-mcp-focused.log",
+      "sha256": "42da9011bc3c30ccd2be5e021c808b6c243125e6a96191e6a0a913d0d4930d39"
+    },
+    {
+      "file": "root-test-final2.log",
+      "sha256": "085847edfec9cdffc4f3c27faaff1ad1b3fadb609b1636e0e0da38653791d0aa"
     }
   ],
   "aiEvidenceRecheck": {
@@ -170,5 +194,54 @@
       "unchanged DSH source and pointer"
     ],
     "result": "passed"
-  }
+  },
+  "linuxX64FirstRun": {
+    "commit": "c9a0813b8e32bfe3e8fce618d2923698523b5af2",
+    "url": "https://github.com/KtKID/kongming-os/actions/runs/40054192719",
+    "result": {
+      "tests": 572,
+      "passed": 570,
+      "failed": 2,
+      "skipped": 0
+    },
+    "failures": [
+      "native file changes keep their creation setting on resumed sessions while new sessions omit them",
+      "移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工具与技能"
+    ]
+  },
+  "followUpCommands": [
+    {
+      "command": "node --test --test-name-pattern=\"native file changes\" packages/codex-cli/test/tool-policy.test.mjs",
+      "environment": "isolated Linux ARM64 container without external network",
+      "exitCode": 0,
+      "tests": 1,
+      "log": "linux-native-file-focused.log"
+    },
+    {
+      "command": "node --test tests/runtime/mobile-assistant.test.mjs",
+      "environment": "isolated Linux ARM64 container without external network",
+      "exitCode": 0,
+      "tests": 2,
+      "log": "linux-mobile-mcp-focused.log"
+    },
+    {
+      "command": "node --test tests/runtime/mobile-assistant.test.mjs",
+      "environment": "macOS arm64",
+      "exitCode": 0,
+      "tests": 2,
+      "log": "mobile-mcp-focused.log"
+    },
+    {
+      "command": "pnpm test",
+      "environment": "isolated KMH_HOME, macOS arm64",
+      "exitCode": 0,
+      "log": "root-test-final2.log",
+      "result": {
+        "tests": 572,
+        "passed": 572,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  ]
 }
