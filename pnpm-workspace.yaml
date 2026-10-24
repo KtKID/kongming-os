@@ -2,6 +2,7 @@
 packages:
   - bundles/*
   - packages/*
+  - profiles/*
   - '!third_party/**'
 
 allowBuilds:

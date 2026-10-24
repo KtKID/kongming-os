@@ -21,7 +21,10 @@ import { LocalSubprocessRuntime } from "../../../third_party/dsh/packages/subpro
 const bin = fileURLToPath(new URL("../bin/", import.meta.url));
 const version = "0.163.0-alpha.10.2";
 const launcher = join(bin, "codex");
-const supported = process.platform === "darwin" && process.arch === "arm64";
+const platform = `${process.platform}-${process.arch}`;
+const supported = ["darwin-arm64", "linux-x64", "linux-arm64"].includes(
+  platform,
+);
 
 test("default command is the plugin-owned checked launcher", () => {
   const config = Config({ cwd: tmpdir(), dataDir: tmpdir() });
@@ -71,7 +74,7 @@ function fixture(t, actualVersion) {
   copyFileSync(launcher, join(root, "codex"));
   writeFileSync(join(root, "version"), `${version}\n`);
   if (actualVersion !== undefined) {
-    const cli = join(root, version, "darwin-arm64", "bin", "codex");
+    const cli = join(root, version, platform, "bin", "codex");
     mkdirSync(dirname(cli), { recursive: true });
     writeFileSync(
       cli,

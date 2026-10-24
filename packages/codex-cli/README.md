@@ -38,7 +38,7 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
 
 ### 配置
 
-默认使用插件 [bin 目录中的固定官方 CLI](bin/README.md)，每次启动精确核对完整版本号；当前部署版本为 `0.163.0-alpha.10.2`，平台为 macOS arm64。程序与配套资源由插件目录持有，现有 Codex 登录、配置与原生会话目录继续沿用。
+默认使用插件 [bin 目录中的固定官方 CLI](bin/README.md)，每次启动精确核对完整版本号；当前版本为 `0.163.0-alpha.10.2`，支持平台与安装入口见该说明。程序与配套资源由插件目录持有，现有 Codex 登录、配置与原生会话目录继续沿用。
 
 在 `profiles/<name>/cordis.patch.yml` 挂载（kmh-web 已内置）：
 
@@ -51,25 +51,25 @@ description: 在 KMH 使用本机官方 Codex CLI 登录的模型：挂载配置
     dataDir: !!js dshHomePath('codex-cli')
 ```
 
-| 配置键                   | 默认值    | 含义                                                                                                                               |
-| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `command`                | `codex`   | 官方 CLI 可执行文件；损坏或不在 PATH 时写绝对路径                                                                                  |
-| `cwd`                    | 必填      | 无会话身份时子进程的工作目录；会话请求跟随会话自身目录                                                                             |
-| `dataDir`                | 必填      | 绑定记录与裁剪目录的数据目录                                                                                                       |
-| `model`                  | `""`      | 空=模型目录首选；非空固定为该模型                                                                                                  |
-| `nativeToolsEnabled`     | `false`   | 旧总开关：首次迁移的默认值；逐项选择以 profile Config 的 `toolSelection` 为准                                                      |
-| `toolSelection`          | 首次导入  | `version: 1` 与 `harness`、`native` 选择数组；每项包含 `source`、`name`、`enabled`，由 Settings 写入 profile 的 `cordis.patch.yml` |
-| `defaultMaxTokens`       | `1000000` | 会话默认输出上限                                                                                                                   |
-| `reasoningSummary`       | `auto`    | 官方思考摘要模式：auto、concise、detailed、none；none 关闭可见摘要请求                                                             |
-| `startupTimeoutMs`       | `20000`   | 启动与 initialize 握手时限                                                                                                         |
-| `requestTimeoutMs`       | `360000`  | 单次生成总时限，包含排队、启动与官方重试；主对话、标题及压缩评估共用此限制，收尾另有时限                                           |
-| `cancelReceiptTimeoutMs` | `5000`    | 停止后等待 interrupted 终止通知的时限                                                                                              |
-| `cleanupTimeoutMs`       | `5000`    | 进程干净退出的等待时限，超时强制回收                                                                                               |
-| `probeTimeoutMs`         | `15000`   | 测试连接、目录探针与官方额度读取时限                                                                                               |
-| `probeMaxTokens`         | `1`       | 测试连接请求传递的输出上限                                                                                                         |
-| `loginTimeoutMs`         | `1200000` | 官方授权页完成登录的等待时限                                                                                                       |
-| `graceMs`                | `1500`    | 子进程托管终止宽限                                                                                                                 |
-| `env`                    | `{}`      | 追加到 CLI 进程的环境变量                                                                                                          |
+| 配置键                   | 默认值           | 含义                                                                                                                               |
+| ------------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `command`                | 包内 `bin/codex` | 官方 CLI 启动器；显式配置可指定其他经过验证的程序绝对路径                                                                          |
+| `cwd`                    | 必填             | 无会话身份时子进程的工作目录；会话请求跟随会话自身目录                                                                             |
+| `dataDir`                | 必填             | 绑定记录与裁剪目录的数据目录                                                                                                       |
+| `model`                  | `""`             | 空=模型目录首选；非空固定为该模型                                                                                                  |
+| `nativeToolsEnabled`     | `false`          | 旧总开关：首次迁移的默认值；逐项选择以 profile Config 的 `toolSelection` 为准                                                      |
+| `toolSelection`          | 首次导入         | `version: 1` 与 `harness`、`native` 选择数组；每项包含 `source`、`name`、`enabled`，由 Settings 写入 profile 的 `cordis.patch.yml` |
+| `defaultMaxTokens`       | `1000000`        | 会话默认输出上限                                                                                                                   |
+| `reasoningSummary`       | `auto`           | 官方思考摘要模式：auto、concise、detailed、none；none 关闭可见摘要请求                                                             |
+| `startupTimeoutMs`       | `20000`          | 启动与 initialize 握手时限                                                                                                         |
+| `requestTimeoutMs`       | `360000`         | 单次生成总时限，包含排队、启动与官方重试；主对话、标题及压缩评估共用此限制，收尾另有时限                                           |
+| `cancelReceiptTimeoutMs` | `5000`           | 停止后等待 interrupted 终止通知的时限                                                                                              |
+| `cleanupTimeoutMs`       | `5000`           | 进程干净退出的等待时限，超时强制回收                                                                                               |
+| `probeTimeoutMs`         | `15000`          | 测试连接、目录探针与官方额度读取时限                                                                                               |
+| `probeMaxTokens`         | `1`              | 测试连接请求传递的输出上限                                                                                                         |
+| `loginTimeoutMs`         | `1200000`        | 官方授权页完成登录的等待时限                                                                                                       |
+| `graceMs`                | `1500`           | 子进程托管终止宽限                                                                                                                 |
+| `env`                    | `{}`             | 追加到 CLI 进程的环境变量                                                                                                          |
 
 ### 会话能力
 
@@ -156,13 +156,13 @@ pnpm test
 
 `codex-bindings.json` 新增创建时工具信息和原生回合对应记录，首条消息前的记录可以暂时没有 `threadId`。已保存但缺少原工具信息的旧记录会报告 `CODEX_SESSION_STATE_INCOMPLETE`；损坏文件报告 `CODEX_SESSION_STATE_CORRUPT`。原文件和原生会话保留，插件不会用当前开关补造旧配置或自动创建替代会话；用户可普通新建 KMH 会话继续任务。改变读取行为与新增字段由本说明承接，DSH Session 格式代际保持原样。
 
-完成仓库初始化和 DSH 构建后，在仓库根目录运行本包测试。测试需要本机官方 Codex CLI；`KMH_CODEX_BINARY` 可以指定程序绝对路径，默认检查 ChatGPT.app 内程序及 PATH。程序缺失时测试明确报错。
+完成仓库初始化、DSH 构建与[固定运行包安装](bin/README.md#安装)后，在仓库根目录运行本包测试。`KMH_CODEX_BINARY` 可以指定程序绝对路径，默认使用包内固定启动器。程序缺失时测试明确报错。
 
 ```sh
 KMH_CODEX_TEST_TMP=/private/tmp/kmh-codex-retry-20261009 pnpm --filter @kmh/codex-cli test
 ```
 
-测试位于 [`test/`](test/stream-reasoning.test.mjs)，使用真实 Cordis 服务、插件 adapter 和官方 app-server，模型响应来自本地 Responses 服务。完成门控制响应结束时机，分别核对官方通知与插件增量在完成前到达；调用结束后读取原生 session，检查首次、恢复和原生分叉的思考等级及摘要模式。官方 `ultra` 在 session 中保留原值，在 Responses 请求中映射为 `max`。[重试测试](test/retry-status.test.mjs)覆盖真实 503、恢复、重试耗尽、首段前停止、重试期间停止，以及主请求和辅助请求超时（超时后同一份历史不再重跑，追加新输入才发起下一次请求）；客户端 bundle 渲染测试检查中英文可见原因。[停止恢复测试](test/task-stop-recovery.test.mjs)覆盖真实 Agent 在输入被接纳后停止、下一条输入不重复投递、重启后继续，以及消费方提前结束流后部分输出与绑定保留。生产模型访问与浏览器显示由真实环境验收。
+测试位于 [`test/`](test/stream-reasoning.test.mjs)，使用真实 Cordis 服务、插件 adapter 和官方 app-server，模型响应来自本地 Responses 服务。完成门控制响应结束时机，分别核对官方通知与插件增量在完成前到达；调用结束后读取原生 session，检查首次、恢复和原生分叉的思考等级。当前固定 CLI 的 `turn_context.summary` 是值为 `none` 的旧读者兼容占位，定义见[官方协议源码](https://github.com/openai/codex/blob/rust-v0.163.0-alpha.10.2/codex-rs/protocol/src/protocol.rs#L3453)；实际生效的摘要模式由 Responses 请求核对。官方 `ultra` 在 session 中保留原值，在 Responses 请求中映射为 `max`。[重试测试](test/retry-status.test.mjs)覆盖真实 503、恢复、重试耗尽、首段前停止、重试期间停止，以及主请求和辅助请求超时（超时后同一份历史不再重跑，追加新输入才发起下一次请求）；客户端 bundle 渲染测试检查中英文可见原因。[停止恢复测试](test/task-stop-recovery.test.mjs)覆盖真实 Agent 在输入被接纳后停止、下一条输入不重复投递、重启后继续，以及消费方提前结束流后部分输出与绑定保留。生产模型访问与浏览器显示由真实环境验收。
 
 `KMH_CODEX_TEST_TMP` 必须为绝对路径，省略时使用系统临时目录下的 `kmh-codex-cli-tests`。每项 smoke 建立独立子目录，并将 `CODEX_HOME` 指向其 `codex-home/`；测试保留这些目录，登录与响应服务使用隔离的测试配置。
 

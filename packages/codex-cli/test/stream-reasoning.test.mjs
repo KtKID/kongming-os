@@ -91,7 +91,12 @@ test(
         .filter((record) => record.type === "turn_context")
         .at(-1).payload;
       assert.equal(context.effort, effort, `${stage}: native session effort`);
-      assert.equal(context.summary, "auto", `${stage}: native session summary`);
+      // 固定 CLI 的 TurnContextItem.summary 是旧读者兼容占位；实际摘要由下方上游请求核对。
+      assert.equal(
+        context.summary,
+        "none",
+        `${stage}: native legacy summary placeholder`,
+      );
       assert.equal(
         h.server.requests.at(-1).reasoning.effort,
         effort,
