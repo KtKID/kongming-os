@@ -182,6 +182,18 @@
     {
       "file": "root-test-final2.log",
       "sha256": "085847edfec9cdffc4f3c27faaff1ad1b3fadb609b1636e0e0da38653791d0aa"
+    },
+    {
+      "file": "github-linux-x64-second.log",
+      "sha256": "0a2385e7c0be840a65e189862e828538dfca8c2e77ba2024f69d0cfda1da49f8"
+    },
+    {
+      "file": "shallow-history-check.log",
+      "sha256": "412c71a6d8af558de1b88d750408b9931950dbdf5b89b1dc3b5b1d176c028b5c"
+    },
+    {
+      "file": "records-coverage-final3.log",
+      "sha256": "bf4e56c2bf8b8498939ce04119530e8825566dbd53952f52395512c7badc9afd"
     }
   ],
   "aiEvidenceRecheck": {
@@ -242,6 +254,30 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    {
+      "command": "shallow clone, baseline diff, fetch --unshallow, baseline diff",
+      "exitCodes": [0, 128, 0, 0],
+      "log": "shallow-history-check.log"
+    },
+    {
+      "command": "pnpm --filter @kmh/remote test:records:coverage",
+      "exitCode": 0,
+      "tests": 13,
+      "coverageGatePassed": true,
+      "log": "records-coverage-final3.log"
     }
-  ]
+  ],
+  "linuxX64SecondRun": {
+    "commit": "52349e448dc9616fde40ee537011ce97eed85d58",
+    "url": "https://github.com/KtKID/kongming-os/actions/runs/40055493317",
+    "runtime": {
+      "tests": 572,
+      "passed": 572,
+      "failed": 0,
+      "skipped": 0
+    },
+    "recordsTestsPassed": 13,
+    "coverageGate": "missing Git baseline in shallow checkout"
+  }
 }
