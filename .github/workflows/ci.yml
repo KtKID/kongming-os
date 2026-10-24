@@ -18,12 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
       - name: Enable pinned pnpm
         run: corepack enable
+      - name: Install fixed Codex runtime
+        run: node packages/codex-cli/bin/install.mjs
       - name: Install Kongming workspace
         run: pnpm install --frozen-lockfile
       - name: Install pinned DSH runtime and register profiles
@@ -34,3 +37,5 @@ jobs:
         run: pnpm lint
       - name: Test external bundles and profile launch
         run: pnpm test
+      - name: Test Remote access records and coverage
+        run: pnpm --filter @kmh/remote test:records:coverage

@@ -45,6 +45,7 @@ test('verified version catalog captures actual enabled native declarations', asy
   const h = await harness(t, 'native-catalog');
   h.runtime.settings.selection = { commandExecution: true, fileChange: true, viewImage: true, webSearch: true, skills: false };
   await run(h.adapter, { messages: [{ role: 'user', content: [{ type: 'text', text: 'Describe the fixture.' }] }] });
-  const manifest = JSON.parse(readFileSync(new URL('../vendor/native-tools/0.162.0-alpha.17.2.json', import.meta.url), 'utf8'));
+  const version = readFileSync(new URL('../bin/version', import.meta.url), 'utf8').trim();
+  const manifest = JSON.parse(readFileSync(new URL(`../vendor/native-tools/${version}.json`, import.meta.url), 'utf8'));
   assert.deepEqual(h.server.requests[0].tools, manifest.declarations);
 });

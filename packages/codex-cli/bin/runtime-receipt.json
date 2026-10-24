@@ -1,0 +1,23 @@
+{
+  "version": "0.163.0-alpha.10.2",
+  "platform": "darwin-arm64",
+  "files": 46,
+  "bytes": 340775935,
+  "executableSha256": "1afb28c01d7d49e892bd75f11076b10f1451e34e0ee308a95e5ab7f69f9c84fe",
+  "source": "ChatGPT.app bundled official Codex runtime",
+  "entrypoint": "bin/codex",
+  "downloads": {
+    "darwin-arm64": {
+      "asset": "codex-package-aarch64-apple-darwin.tar.gz",
+      "sha256": "bc2a3a989e078197c7013b154a475d85fb123fab1165aaa1f27461cae9f5adca"
+    },
+    "linux-x64": {
+      "asset": "codex-package-x86_64-unknown-linux-musl.tar.gz",
+      "sha256": "6c5935dd125bc6ef055d6f36acc086c1abe452400b89c09decec42115b3295a7"
+    },
+    "linux-arm64": {
+      "asset": "codex-package-aarch64-unknown-linux-musl.tar.gz",
+      "sha256": "b00a6ca43c16ef1e5e518f4ee770db22222954cf0a8fae9d13665660fede30fa"
+    }
+  }
+}

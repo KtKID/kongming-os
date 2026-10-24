@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-23",
+  "source": "git index snapshot",
+  "baseline": "aa46100d7086f72bb1a80c17423b36e343a91d78",
+  "cwd": "packages/kmh-remote",
+  "node": "25.6.1",
+  "commands": [
+    {
+      "check": "build",
+      "command": "node build.mjs",
+      "exitCode": 0
+    },
+    {
+      "check": "coverage",
+      "command": "node node_modules/vitest/vitest.mjs run --coverage && node test/access-records-coverage.mjs",
+      "exitCode": 0
+    },
+    {
+      "check": "regression",
+      "command": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs",
+      "exitCode": 0
+    },
+    {
+      "check": "typecheck",
+      "command": "node node_modules/typescript/bin/tsc --noEmit",
+      "exitCode": 0
+    },
+    {
+      "check": "lint",
+      "command": "node check.mjs && node ../../node_modules/eslint/bin/eslint.js client host shared --max-warnings 0",
+      "exitCode": 0
+    },
+    {
+      "check": "format",
+      "command": "node ../../node_modules/prettier/bin/prettier.cjs host client shared test '*.mjs' '*.ts' '*.json' '*.yml' README.md --check",
+      "exitCode": 0
+    },
+    {
+      "check": "root-lint",
+      "command": "pnpm lint",
+      "cwd": "repository root",
+      "exitCode": 0
+    },
+    {
+      "check": "aggregate-check",
+      "command": "pnpm --filter @kmh/remote check",
+      "cwd": "repository root",
+      "exitCode": 0
+    }
+  ],
+  "tests": {
+    "scenarios": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    "remoteRegression": {
+      "passed": 138,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "verificationParent": "58d63d8cd73321293dc4d16a1c900ace7d3b2e70",
+  "migration": "password records business logic to strict TypeScript; persisted schema and store source unchanged",
+  "coverage": {
+    "lines": {
+      "covered": 372,
+      "total": 372
+    },
+    "statements": {
+      "covered": 434,
+      "total": 434
+    },
+    "functions": {
+      "covered": 68,
+      "total": 68
+    },
+    "branches": {
+      "covered": 216,
+      "total": 216
+    }
+  },
+  "browser": {
+    "environment": "existing Docker trial instance",
+    "checks": [
+      "records tab shows original 3 records and raw errors",
+      "refresh succeeds",
+      "settings draft survives tab switch and is restored",
+      "record file bytes unchanged",
+      "unauthenticated query 401",
+      "Remote query 403"
+    ],
+    "consoleErrors": 0
+  }
+}

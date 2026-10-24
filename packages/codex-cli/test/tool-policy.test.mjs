@@ -128,8 +128,16 @@ test('creation freezes tools before the first message and saves the native id be
 
 
 test('native file changes keep their creation setting on resumed sessions while new sessions omit them', async t => {
+  const approvals = [];
   const h = await profileHarness(t, {
+    approval: true,
     beforeCreate: async ctx => {
+      // Linux 执行机可能要求批准沙箱重试；真实审批服务只批准本用例的文件修改。
+      ctx.on('approval/request', async request => {
+        if (request.toolName !== 'codex 文件修改审批' || request.agent.session.id !== 'codex-profile-session') return 'rejected';
+        approvals.push(request.toolName);
+        return approvals.length === 1 ? 'allowed-once' : 'rejected';
+      });
       await ctx.codexCli.toolPolicy.catalog(new AbortController().signal);
       const descriptor = ctx.settings.describe().find(row => row.ns === 'codex-entry');
       const current = descriptor.value.toolSelection;
@@ -146,6 +154,9 @@ test('native file changes keep their creation setting on resumed sessions while 
   assert.equal((await h.ctx.codexCli.bindingRecord(h.agent.session.id)).threadId, first.threadId);
   assert.equal(existsSync(join(h.home, 'workspace/native-frozen-canary')), true);
   assert.match(readFileSync(join(h.home, 'workspace/native-frozen-canary'), 'utf8'), /created-through-original-session/);
+  assert.ok(approvals.length <= 1);
+  const decisions = h.agent.session.snapshotEvents().filter(event => event.type === 'approval/decided');
+  assert.deepEqual(decisions.map(event => event.data.outcome), approvals.map(() => 'allowed-once'));
   const fresh = await h.create('fresh-without-file-change');
   await h.send('New session with file change disabled', fresh);
   assert.equal(h.server.requests.at(-1).tools.some(row => row.name === 'apply_patch'), false);

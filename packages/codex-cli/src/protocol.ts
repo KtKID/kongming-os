@@ -63,7 +63,73 @@ export const Method = {
   accountLoginCancel: "account/login/cancel",
   accountLogout: "account/logout",
   accountStatus: "account/status",
+  accountRead: "account/read",
+  accountRateLimitsRead: "account/rateLimits/read",
 } as const;
+
+/** 官方 0.162 v2 生成协议的本功能消费字段；分区校验使合法周期独立保留。 */
+export const QuotaAccountResult = z.object({
+  account: z
+    .discriminatedUnion("type", [
+      z.object({
+        type: z.literal("chatgpt"),
+        email: z.string().nullable(),
+        planType: z.string(),
+      }),
+      z.object({ type: z.literal("apiKey") }),
+      z.object({
+        type: z.literal("amazonBedrock"),
+        usesCodexManagedCredentials: z.boolean(),
+      }),
+    ])
+    .nullable(),
+});
+export const NativeQuotaWindow = z.object({
+  usedPercent: z.number().min(0).max(100),
+  windowDurationMins: z.number().int().positive().nullable(),
+  resetsAt: z.number().int().nonnegative().max(8640000000000).nullable(),
+});
+export const NativeCredits = z.object({
+  hasCredits: z.boolean(),
+  unlimited: z.boolean(),
+  balance: z.string().nullable(),
+});
+export const NativeSpendLimit = z.object({
+  limit: z.string(),
+  used: z.string(),
+  remainingPercent: z.number().min(0).max(100),
+  resetsAt: z.number().int().nonnegative().max(8640000000000),
+});
+export const NativeResetCredits = z.object({
+  availableCount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  credits: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string().nullable(),
+        description: z.string().nullable(),
+        resetType: z.string(),
+        status: z.string(),
+        grantedAt: z.number().int().nonnegative(),
+        expiresAt: z.number().int().nonnegative().max(8640000000000).nullable(),
+      }),
+    )
+    .nullable(),
+});
+export const NativeQuotaSnapshot = z.object({
+  limitId: z.string().nullable().optional(),
+  limitName: z.string().nullable().optional(),
+  primary: z.unknown().optional(),
+  secondary: z.unknown().optional(),
+  credits: z.unknown().optional(),
+  individualLimit: z.unknown().optional(),
+});
+export const NativeQuotaResult = z.object({
+  rateLimits: z.unknown(),
+  rateLimitsByLimitId: z.record(z.string(), z.unknown()).nullable().optional(),
+  rateLimitResetCredits: z.unknown().optional(),
+  accountId: z.string().nullable().optional(),
+});
 /** 服务端请求与通知的方法名。 */
 export const Incoming = {
   itemToolCall: "item/tool/call",

@@ -1,0 +1,220 @@
+
+ RUN  v4.1.8 <workspace>/packages/kmh-remote
+
+ ❯ test/access-records.spec.ts (9 tests | 4 failed) 215ms
+   × SAVE-01 每次校验按原结果保存一条 21ms
+   × SAVE-03 自动通过、页面及业务活动保持计数 2ms
+   × SAVE-06 字节阈值、同日命名、跨日与并发分文件 13ms
+   × VIEW-05 本机授权可读，远程及无上下文拒绝 7ms
+ ❯ test/access-records-panel.spec.tsx (4 tests | 4 failed) 58ms
+   × VIEW-01 详情字段、顺序和设置草稿保留 51ms
+   × VIEW-02 空页说明及翻页边界 3ms
+   × VIEW-03 每页十条、旧集合分页与刷新 2ms
+   × VIEW-04 读取错误保留旧页和原文，恢复后刷新 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/access-records-panel.spec.tsx > VIEW-01 详情字段、顺序和设置草稿保留
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "访问记录"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "设置草稿":
+  <input
+    aria-label="设置草稿"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <input
+      aria-label="设置草稿"
+    />
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ test/access-records-panel.spec.tsx:21:26
+     19|   render(<RemotePluginPanel rpcCall={rpc} t={t} settings={<input aria-…
+     20|   fireEvent.change(screen.getByLabelText('设置草稿'), { target: { value: '…
+     21|   fireEvent.click(screen.getByRole('tab', { name: '访问记录' }));
+       |                          ^
+     22|   await screen.findByText('192.0.2.2'); expect(screen.getByText('原始错误\…
+     23|   expect(screen.getAllByText(/23:08:09.007/)).toHaveLength(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  test/access-records-panel.spec.tsx > VIEW-02 空页说明及翻页边界
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "访问记录"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "设置草稿":
+  <input
+    aria-label="设置草稿"
+    value="原值"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <input
+      aria-label="设置草稿"
+      value="原值"
+    />
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ open test/access-records-panel.spec.tsx:16:188
+
+ ❯ test/access-records-panel.spec.tsx:27:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  test/access-records-panel.spec.tsx > VIEW-03 每页十条、旧集合分页与刷新
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "访问记录"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "设置草稿":
+  <input
+    aria-label="设置草稿"
+    value="原值"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <input
+      aria-label="设置草稿"
+      value="原值"
+    />
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ open test/access-records-panel.spec.tsx:16:188
+
+ ❯ test/access-records-panel.spec.tsx:33:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  test/access-records-panel.spec.tsx > VIEW-04 读取错误保留旧页和原文，恢复后刷新
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "访问记录"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "设置草稿":
+  <input
+    aria-label="设置草稿"
+    value="原值"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <input
+      aria-label="设置草稿"
+      value="原值"
+    />
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ open test/access-records-panel.spec.tsx:16:188
+
+ ❯ test/access-records-panel.spec.tsx:42:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  test/access-records.spec.ts > SAVE-01 每次校验按原结果保存一条
+AssertionError: expected [] to have a length of 8 but got +0
+
+- Expected
++ Received
+
+- 8
++ 0
+
+ ❯ test/access-records.spec.ts:50:19
+     48|   }
+     49|   await Promise.all(pending); const records = await all(store);
+     50|   expect(records).toHaveLength(8); expect(records.filter(r => r.outcom…
+       |                   ^
+     51|   expect(new Set(records.map(r => r.entryKind))).toEqual(new Set(['pub…
+     52|   for (const record of records.filter(r => r.outcome === 'failure')) {…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  test/access-records.spec.ts > SAVE-03 自动通过、页面及业务活动保持计数
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ test/access-records.spec.ts:62:113
+     60| test('SAVE-03 自动通过、页面及业务活动保持计数', async () => {
+     61|   const { store } = await fixture(); const { visit, pending } = await …
+     62|   const login = await visit('/pocket-login', 'correct88'); await Promi…
+       |                                                                                                                 ^
+     63|   for (const path of ['/', '/assets/a.js', '/message', '/']) { await v…
+     64|   await visit('/pocket-login', 'correct88'); await Promise.all(pending…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  test/access-records.spec.ts > SAVE-06 字节阈值、同日命名、跨日与并发分文件
+RangeError: Invalid count value: -15
+ ❯ test/access-records.spec.ts:89:40
+     87|     first.sourceNote = '中'.repeat(Math.floor((target - secondBytes - B…
+     88|     let row = JSON.stringify(first) + '\n'; row = row.slice(0, -2) + r…
+     89|     const filled = row.trimEnd() + ' '.repeat(target - secondBytes - B…
+       |                                        ^
+     90|     await fs.writeFile(file, filled); await store.close();
+     91|     const reopened = createAccessRecords({ home: directory.replace(/\/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  test/access-records.spec.ts > VIEW-05 本机授权可读，远程及无上下文拒绝
+AssertionError: expected 'bad-request' to be 'REMOTE_RECORD_LOCAL_CONTEXT_REQUIRED' // Object.is equality
+
+Expected: "REMOTE_RECORD_LOCAL_CONTEXT_REQUIRED"
+Received: "bad-request"
+
+ ❯ test/access-records.spec.ts:118:110
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 5 passed (13)
+   Start at  00:19:15
+   Duration  441ms (transform 61ms, setup 0ms, import 150ms, tests 273ms, environment 239ms)

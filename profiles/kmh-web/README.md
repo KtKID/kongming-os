@@ -24,14 +24,12 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 - id: webserver
   name: '@deepseek-ai/dsh-host-webserver'
   config:
-    host: 127.0.0.1
-    port: 60000
     compression: gzip
     compressionLevel: 1
     compressionThresholdBytes: 1024
 ```
 
-`webserver.config.port` 控制监听端口，`host` 支持 `127.0.0.1` 和 `0.0.0.0`。Bundle 中的 `web-runtime.config.openBrowser` 默认引用 `ctx.webStartup.openBrowser`，运行 `node scripts/kmh.mjs web --no-open` 会在本次启动关闭浏览器交接；`printUrl` 控制输出地址，`surfaceContext` 控制模型的 Web 环境信息，`trustedHosts` 声明受信任的访问域名。需要部署覆盖时，在本目录 patch 添加 `web-runtime` 条目并写出完整 `config`，保留原有字段，再添加 `publicUrl: https://example.com/` 等部署值。
+`webserver.config.host` 与 `webserver.config.port` 控制监听地址和端口。手机访问部署的对应参数保存在私有 `.env`，命名为 `KMH_REMOTE_WEB_HOST`、`KMH_REMOTE_WEB_PORT`；部署时将值应用到 `$KMH_HOME/cordis.patch.yml` 的本机覆盖，该文件保留在版本控制之外。Bundle 中的 `web-runtime.config.openBrowser` 默认引用 `ctx.webStartup.openBrowser`，运行 `node scripts/kmh.mjs web --no-open` 会在本次启动关闭浏览器交接；`printUrl` 控制输出地址，`surfaceContext` 控制模型的 Web 环境信息，`trustedHosts` 声明受信任的访问域名。需要私有部署覆盖时，在本机 patch 添加 `web-runtime` 条目并写出完整 `config`，保留原有字段，再按私有部署参数设置 `publicUrl`。环境变量命名与对应字段见 [frp 公网访问指南](../../packages/kmh-remote/docs/frp-access.md)。
 
 ## 插件实例与可配置字段
 
@@ -57,6 +55,10 @@ Web 使用已有构建产物，修改插件源码后手动构建；新产物通�
 ## CLI 执行记录
 
 Web profile 单独挂载 `@kmh/codex-cli-trace`，会话内入口为「Codex Trace」。数据来源、配置与故障处理统一见[插件说明](../../packages/codex-cli-trace/README.md)。
+
+## 手机远程访问
+
+本 profile 安装 `@kmh/remote`，初始状态为停用。在插件页启用包内 Bundle 后挂载 `kmh-remote`，设置中的「手机访问」管理局域网二维码、访问密码和 frp 公网地址。端口、运行数据、源码来源与验证入口统一见[插件说明](../../packages/kmh-remote/README.md)。
 
 ## MadeMe 工具
 

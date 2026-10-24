@@ -6,6 +6,7 @@ import type { CodexCli } from "./index.ts";
 import { capabilityViews } from "./capabilities.ts";
 import { probeConnection } from "./probe.ts";
 import { checkVersion } from "./status.ts";
+import { QuotaContext, QuotaQuery, QuotaView } from "./quota-protocol.ts";
 
 const configBody = z
   .object({
@@ -29,6 +30,46 @@ const noStore = { "Cache-Control": "no-store" } as const;
  * @param runtime - 插件运行时。
  */
 export function mountWeb(ctx: Context, runtime: CodexCli): void {
+  ctx.connection.fetch.register({
+    path: "/api/codex-cli/quota/context",
+    methods: ["GET"],
+    requestBody: "buffered",
+    fetch: () =>
+      Promise.resolve(
+        Response.json(
+          QuotaContext.parse({
+            settingsNamespace: runtime.settingsNamespace,
+            preferences: {
+              quotaDisplayMode: runtime.config.quotaDisplayMode.get(),
+              quotaAlertsEnabled: runtime.config.quotaAlertsEnabled.get(),
+              quotaShortThresholdPercent:
+                runtime.config.quotaShortThresholdPercent.get(),
+              quotaWeeklyThresholdPercent:
+                runtime.config.quotaWeeklyThresholdPercent.get(),
+            },
+          }),
+          { headers: noStore },
+        ),
+      ),
+  });
+  ctx.connection.fetch.register({
+    path: "/api/codex-cli/quota",
+    methods: ["GET"],
+    requestBody: "buffered",
+    fetch: async (request) => {
+      const query = QuotaQuery.safeParse(
+        Object.fromEntries(new URL(request.url).searchParams),
+      );
+      if (!query.success)
+        return Response.json(
+          { error: "Invalid quota query" },
+          { status: 400, headers: noStore },
+        );
+      return Response.json(QuotaView.parse(await runtime.quota.read()), {
+        headers: noStore,
+      });
+    },
+  });
   for (const action of [
     "status",
     "login",
@@ -50,7 +91,10 @@ export function mountWeb(ctx: Context, runtime: CodexCli): void {
     path: "/api/codex-cli/live",
     methods: ["GET"],
     requestBody: "buffered",
-    fetch: () => Promise.resolve(Response.json(runtime.liveSnapshot(), { headers: noStore })),
+    fetch: () =>
+      Promise.resolve(
+        Response.json(runtime.liveSnapshot(), { headers: noStore }),
+      ),
   });
   ctx.connection.fetch.register({
     path: "/api/codex-cli/config",
@@ -119,12 +163,20 @@ async function dispatch(
         defaultModel: runtime.settings.defaultModel,
       };
     }
-    case "login":
-      return { account: await runtime.account.login() };
+    case "login": {
+      runtime.quota.invalidate();
+      const account = await runtime.account.login();
+      runtime.quota.invalidate();
+      return { account };
+    }
     case "cancel":
       return { account: await runtime.account.cancel() };
-    case "logout":
-      return { account: await runtime.account.logout() };
+    case "logout": {
+      runtime.quota.invalidate();
+      const account = await runtime.account.logout();
+      runtime.quota.invalidate("signed-out");
+      return { account };
+    }
     case "check":
       return {
         version: await checkVersion(

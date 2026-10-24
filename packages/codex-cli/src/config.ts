@@ -1,7 +1,16 @@
 /** 官方 Codex CLI 执行、存储与超时限制的部署配置。 */
 import { ToolSelectionSchema } from "./tool-selection.ts";
 import schema from "@deepseek-ai/schemastery";
-import { isAbsolute } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
+import { createRequire } from "node:module";
+
+const bundledCommand = join(
+  dirname(
+    createRequire(import.meta.url).resolve("@kmh/codex-cli/package.json"),
+  ),
+  "bin",
+  "codex",
+);
 // 共享 schema 保持选择类型；联动检查可在配置 schema 传到客户端后独立执行。
 const codexToolSelection = schema.intersect([
   ToolSelectionSchema,
@@ -30,7 +39,7 @@ const absolute = schema
   .required();
 /** 可配置的可执行文件、存储、模型身份与进程时限。 */
 export const Config = schema.object({
-  command: schema.string().default("codex"),
+  command: schema.string().default(bundledCommand),
   cwd: absolute,
   dataDir: absolute,
   // 空 model 表示自动：登录后取模型目录首选；非空值固定为该模型。
@@ -53,6 +62,23 @@ export const Config = schema.object({
   graceMs: schema.natural().min(1).max(2147483647).default(1500),
   // 原生 Codex 工具与技能开关：默认关闭，模型只见 KMH 的工具与技能。
   nativeToolsEnabled: schema.boolean().default(false),
+  quotaDisplayMode: schema
+    .union(["percent", "bar", "off"])
+    .default("percent")
+    .volatile(),
+  quotaAlertsEnabled: schema.boolean().default(true).volatile(),
+  quotaShortThresholdPercent: schema
+    .natural()
+    .min(1)
+    .max(100)
+    .default(20)
+    .volatile(),
+  quotaWeeklyThresholdPercent: schema
+    .natural()
+    .min(1)
+    .max(100)
+    .default(20)
+    .volatile(),
   toolSelection: codexToolSelection.volatile(),
   env: schema.dict(schema.string()).default({}),
 });

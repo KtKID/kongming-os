@@ -18,7 +18,8 @@
     "@kmh/aggregated-token-analysis": "link:../../packages/aggregated-token-analysis",
     "@kmh/xmusic": "link:../../packages/kmh-xmusic",
     "@kmh/bundle-dsh-web": "link:../../bundles/dsh-web",
-    "@kmh/codex-cli-trace": "link:../../packages/codex-cli-trace"
+    "@kmh/codex-cli-trace": "link:../../packages/codex-cli-trace",
+    "@kmh/remote": "link:../../packages/kmh-remote"
   },
   "dsh": {
     "profile": {
@@ -27,7 +28,8 @@
         "@deepseek-ai/dsh-experimental-inspector-profile",
         "dsh-context",
         "@kmh/bundle-dsh-web",
-        "@kmh/aggregated-token-analysis"
+        "@kmh/aggregated-token-analysis",
+        "@kmh/remote"
       ]
     }
   }

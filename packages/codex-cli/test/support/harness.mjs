@@ -14,23 +14,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { startModelServer } from "./model-server.mjs";
 
 /** 优先使用显式指定的官方程序，缺失时测试明确失败。 */
 function codexBinary() {
   if (process.env.KMH_CODEX_BINARY) return process.env.KMH_CODEX_BINARY;
-  const app =
-    "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex";
-  if (existsSync(app)) return app;
-  const result = spawnSync(
-    process.platform === "win32" ? "where" : "which",
-    ["codex"],
-    { encoding: "utf8" },
-  );
-  if (result.status === 0) return result.stdout.trim().split(/\r?\n/)[0];
-  throw new Error("Set KMH_CODEX_BINARY to the official Codex CLI executable");
+  return Config({ cwd: tmpdir(), dataDir: tmpdir() }).command;
 }
 
 /** 等待可观察条件；超时给出具体条件名。 */

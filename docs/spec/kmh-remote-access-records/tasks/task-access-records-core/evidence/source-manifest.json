@@ -1,0 +1,31 @@
+{
+  "head": "aa46100d7086f72bb1a80c17423b36e343a91d78",
+  "dshCommit": "be34e35b39ae32b6e7e6f202e82acc4266ef190e",
+  "files": {
+    "docs/spec/kmh-remote-access-records/spec.md": "eb386468ccffabb91f800d9f674965f7969ba8b78722431f45d3a67e4a2ca94c",
+    "docs/spec/kmh-remote-access-records/tech-design.md": "d3ef3f75c032eef4f7dec2512d8c95a4ce15c67598c4d6283f98e289ca10e0e5",
+    "packages/kmh-remote/README.md": "500d105836ef0a3d88123b1f037580d54db528b5894e007c3b2d7beb25684c38",
+    "packages/kmh-remote/build.mjs": "6d8638049a2af4380c3f4ef1868b59e2f2778c8d9423b2a846ae5237e012727f",
+    "packages/kmh-remote/client/RemotePluginPanel.tsx": "73d21f0a4e715ea015065ccccf2448486f709670a5a7983682a67e53297d2cf8",
+    "packages/kmh-remote/client/index.jsx": "a18e16cd6560b930cba6585488c411a0493359d17563ddd9e7b7e6747460d0af",
+    "packages/kmh-remote/client/pocket-locales.js": "fe6f3845dc7b1b3c6fcbcf384d24130d1286a87b998e603cd3fbaf237c2ac980",
+    "packages/kmh-remote/eslint.config.mjs": "8e0c36bf2555c7e961b4b8c5d3509dee3cc335a4a5b55eafed888667d67998af",
+    "packages/kmh-remote/host/access-records.ts": "67b1a6f95bd7993d73fa2f25f9650ff07a2984624aa6272b20928c8d50218093",
+    "packages/kmh-remote/host/index.js": "0cb495c590986dfa03e5bd85b1659a82536817ab49a2ee2a799b92d312bd10d4",
+    "packages/kmh-remote/host/proxy.mjs": "d00c1d8c1932a8ff12a8aa82d0600873be2210f7cca8cd4c4f76fd1afc2f6a6f",
+    "packages/kmh-remote/host/service.mjs": "4edc624f8ddf1bf3f703345bcaeb006f0a02937c5902a7d11b256c482121c3dc",
+    "packages/kmh-remote/host/web-rpc.js": "6476d3c99708d03d17d2e27b472123eb5ff9857fdb6da1dad86998bc2b47246b",
+    "packages/kmh-remote/package.json": "e94d9dffcfdab700db10382a995e296ca8c13004b141f30789f9367660107701",
+    "packages/kmh-remote/shared/access-records.ts": "693206d5ca9cb25e076ff8cffeb1550db149d543362c94899ec18642e458a592",
+    "packages/kmh-remote/test/access-records-coverage.mjs": "8c7ce6b030c4355a4f231ee0e679530d5ca89acddaa37b1387ba8b52d9017f1a",
+    "packages/kmh-remote/test/access-records-panel.spec.tsx": "af38ec1b963b3e2e5d287c26d24ce9c967d6d11535ec16d7eeee49a07ff4537c",
+    "packages/kmh-remote/test/access-records.spec.ts": "2524f6c5eb558afb22c3806132d0d176f7735efc0ee3bcc91fb051e1233aa512",
+    "packages/kmh-remote/tsconfig.json": "93f3df5c2c6021c57f7e13959ba1a7a1d6f019607c34167190268fbd0d95cd8c",
+    "packages/kmh-remote/vitest.config.ts": "a2a1e594e6f62559f8856e58faade7c7607323f4236729a42951d506ffb1ebc6",
+    "pnpm-lock.yaml": "62f40e3d57c3f4c99de05c0df0ca3a740afea3b62f464f1bc13d256bbd273e93",
+    "packages/kmh-remote/host/access-records-integration.ts": "46a883bfef6ec37447d0980498aee9e0a26d9d15a881d7d2b8c430c33dd77834",
+    "packages/kmh-remote/client/access-records-locales.ts": "473e84aa7aaf3dd58e82d96adb7e76f9ef4dfd98deef78cd62fb779223b315fc"
+  },
+  "contentSource": "git index snapshot; independent settings fixes remain outside this commit",
+  "verificationParent": "58d63d8cd73321293dc4d16a1c900ace7d3b2e70"
+}

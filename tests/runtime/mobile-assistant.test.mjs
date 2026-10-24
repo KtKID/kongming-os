@@ -1,7 +1,7 @@
 /** 移动助手真实 profile 的工具、技能目录和持久会话回归。 */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
@@ -10,11 +10,25 @@ import { once } from 'node:events';
 import { createInterface } from 'node:readline';
 import { root } from '../../scripts/kmh.mjs';
 
+/** 为当前用例准备完整技能目录；返回独立环境，文件准备失败时抛错。 */
+function mobileEnvironment(home) {
+  const source = join(home, 'skill-source');
+  const catalog = JSON.parse(readFileSync(join(root, 'bundles/mobile-assistant/skills.json'), 'utf8'));
+  for (const name of catalog.skills) {
+    const directory = join(source, catalog.sourcePaths?.[name] ?? name);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'SKILL.md'), `---\nname: ${name}\ndescription: 移动助手回归测试用技能。\n---\n\nMOBILE_SKILL_BODY:${name}\n`);
+  }
+  const env = { ...process.env, KMH_HOME: home, KMH_MOBILE_SKILL_SOURCE: source };
+  delete env.KMH_MOBILE_SKILL_DIR;
+  return env;
+}
+
 test('mobile-assistant profile 加载助手 preset 与精简工具', t => {
   const home = mkdtempSync(join(tmpdir(), 'kmh-mobile-assistant-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const result = spawnSync(process.execPath, [join(root, 'scripts/kmh.mjs'), 'dsh', '--profile', 'kmh-mobile-assistant', '--dump-config'], {
-    cwd: root, env: { ...process.env, KMH_HOME: home }, encoding: 'utf8', timeout: 30000,
+    cwd: root, env: mobileEnvironment(home), encoding: 'utf8', timeout: 30000,
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /id: mobile-assistant/);
@@ -33,6 +47,13 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
   const home = mkdtempSync(join(tmpdir(), 'kmh-mobile-sdk-'));
   const cwd = join(home, 'workspace');
   mkdirSync(cwd);
+  const mcpLog = join(home, 'mademe-calls.jsonl');
+  const overlay = join(home, 'mcp.patch.json');
+  writeFileSync(overlay, JSON.stringify([{ id: 'mcp-mademe', config: {
+    serverName: 'mademe', transport: 'stdio', command: process.execPath,
+    args: [join(root, 'tests/runtime/fixtures/mademe-mcp.mjs')], cwd: home,
+    env: { KMH_MADEME_FIXTURE_LOG: mcpLog }, failOnStartupError: true,
+  } }]));
   const requests = [];
   const model = createServer(async (req, res) => {
     let body = '';
@@ -43,6 +64,7 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
     const scripted = [
       { name: 'skill', input: { name: 'mademe-save' } },
       ...['x-writer', 'feynman-learn', 'x-paper-baseread', 'xmusic-recommend', 'x-vidkit'].map(name => ({ name: 'skill', input: { name } })),
+      { name: 'mcp__mademe__mademe_list_tags', input: {} },
       { name: 'write', input: { file_path: 'assistant-note.txt', content: 'MOBILE_FILE_EVIDENCE\n' } },
       { name: 'read', input: { file_path: 'assistant-note.txt' } },
     ][requests.length - 1];
@@ -68,9 +90,9 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
     rmSync(home, { recursive: true, force: true });
   });
   function start() {
-    const child = spawn(process.execPath, [join(root, 'scripts/kmh.mjs'), 'dsh', '--profile', 'kmh-mobile-assistant'], {
+    const child = spawn(process.execPath, [join(root, 'scripts/kmh.mjs'), 'dsh', '--profile', 'kmh-mobile-assistant', '--patch', overlay], {
       cwd, stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, KMH_HOME: home, DEEPSEEK_API_KEY: 'test-key', DEEPSEEK_BASE_URL: `http://127.0.0.1:${port}`, DSH_TELEMETRY_DISABLED: '1' },
+      env: { ...mobileEnvironment(home), DEEPSEEK_API_KEY: 'test-key', DEEPSEEK_BASE_URL: `http://127.0.0.1:${port}`, DSH_TELEMETRY_DISABLED: '1' },
     });
     children.add(child);
     let stderr = '';
@@ -120,8 +142,9 @@ test('移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工
   await first.prompt('MOBILE_FIRST_TURN_EVIDENCE');
   assert.equal(readFileSync(join(cwd, 'assistant-note.txt'), 'utf8'), 'MOBILE_FILE_EVIDENCE\n');
   const loadedSkills = JSON.stringify(requests.at(-1).messages);
-  assert.match(loadedSkills, /先选模式/);
-  for (const heading of ['# X Writer', '# feynman-learn', '# x-paper-baseread', '# xmusic-recommend', '# x-vidkit']) assert.ok(loadedSkills.includes(heading), heading);
+  assert.match(loadedSkills, /MOBILE_MADEME_TOOL_RESULT/);
+  assert.deepEqual(readFileSync(mcpLog, 'utf8').trim().split('\n').map(line => JSON.parse(line).name), ['mademe_list_tags']);
+  for (const name of ['mademe-save', 'x-writer', 'feynman-learn', 'x-paper-baseread', 'xmusic-recommend', 'x-vidkit']) assert.ok(loadedSkills.includes(`MOBILE_SKILL_BODY:${name}`), name);
   await first.prompt('MOBILE_SECOND_TURN_EVIDENCE');
   assert.match(JSON.stringify(requests.at(-1).messages), /MOBILE_FIRST_TURN_EVIDENCE/);
   const names = requests[0].tools.map(tool => tool.function?.name ?? tool.name).sort();

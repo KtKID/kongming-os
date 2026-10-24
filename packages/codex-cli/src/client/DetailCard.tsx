@@ -3,13 +3,7 @@
  * 管理区的 `plugins.item` 槽位。`view: summary` 只出一句话简介（列表卡片
  * 与详情页标题下共用）；`view: page` 才渲染完整内容，因此详情页只出现一份。
  */
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Button,
   IconRightUpOutlineRegular,
@@ -23,6 +17,10 @@ import type {
   PropsRuntime,
 } from "@deepseek-ai/dsh-client-ui-slots";
 import type {} from "@deepseek-ai/dsh-client-ui-plugin-manager/client";
+import type { QuotaStore } from "./quota-store.ts";
+import { QuotaCard } from "./QuotaCard.tsx";
+import { QuotaDisplaySettings } from "./QuotaDisplaySettings.tsx";
+import css from "./quota.module.css";
 
 /** 原生能力条目（Host 侧 status 路由给出，客户端只渲染）。 */
 interface CapabilityView {
@@ -50,58 +48,6 @@ interface StatusResponse {
 /** 组合 props：槽位运行时份额（`view`）与注册声明的 locale 注入（`t`）。 */
 export type CodexCardProps = PropsRuntime<"plugins.item"> &
   PropsLocale<"settings.codex-cli">;
-
-/** 详情页行布局：标签列固定宽，内容列随 DSW 排版 token 取次级色。 */
-const rowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "baseline",
-  gap: 12,
-};
-const labelStyle: CSSProperties = {
-  flex: "0 0 96px",
-  fontSize: 13,
-  color: "var(--dsw-alias-label-secondary)",
-};
-const valueStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  flexWrap: "wrap",
-  minWidth: 0,
-};
-const detailStyle: CSSProperties = {
-  fontSize: 12,
-  color: "var(--dsw-alias-label-secondary)",
-  overflowWrap: "anywhere",
-};
-const noteStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 12,
-  lineHeight: "18px",
-  color: "var(--dsw-alias-label-secondary)",
-};
-const actionsStyle: CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-};
-/** 能力行：Switch 在左、文字块在右。Switch 原语的 label 仅作无障碍名，可见文字由本卡片渲染。 */
-const capabilityRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-};
-/** 能力文字块：标题行（含不可用标签）与描述行纵向排布。 */
-const capabilityTextStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 2,
-  minWidth: 0,
-};
-const capabilityTitleStyle: CSSProperties = {
-  fontSize: 13,
-  lineHeight: "18px",
-};
 
 /** 状态响应守卫：字段存在且类型正确才采用。 */
 function isStatus(value: unknown): value is StatusResponse {
@@ -159,9 +105,9 @@ function Row({
   children: ReactNode;
 }): JSX.Element {
   return (
-    <div style={rowStyle}>
-      <span style={labelStyle}>{label}</span>
-      <span style={valueStyle}>{children}</span>
+    <div className={css.fact}>
+      <span className={css.label}>{label}</span>
+      <span className={css.value}>{children}</span>
     </div>
   );
 }
@@ -171,7 +117,15 @@ function Row({
  * @param props - 槽位传入的 `view` 与 locale 注入的 `t`。
  * @returns 简介文本节点，或完整详情卡片。
  */
-export function CodexCard(props: CodexCardProps): JSX.Element {
+export function CodexCard(
+  props: CodexCardProps & { quota?: QuotaStore },
+): JSX.Element {
+  if (props.view === "summary") return <>{props.t("summary")}</>;
+  return <CodexPage {...props} />;
+}
+function CodexPage(
+  props: CodexCardProps & { quota?: QuotaStore },
+): JSX.Element {
   const { t } = props;
   const [status, setStatus] = useState<StatusResponse | undefined>();
   const [busy, setBusy] = useState<string | undefined>();
@@ -192,6 +146,8 @@ export function CodexCard(props: CodexCardProps): JSX.Element {
   const act = useCallback(
     async (action: string, body?: unknown) => {
       setBusy(action);
+      const accountChanged = action === "login" || action === "logout";
+      if (accountChanged) props.quota?.reset(false);
       try {
         await fetch(`/api/codex-cli/${action}`, {
           method: "POST",
@@ -201,162 +157,176 @@ export function CodexCard(props: CodexCardProps): JSX.Element {
         await refresh();
       } finally {
         setBusy(undefined);
+        if (accountChanged) props.quota?.reset();
       }
     },
-    [refresh],
+    [refresh, props.quota],
   );
-  if (props.view === "summary") return <>{t("summary")}</>;
   if (status === undefined)
     return (
-      <p style={noteStyle}>
+      <p className={css.loading} role="status">
         <StateDot state="ongoing" /> {t("loading")}
       </p>
     );
   const account = accountView(t, status.account.login);
   const disabled = busy !== undefined;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Row label={t("versionLabel")}>
-        <StateDot
-          state={
-            status.version.ok
-              ? "done"
-              : status.version.version === undefined
-                ? "idle"
-                : "error"
-          }
-        />
-        {status.version.version ?? t("versionMissing")}
-        {status.version.ok ? (
-          <Tag tone="success">{t("versionSupported")}</Tag>
-        ) : (
-          <Tag tone="danger">{t("versionUnsupported")}</Tag>
-        )}
-        {!status.version.ok && status.version.reason !== undefined && (
-          <span style={detailStyle}>{status.version.reason}</span>
-        )}
-      </Row>
-      <Row label={t("accountLabel")}>
-        <Tag tone={account.tone}>{account.text}</Tag>
-        {status.account.error !== undefined && (
-          <span style={detailStyle}>{status.account.error}</span>
-        )}
-      </Row>
-      {status.account.credentialSource !== undefined && (
-        <Row label={t("credentialLabel")}>
-          {status.account.credentialSource}
+    <div id="codex-cli-account" className={css.page}>
+      {props.quota !== undefined && <QuotaCard store={props.quota} t={t} />}
+      {props.quota !== undefined && (
+        <QuotaDisplaySettings store={props.quota} t={t} />
+      )}
+      <section className={css.card}>
+        <Row label={t("versionLabel")}>
+          <StateDot
+            state={
+              status.version.ok
+                ? "done"
+                : status.version.version === undefined
+                  ? "idle"
+                  : "error"
+            }
+          />
+          {status.version.version ?? t("versionMissing")}
+          {status.version.ok ? (
+            <Tag tone="success">{t("versionSupported")}</Tag>
+          ) : (
+            <Tag tone="danger">{t("versionUnsupported")}</Tag>
+          )}
+          {!status.version.ok && status.version.reason !== undefined && (
+            <span className={css.note}>{status.version.reason}</span>
+          )}
         </Row>
-      )}
-      <Row label={t("modelLabel")}>
-        {status.defaultModel ?? t("modelCatalogFirst")}
-      </Row>
-      <Row label={t("probeLabel")}>
-        {status.lastProbe === undefined ? (
-          t("probeNever")
-        ) : (
-          <>
-            <Tag tone={status.lastProbe.ok ? "success" : "danger"}>
-              {status.lastProbe.ok ? t("probePass") : t("probeFail")}
-            </Tag>
-            {new Date(status.lastProbe.at).toLocaleString()}
-            {!status.lastProbe.ok && status.lastProbe.error !== undefined && (
-              <span style={detailStyle}>{status.lastProbe.error}</span>
-            )}
-          </>
+        <Row label={t("accountLabel")}>
+          <Tag tone={account.tone}>{account.text}</Tag>
+          {status.account.error !== undefined && (
+            <span className={css.note}>{status.account.error}</span>
+          )}
+        </Row>
+        {status.account.credentialSource !== undefined && (
+          <Row label={t("credentialLabel")}>
+            {status.account.credentialSource}
+          </Row>
         )}
-      </Row>
-      <p style={noteStyle}>{t("toolSelectionScope")}</p>
-      <Row label={t("capabilitiesLabel")}>
-        <span style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {status.capabilities
-            .filter((capability) => capability.id === "skills")
-            .map((capability) => (
-              <span key={capability.id} style={capabilityRowStyle}>
-                <Switch
-                  checked={status.selection[capability.id] === true}
-                  onChange={(next) => {
-                    act("config", {
-                      selection: { ...status.selection, [capability.id]: next },
-                    }).catch(() => undefined);
-                  }}
-                  label={capability.label}
-                />
-                <span style={capabilityTextStyle}>
-                  <span style={valueStyle}>
-                    <span style={capabilityTitleStyle}>{capability.label}</span>
-                    {!capability.available && (
-                      <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
-                    )}
+        <Row label={t("modelLabel")}>
+          {status.defaultModel ?? t("modelCatalogFirst")}
+        </Row>
+        <Row label={t("probeLabel")}>
+          {status.lastProbe === undefined ? (
+            t("probeNever")
+          ) : (
+            <>
+              <Tag tone={status.lastProbe.ok ? "success" : "danger"}>
+                {status.lastProbe.ok ? t("probePass") : t("probeFail")}
+              </Tag>
+              {new Date(status.lastProbe.at).toLocaleString()}
+              {!status.lastProbe.ok && status.lastProbe.error !== undefined && (
+                <span className={css.note}>{status.lastProbe.error}</span>
+              )}
+            </>
+          )}
+        </Row>
+        <p className={css.note}>{t("toolSelectionScope")}</p>
+        <Row label={t("capabilitiesLabel")}>
+          <span className={css.section}>
+            {status.capabilities
+              .filter((capability) => capability.id === "skills")
+              .map((capability) => (
+                <span key={capability.id} className={css.capability}>
+                  <Switch
+                    checked={status.selection[capability.id] === true}
+                    onChange={(next) => {
+                      act("config", {
+                        selection: {
+                          ...status.selection,
+                          [capability.id]: next,
+                        },
+                      }).catch(() => undefined);
+                    }}
+                    label={capability.label}
+                  />
+                  <span className={css.capabilityText}>
+                    <span className={css.value}>
+                      <span className={css.label}>{capability.label}</span>
+                      {!capability.available && (
+                        <Tag tone="neutral">{t("capabilityUnavailable")}</Tag>
+                      )}
+                    </span>
+                    <span className={css.note}>{capability.description}</span>
+                    {!capability.available &&
+                      capability.reason !== undefined && (
+                        <span className={css.note}>{capability.reason}</span>
+                      )}
                   </span>
-                  <span style={detailStyle}>{capability.description}</span>
-                  {!capability.available && capability.reason !== undefined && (
-                    <span style={detailStyle}>{capability.reason}</span>
-                  )}
                 </span>
-              </span>
-            ))}
-        </span>
-      </Row>
-      <p style={noteStyle}>{t("capabilityNextTurn")}</p>
-      {status.account.authorizeUrl !== undefined && (
-        <div style={actionsStyle}>
-          <Button
-            variant="outline"
-            icon={<IconRightUpOutlineRegular size={16} />}
-            onClick={() => {
-              window.open(status.account.authorizeUrl, "_blank", "noreferrer");
-            }}
-          >
-            {t("openAuthorize")}
-          </Button>
-        </div>
-      )}
-      <div style={actionsStyle}>
-        {status.account.login === "signed-in" ? (
-          <Button
-            variant="outline"
-            disabled={disabled}
-            onClick={() => {
-              act("logout").catch(() => undefined);
-            }}
-          >
-            {t("signOut")}
-          </Button>
-        ) : (
-          <>
+              ))}
+          </span>
+        </Row>
+        <p className={css.note}>{t("capabilityNextTurn")}</p>
+        {status.account.authorizeUrl !== undefined && (
+          <div className={css.actions}>
             <Button
-              variant="primary"
-              disabled={disabled}
+              variant="outline"
+              icon={<IconRightUpOutlineRegular size={16} />}
               onClick={() => {
-                act("login").catch(() => undefined);
+                window.open(
+                  status.account.authorizeUrl,
+                  "_blank",
+                  "noreferrer",
+                );
               }}
             >
-              {t("signIn")}
+              {t("openAuthorize")}
             </Button>
+          </div>
+        )}
+        <div className={css.actions}>
+          {status.account.login === "signed-in" ? (
             <Button
               variant="outline"
               disabled={disabled}
               onClick={() => {
-                act("cancel").catch(() => undefined);
+                act("logout").catch(() => undefined);
               }}
             >
-              {t("cancelLogin")}
+              {t("signOut")}
             </Button>
-          </>
-        )}
-        <Button
-          variant="ghost"
-          disabled={disabled || status.defaultModel === undefined}
-          onClick={() => {
-            act("probe", {
-              model: status.defaultModel ?? "gpt-6-sol",
-            }).catch(() => undefined);
-          }}
-        >
-          {t("probe")}
-        </Button>
-      </div>
-      <p style={noteStyle}>{t("logoutNote")}</p>
+          ) : (
+            <>
+              <Button
+                variant="primary"
+                disabled={disabled}
+                onClick={() => {
+                  act("login").catch(() => undefined);
+                }}
+              >
+                {t("signIn")}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={disabled}
+                onClick={() => {
+                  act("cancel").catch(() => undefined);
+                }}
+              >
+                {t("cancelLogin")}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            disabled={disabled || status.defaultModel === undefined}
+            onClick={() => {
+              act("probe", {
+                model: status.defaultModel ?? "gpt-6-sol",
+              }).catch(() => undefined);
+            }}
+          >
+            {t("probe")}
+          </Button>
+        </div>
+        <p className={css.note}>{t("logoutNote")}</p>
+      </section>
     </div>
   );
 }

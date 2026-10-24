@@ -42,7 +42,7 @@ export async function checkVersion(
   try {
     const executable = await ctx.subprocess.resolveExecutable(
       config.command,
-      {},
+      config.env,
       signal,
     );
     if (executable === undefined)
@@ -51,7 +51,7 @@ export async function checkVersion(
       const proc = ctx.subprocess.spawn({
         argv: [executable, "--version"],
         cwd: config.cwd,
-        env: {},
+        env: config.env,
         graceMs: config.graceMs,
         stdio: { stdin: "ignore", stdout: "pipe", stderr: "pipe" },
       });
@@ -65,8 +65,10 @@ export async function checkVersion(
           reject(error instanceof Error ? error : new Error(String(error))),
       );
     });
-    const version = parseVersion(text);
-    if (version === undefined)
+    const fullVersion = /^codex-cli ([^\s]+)$/m.exec(text)?.[1];
+    const version =
+      fullVersion === undefined ? undefined : parseVersion(fullVersion);
+    if (version === undefined || fullVersion === undefined)
       return {
         version: undefined,
         ok: false,
@@ -74,7 +76,7 @@ export async function checkVersion(
       };
     const ok = compare(version, minimum) >= 0;
     return {
-      version: `${version[0]}.${version[1]}.${version[2]}`,
+      version: fullVersion,
       ok,
       ...(ok ? {} : { reason: "CODEX_VERSION_UNSUPPORTED" }),
     };

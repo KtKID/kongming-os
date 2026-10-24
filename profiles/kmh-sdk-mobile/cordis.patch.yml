@@ -15,9 +15,6 @@
     - id: kmh-codex-cli
       name: '@kmh/codex-cli'
       config:
-        # 官方 Codex CLI 可执行文件：本机 PATH 里的 homebrew 包损坏（vendor 二进制缺失），
-        # 改用 ChatGPT.app 自带的官方 CLI；与 kmh-web/kmh-mobile 同源。
-        command: /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
         cwd: !!js process.cwd()
         dataDir: !!js dshHomePath('codex-cli')
 - id: agent-default-model

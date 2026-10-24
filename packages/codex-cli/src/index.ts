@@ -11,6 +11,7 @@ import { CodexToolPolicy } from "./tool-policy.ts";
 import { applyToolSwitch, listToolSwitches } from "./tool-switches-service.ts";
 import type { ToolSwitchList, ToolSwitchUpdate } from "./tool-switches.ts";
 import { CodexAccount } from "./account.ts";
+import { CodexQuotaService } from "./quota.ts";
 import { mountWeb } from "./web.ts";
 import type { GenerateOptions, StreamChunk } from "@deepseek-ai/dsh-llm";
 import type { Config } from "./config.ts";
@@ -44,6 +45,7 @@ export { Config } from "./config.ts";
 export { connectCodex, CodexConnection } from "./connection.ts";
 export { CodexAdapter } from "./adapter.ts";
 export * from "./protocol.ts";
+export { CodexQuotaService } from "./quota.ts";
 
 /** Cordis plugin identity. */
 export const name = "kmh/codex-cli";
@@ -107,6 +109,8 @@ export class CodexCli extends Service {
   private readonly store: CodexSessionStore;
   /** 账号操作（状态/登录/取消/退出）。 */
   readonly account: CodexAccount;
+  readonly quota: CodexQuotaService;
+  readonly settingsNamespace: string | null;
   /** 详情页可变设置；逐项选择立即保存、下一回合生效。 */
   readonly settings: RuntimeSettings;
   /** 由 profile 插件挂载的 Config 策略与执行守卫。 */
@@ -119,6 +123,9 @@ export class CodexCli extends Service {
     super(ctx, "codexCli");
     this.store = new CodexSessionStore(config.dataDir);
     this.account = new CodexAccount(ctx, config);
+    this.quota = new CodexQuotaService(ctx, config);
+    this.settingsNamespace = ctx.fiber.entry?.options.id ?? null;
+    ctx.effect(() => () => this.quota.dispose(), "codex-cli: quota");
     this.settings = loadSettings(config);
     ctx.effect(
       () => () => {

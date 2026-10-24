@@ -1,0 +1,4 @@
+# KMH 手机远程访问；启用后启动带访问密码的局域网代理。
+- insert:
+    - id: kmh-remote
+      name: '@kmh/remote'

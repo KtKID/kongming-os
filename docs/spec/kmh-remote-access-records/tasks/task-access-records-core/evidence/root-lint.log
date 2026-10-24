@@ -1,0 +1,30 @@
+$ bash -n kmh.sh && node --check scripts/kmh.mjs && node --check packages/zcode-cli/build.mjs && node --check packages/codex-cli/build.mjs && node --check packages/codex-cli-trace/build.mjs && node --check packages/cli-tools-selector/build.mjs && node --check packages/kmh-mademe/build.mjs && node --check packages/kmh-infra/build.mjs && node --check packages/aggregated-token-analysis/build.mjs && node --check packages/kmh-xmusic/build.mjs && node --check scripts/runtime-home.mjs && node --check scripts/runtime-logs.mjs && node --check scripts/install-hooks.mjs && pnpm --filter @kmh/kmh-team --filter @kmh/kmh-echo --filter @kmh/zcode-cli --filter @kmh/codex-cli --filter @kmh/codex-cli-trace --filter @kmh/cli-tools-selector --filter @kmh/mobile-assistant-runtime --filter @kmh/runtime-log --filter @kmh/web-surface-zh --filter @kmh/mademe --filter @kmh/kmh-infra --filter @kmh/aggregated-token-analysis --filter @kmh/xmusic --filter @kmh/remote lint
+Scope: 14 of 20 workspace projects
+packages/kmh-echo lint$ eslint src --max-warnings 0
+packages/zcode-cli lint$ eslint src --max-warnings 0
+packages/codex-cli lint$ eslint src --max-warnings 0
+packages/kmh-team lint$ eslint src --max-warnings 0
+packages/kmh-echo lint: Done
+packages/codex-cli-trace lint$ eslint src --max-warnings 0
+packages/zcode-cli lint: Done
+packages/cli-tools-selector lint$ eslint src --max-warnings 0
+packages/kmh-team lint: Done
+packages/mobile-assistant-runtime lint$ eslint src --max-warnings 0
+packages/codex-cli lint: Done
+packages/runtime-log lint$ eslint src --max-warnings 0
+packages/codex-cli-trace lint: Done
+packages/web-surface-zh lint$ eslint src --max-warnings 0
+packages/cli-tools-selector lint: Done
+packages/kmh-mademe lint$ eslint src --max-warnings 0
+packages/mobile-assistant-runtime lint: Done
+packages/kmh-infra lint$ eslint src --max-warnings 0
+packages/runtime-log lint: Done
+packages/aggregated-token-analysis lint$ eslint src --max-warnings 0
+packages/web-surface-zh lint: Done
+packages/kmh-xmusic lint$ eslint src --max-warnings 0
+packages/kmh-mademe lint: Done
+packages/kmh-remote lint$ node check.mjs && eslint client host shared --max-warnings 0
+packages/kmh-xmusic lint: Done
+packages/aggregated-token-analysis lint: Done
+packages/kmh-infra lint: Done
+packages/kmh-remote lint: Done

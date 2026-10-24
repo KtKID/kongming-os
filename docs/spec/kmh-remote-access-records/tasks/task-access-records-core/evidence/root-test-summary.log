@@ -1,0 +1,148 @@
+ℹ tests 386
+ℹ suites 0
+ℹ pass 352
+ℹ fail 23
+ℹ cancelled 0
+ℹ skipped 11
+ℹ todo 0
+ℹ duration_ms 13699.039916
+
+✖ failing tests:
+
+test at packages/aggregated-token-analysis/test/token-analysis-save.test.mjs:1:1
+✖ packages/aggregated-token-analysis/test/token-analysis-save.test.mjs (53.56675ms)
+  'test failed'
+
+test at packages/codex-cli/test/native-controls.test.mjs:1:1
+✖ packages/codex-cli/test/native-controls.test.mjs (62.583208ms)
+  'test failed'
+
+test at packages/codex-cli/test/pinned-cli.test.mjs:1:1
+✖ packages/codex-cli/test/pinned-cli.test.mjs (56.692625ms)
+  'test failed'
+
+test at packages/codex-cli/test/quota-client.test.mjs:1:1
+✖ packages/codex-cli/test/quota-client.test.mjs (72.073916ms)
+  'test failed'
+
+test at packages/codex-cli/test/retry-status.test.mjs:1:1
+✖ packages/codex-cli/test/retry-status.test.mjs (55.63175ms)
+  'test failed'
+
+test at packages/codex-cli/test/stream-reasoning.test.mjs:1:1
+✖ packages/codex-cli/test/stream-reasoning.test.mjs (83.6895ms)
+  'test failed'
+
+test at packages/codex-cli/test/task-stop-recovery.test.mjs:1:1
+✖ packages/codex-cli/test/task-stop-recovery.test.mjs (59.258209ms)
+  'test failed'
+
+test at packages/codex-cli/test/tool-policy.test.mjs:1:1
+✖ packages/codex-cli/test/tool-policy.test.mjs (58.527875ms)
+  'test failed'
+
+test at packages/kmh-mademe/test/mademe-smoke.test.mjs:1:1
+✖ packages/kmh-mademe/test/mademe-smoke.test.mjs (56.70475ms)
+  'test failed'
+
+test at packages/kmh-team/test/roles.test.mjs:1:1
+✖ packages/kmh-team/test/roles.test.mjs (75.585875ms)
+  'test failed'
+
+test at packages/kmh-team/test/smoke.test.mjs:1:1
+✖ packages/kmh-team/test/smoke.test.mjs (63.387ms)
+  'test failed'
+
+test at packages/kmh-xmusic/test/xmusic-smoke.test.mjs:1:1
+✖ packages/kmh-xmusic/test/xmusic-smoke.test.mjs (54.175833ms)
+  'test failed'
+
+test at tests/runtime/codex-cli.test.mjs:1942:1
+✖ client registers the live ball and provider quota slots and renders the three states (6.343375ms)
+  Error: Cannot find module 'react'
+  Require stack:
+  - <workspace>/third_party/dsh/packages/client/ui-renderer/package.json
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1455:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1065:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1070:22)
+      at Module._load (node:internal/modules/cjs/loader:1241:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1555:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (file://<workspace>/tests/runtime/codex-cli.test.mjs:1976:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '<workspace>/third_party/dsh/packages/client/ui-renderer/package.json' ]
+  }
+
+test at tests/runtime/kmh-echo.test.mjs:1:1
+✖ tests/runtime/kmh-echo.test.mjs (53.816292ms)
+  'test failed'
+
+test at tests/runtime/launcher.test.mjs:1:1
+✖ tests/runtime/launcher.test.mjs (54.348458ms)
+  'test failed'
+
+test at tests/runtime/mobile-assistant.test.mjs:13:1
+✖ mobile-assistant profile 加载助手 preset 与精简工具 (67.636667ms)
+  AssertionError [ERR_ASSERTION]: kmh: 请先运行 pnpm build 构建 DSH
+
+
+  1 !== 0
+
+      at TestContext.<anonymous> (file://<workspace>/tests/runtime/mobile-assistant.test.mjs:19:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/runtime/mobile-assistant.test.mjs:32:1
+✖ 移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工具与技能 (66.623917ms)
+  Error: kmh: 请先运行 pnpm build 构建 DSH
+
+  kmh: 请先运行 pnpm build 构建 DSH
+
+      at file://<workspace>/tests/runtime/mobile-assistant.test.mjs:101:33
+      at ChildProcess.<anonymous> (file://<workspace>/tests/runtime/mobile-assistant.test.mjs:95:94)
+      at ChildProcess.emit (node:events:508:20)
+      at maybeClose (node:internal/child_process:1084:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+
+test at tests/runtime/plugin-build.test.mjs:1:1
+✖ tests/runtime/plugin-build.test.mjs (51.075417ms)
+  'test failed'
+
+test at tests/runtime/runtime-home-smoke.test.mjs:10:1
+✖ 真实 SDK 启动覆盖父进程数据路径，在 KMH_HOME 保存会话和所有已配置记录 (66.989083ms)
+  Error: kmh: 请先运行 pnpm build 构建 DSH
+
+      at ChildProcess.<anonymous> (file://<workspace>/tests/runtime/runtime-home-smoke.test.mjs:29:38)
+      at Object.onceWrapper (node:events:623:12)
+      at ChildProcess.emit (node:events:520:22)
+      at maybeClose (node:internal/child_process:1084:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+
+test at tests/runtime/runtime-log-plugin.test.mjs:1:1
+✖ tests/runtime/runtime-log-plugin.test.mjs (54.819666ms)
+  'test failed'
+
+test at tests/runtime/web-plugin-hmr.test.mjs:1:1
+✖ tests/runtime/web-plugin-hmr.test.mjs (50.339375ms)
+  'test failed'
+
+test at tests/runtime/zcode-cli-session.test.mjs:1:1
+✖ tests/runtime/zcode-cli-session.test.mjs (53.756167ms)
+  'test failed'
+
+test at tests/runtime/zcode-cli.test.mjs:1:1
+✖ tests/runtime/zcode-cli.test.mjs (70.6075ms)
+  'test failed'
+[ELIFECYCLE] Test failed. See above for more details.

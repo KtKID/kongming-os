@@ -1,0 +1,283 @@
+{
+  "date": "2026-10-24",
+  "timezone": "Asia/Shanghai",
+  "baseline": "5475ec3bd8b6f2b4efc253275e3d05909598a017",
+  "rawLogsDirectory": ".cache/linux-ci-20261024-102132",
+  "commands": [
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "log": "build.log"
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "log": "lint.log"
+    },
+    {
+      "command": "pnpm --filter @kmh/codex-cli typecheck",
+      "exitCode": 0,
+      "log": "codex-typecheck-final.log"
+    },
+    {
+      "command": "node --test packages/codex-cli/test/pinned-launcher.test.mjs",
+      "exitCode": 0,
+      "log": "launcher-test.log",
+      "result": {
+        "tests": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": "node --test packages/codex-cli/test/runtime-install.test.mjs",
+      "exitCode": 0,
+      "log": "runtime-install-test.log",
+      "result": {
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": "node packages/codex-cli/bin/install.mjs",
+      "environment": "macOS arm64",
+      "exitCode": 0,
+      "log": "install-mac.log"
+    },
+    {
+      "command": "node /runtime/install.mjs",
+      "environment": "isolated Linux ARM64 container",
+      "exitCode": 0,
+      "log": "install-linux-arm64.log"
+    },
+    {
+      "command": "node --test /plugin/test/pinned-launcher.test.mjs /plugin/test/runtime-install.test.mjs",
+      "environment": "isolated Linux ARM64 container without external network",
+      "exitCode": 0,
+      "log": "linux-script-tests.log",
+      "result": {
+        "tests": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": "node --test --test-concurrency=1 packages/codex-cli/test/stream-reasoning.test.mjs tests/runtime/mobile-assistant.test.mjs",
+      "exitCode": 0,
+      "log": "focused-final.log",
+      "result": {
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": "pnpm test",
+      "environment": "isolated KMH_HOME, macOS arm64, Node 25.6.1",
+      "exitCode": 0,
+      "log": "root-test-final.log",
+      "result": {
+        "tests": 572,
+        "passed": 572,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": "pnpm --filter @kmh/remote test:records:coverage",
+      "exitCode": 0,
+      "log": "records-coverage.log",
+      "tests": 13,
+      "coverageGatePassed": true
+    }
+  ],
+  "negativeControl": {
+    "launcherSource": "5475ec3:packages/codex-cli/bin/codex",
+    "testSource": "current pinned-launcher.test.mjs",
+    "exitCode": 1,
+    "log": "launcher-before-fix.log",
+    "result": {
+      "tests": 8,
+      "passed": 2,
+      "failed": 6,
+      "skipped": 0
+    }
+  },
+  "existingDirectDependencyVersionsChanged": [],
+  "nativeProtocolSource": "https://github.com/openai/codex/blob/rust-v0.163.0-alpha.10.2/codex-rs/protocol/src/protocol.rs#L3453",
+  "logs": [
+    {
+      "file": "build.log",
+      "sha256": "ad42164c6b7bacd2a7325662be8fd76e67024c64c731a3f947d153c9816bd0aa"
+    },
+    {
+      "file": "lint.log",
+      "sha256": "fda44593d7a3919a9fa8410632d49da7ce80d9a8ab7ef15cb30d92676b00a063"
+    },
+    {
+      "file": "codex-typecheck-final.log",
+      "sha256": "bb98ef5fc05bbf4e7436ddbc512b469884e313e36ead7bab941e42f490141db7"
+    },
+    {
+      "file": "launcher-before-fix.log",
+      "sha256": "95a56a8f6148ae89e5e0d9e1a7b1238d2ad5af4ed4f5a2b549e61a6180ddd961"
+    },
+    {
+      "file": "launcher-test.log",
+      "sha256": "c1b0da6e405d0562331e232c292bcbcfa1acd0199fd3c3c16cda098cd37de5df"
+    },
+    {
+      "file": "runtime-install-test.log",
+      "sha256": "3097817b60c8d2e3e79738cedb0ceda5e6b5cea34b952ee7d559a3652065fef1"
+    },
+    {
+      "file": "linux-script-tests.log",
+      "sha256": "a9b78aad5601235ab970e9a0dd37c75034a37ddbf5cb98dbcd42fa1eb59f128f"
+    },
+    {
+      "file": "install-mac.log",
+      "sha256": "97afdaaed856940885a653a4e36b46abc1c077338243981a589e5ef5d86b2d88"
+    },
+    {
+      "file": "install-linux-arm64.log",
+      "sha256": "b4afdd14789bc01a63d511253b5a02bf61b77349f4802f897db5ae4a8cba877e"
+    },
+    {
+      "file": "focused-final.log",
+      "sha256": "1a804193da80d41809ad9bb5d99b377eec4ccf7e1162c00ffa59226a86b70b34"
+    },
+    {
+      "file": "root-test-final.log",
+      "sha256": "2ad037cdeda28a1cfb0bc71de04cdc9e90d84fdffc89dfb90321853bfb1edc7b"
+    },
+    {
+      "file": "records-coverage.log",
+      "sha256": "611b3862820cd36b4765ed24cd32685dbd3f04b6a205979ec8ef620b66f90502"
+    },
+    {
+      "file": "github-linux-x64-failed.log",
+      "sha256": "d0ba7a297296ac3ba58c46ef0ed6567618308b22ecac07e9ec243cb0915b206d"
+    },
+    {
+      "file": "linux-native-file-debug.log",
+      "sha256": "b660742ada19b0ccca8a3e9219add1f0f179ca4996abcd6da0a148315ad2a79d"
+    },
+    {
+      "file": "linux-native-file-focused.log",
+      "sha256": "af1255720720717c2695aa805de807e776bc10fc02ae90f1f7bd7f2080e7a934"
+    },
+    {
+      "file": "linux-mobile-mcp-focused.log",
+      "sha256": "ebd39fc3862134db9f7e4de903baffeb64cbdc293c86d602515fa7a8b24eb954"
+    },
+    {
+      "file": "mobile-mcp-focused.log",
+      "sha256": "42da9011bc3c30ccd2be5e021c808b6c243125e6a96191e6a0a913d0d4930d39"
+    },
+    {
+      "file": "root-test-final2.log",
+      "sha256": "085847edfec9cdffc4f3c27faaff1ad1b3fadb609b1636e0e0da38653791d0aa"
+    },
+    {
+      "file": "github-linux-x64-second.log",
+      "sha256": "0a2385e7c0be840a65e189862e828538dfca8c2e77ba2024f69d0cfda1da49f8"
+    },
+    {
+      "file": "shallow-history-check.log",
+      "sha256": "412c71a6d8af558de1b88d750408b9931950dbdf5b89b1dc3b5b1d176c028b5c"
+    },
+    {
+      "file": "records-coverage-final3.log",
+      "sha256": "bf4e56c2bf8b8498939ce04119530e8825566dbd53952f52395512c7badc9afd"
+    }
+  ],
+  "aiEvidenceRecheck": {
+    "checked": [
+      "terminal exit codes",
+      "test counts and skips",
+      "official archive hashes and complete versions",
+      "native summary placeholder definition",
+      "existing dependency version preservation",
+      "unchanged DSH source and pointer"
+    ],
+    "result": "passed"
+  },
+  "linuxX64FirstRun": {
+    "commit": "c9a0813b8e32bfe3e8fce618d2923698523b5af2",
+    "url": "https://github.com/KtKID/kongming-os/actions/runs/40054192719",
+    "result": {
+      "tests": 572,
+      "passed": 570,
+      "failed": 2,
+      "skipped": 0
+    },
+    "failures": [
+      "native file changes keep their creation setting on resumed sessions while new sessions omit them",
+      "移动助手真实 SDK 会话跨进程恢复，并向模型提供精选工具与技能"
+    ]
+  },
+  "followUpCommands": [
+    {
+      "command": "node --test --test-name-pattern=\"native file changes\" packages/codex-cli/test/tool-policy.test.mjs",
+      "environment": "isolated Linux ARM64 container without external network",
+      "exitCode": 0,
+      "tests": 1,
+      "log": "linux-native-file-focused.log"
+    },
+    {
+      "command": "node --test tests/runtime/mobile-assistant.test.mjs",
+      "environment": "isolated Linux ARM64 container without external network",
+      "exitCode": 0,
+      "tests": 2,
+      "log": "linux-mobile-mcp-focused.log"
+    },
+    {
+      "command": "node --test tests/runtime/mobile-assistant.test.mjs",
+      "environment": "macOS arm64",
+      "exitCode": 0,
+      "tests": 2,
+      "log": "mobile-mcp-focused.log"
+    },
+    {
+      "command": "pnpm test",
+      "environment": "isolated KMH_HOME, macOS arm64",
+      "exitCode": 0,
+      "log": "root-test-final2.log",
+      "result": {
+        "tests": 572,
+        "passed": 572,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": "shallow clone, baseline diff, fetch --unshallow, baseline diff",
+      "exitCodes": [0, 128, 0, 0],
+      "log": "shallow-history-check.log"
+    },
+    {
+      "command": "pnpm --filter @kmh/remote test:records:coverage",
+      "exitCode": 0,
+      "tests": 13,
+      "coverageGatePassed": true,
+      "log": "records-coverage-final3.log"
+    }
+  ],
+  "linuxX64SecondRun": {
+    "commit": "52349e448dc9616fde40ee537011ce97eed85d58",
+    "url": "https://github.com/KtKID/kongming-os/actions/runs/40055493317",
+    "runtime": {
+      "tests": 572,
+      "passed": 572,
+      "failed": 0,
+      "skipped": 0
+    },
+    "recordsTestsPassed": 13,
+    "coverageGate": "missing Git baseline in shallow checkout"
+  }
+}

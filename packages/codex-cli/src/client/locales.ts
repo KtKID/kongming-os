@@ -1,5 +1,5 @@
 /** 详情卡片文案（中英）。 */
-export type LocaleKey =
+type BaseLocaleKey =
   | "title"
   | "liveTitle"
   | "liveGreen"
@@ -36,7 +36,7 @@ export type LocaleKey =
   | "probe"
   | "logoutNote";
 
-export const zh: Record<LocaleKey, string> = {
+const baseZh: Record<BaseLocaleKey, string> = {
   title: "Codex CLI",
   liveTitle: "Codex CLI 连接状态",
   liveGreen: "通信正常",
@@ -76,7 +76,7 @@ export const zh: Record<LocaleKey, string> = {
   logoutNote: "退出账号作用于本机官方 Codex CLI 的登录态（~/.codex）。",
 };
 
-export const en: Record<LocaleKey, string> = {
+const baseEn: Record<BaseLocaleKey, string> = {
   title: "Codex CLI",
   liveTitle: "Codex CLI connection",
   liveGreen: "Connected",
@@ -117,3 +117,103 @@ export const en: Record<LocaleKey, string> = {
   logoutNote:
     "Sign out affects the local official Codex CLI login state (~/.codex).",
 };
+
+const quotaZh = {
+  quotaTitle: "账号额度",
+  quotaShort: "短周期",
+  quotaWeekly: "每周",
+  quotaPeriodUnknown: "周期待确认",
+  quotaMinutes: "分钟",
+  quotaRemaining: "剩余",
+  quotaResetUnknown: "重置时间暂未提供",
+  quotaResetPending: "正在确认重置后的额度",
+  quotaPending: "状态待更新",
+  quotaSignIn: "登录 Codex 后查看额度",
+  quotaUnsupported: "当前账号或 CLI 版本暂不支持额度展示",
+  quotaLoading: "正在读取额度…",
+  quotaFailed: "额度暂不可用",
+  quotaTimedOut: "额度读取超时",
+  quotaSettingsTimedOut: "显示设置读取超时，请重新连接后重试",
+  quotaReadError: "读取失败，请在下次可刷新时间重试",
+  quotaSectionError: "该项信息暂时无法读取",
+  quotaRetry: "重试",
+  quotaUpdated: "更新于",
+  quotaCredits: "额外 Credits",
+  quotaUnlimited: "无限额",
+  quotaUnknown: "账号暂未提供",
+  quotaBalanceUnknown: "余额暂未提供",
+  quotaExpiryUnknown: "到期时间暂未提供",
+  quotaSpend: "已用 / 消费上限",
+  quotaResets: "可用重置卡",
+  quotaResetCard: "重置卡",
+  quotaDetailsUnknown: "详情暂不可用",
+  quotaRefresh: "刷新",
+  quotaFrequency: "额度每五分钟更新",
+  quotaCooldown: "下次可刷新",
+  quotaSettings: "额度显示设置",
+  quotaMode: "输入框额度",
+  quotaPercent: "百分比",
+  quotaBar: "进度条",
+  quotaOff: "关闭",
+  quotaAlerts: "低额度颜色提醒",
+  quotaShortThreshold: "短周期剩余额度低于",
+  quotaWeeklyThreshold: "每周剩余额度低于",
+  quotaRange: "请输入 1–100 的整数",
+  quotaSave: "保存显示设置",
+  quotaSaving: "保存中…",
+  quotaReadonly: "当前连接的显示设置为只读",
+  quotaSettingsLoading: "正在读取显示设置…",
+  quotaClose: "关闭额度详情",
+  quotaDetails: "Codex 额度详情",
+};
+const quotaEn: Record<keyof typeof quotaZh, string> = {
+  quotaTitle: "Account quota",
+  quotaShort: "Short",
+  quotaWeekly: "Weekly",
+  quotaPeriodUnknown: "Period pending",
+  quotaMinutes: "minutes",
+  quotaRemaining: "remaining",
+  quotaResetUnknown: "Reset time unavailable",
+  quotaResetPending: "Confirming quota after reset",
+  quotaPending: "Awaiting update",
+  quotaSignIn: "Sign in to Codex to view quota",
+  quotaUnsupported: "Quota is unavailable for this account or CLI version",
+  quotaLoading: "Reading quota…",
+  quotaFailed: "Quota unavailable",
+  quotaTimedOut: "Quota read timed out",
+  quotaSettingsTimedOut: "Display settings timed out; reconnect to retry",
+  quotaReadError: "Read failed; retry at the next refresh time",
+  quotaSectionError: "This section is temporarily unavailable",
+  quotaRetry: "Retry",
+  quotaUpdated: "Updated",
+  quotaCredits: "Extra Credits",
+  quotaUnlimited: "Unlimited",
+  quotaUnknown: "Account has not provided this",
+  quotaBalanceUnknown: "Balance unavailable",
+  quotaExpiryUnknown: "Expiry unavailable",
+  quotaSpend: "Used / spending limit",
+  quotaResets: "Available reset cards",
+  quotaResetCard: "Reset card",
+  quotaDetailsUnknown: "Details unavailable",
+  quotaRefresh: "Refresh",
+  quotaFrequency: "Quota updates every five minutes",
+  quotaCooldown: "Next refresh",
+  quotaSettings: "Quota display settings",
+  quotaMode: "Composer quota",
+  quotaPercent: "Percentage",
+  quotaBar: "Progress bar",
+  quotaOff: "Off",
+  quotaAlerts: "Low quota color",
+  quotaShortThreshold: "Short quota below",
+  quotaWeeklyThreshold: "Weekly quota below",
+  quotaRange: "Enter an integer from 1 to 100",
+  quotaSave: "Save display settings",
+  quotaSaving: "Saving…",
+  quotaReadonly: "Display settings are read-only for this connection",
+  quotaSettingsLoading: "Reading display settings…",
+  quotaClose: "Close quota details",
+  quotaDetails: "Codex quota details",
+};
+export type LocaleKey = BaseLocaleKey | keyof typeof quotaZh;
+export const zh: Record<LocaleKey, string> = { ...baseZh, ...quotaZh };
+export const en: Record<LocaleKey, string> = { ...baseEn, ...quotaEn };

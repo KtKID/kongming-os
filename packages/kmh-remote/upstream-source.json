@@ -1,0 +1,221 @@
+{
+  "repository": "https://github.com/shaobeichen/dsh-pocket",
+  "commit": "aee3ae7e97516206049394c7a37dc38778ffb6da",
+  "version": "2.12.0",
+  "files": [
+    {
+      "source": "LICENSE",
+      "destination": "LICENSE",
+      "sha256": "299fc7fbe712ea2ffb17df98e58b6eed07ebdbe93a6d47054ce77b8472ec1727"
+    },
+    {
+      "source": "client/api.js",
+      "destination": "client/api.js",
+      "sha256": "52be864dab314cac55607bb9e464548fe4ef0b426c179396bcad19f899a81103"
+    },
+    {
+      "source": "client/index.jsx",
+      "destination": "client/index.jsx",
+      "sha256": "735ce1b225ee28c5f8b3959045574cd554c0a7ceb835e71ec957c808c71c6fde"
+    },
+    {
+      "source": "client/mobile/LICENSE.dsh-web-mobile",
+      "destination": "client/mobile/LICENSE.dsh-web-mobile",
+      "sha256": "a642313a14965aff899d089c2614116746411f7b3883d7ac04a1975e3da9d884"
+    },
+    {
+      "source": "client/mobile/MobileDrawerFooter.tsx",
+      "destination": "client/mobile/MobileDrawerFooter.tsx",
+      "sha256": "82d898cb03a481e6dfb2b55680c7127c302d6cdb3cad2a1d02db3f0634bd59d2"
+    },
+    {
+      "source": "client/mobile/MobileIcon.tsx",
+      "destination": "client/mobile/MobileIcon.tsx",
+      "sha256": "aae0ade9539652b33b8130cc7de3de26ed12ce8741f2402dce3a477e8c27ae47"
+    },
+    {
+      "source": "client/mobile/MobileNavOverlay.tsx",
+      "destination": "client/mobile/MobileNavOverlay.tsx",
+      "sha256": "950679a58e0ff0708ce260097df195f552bb8b87308668cbbf3f367258dcec2c"
+    },
+    {
+      "source": "client/mobile/MobileNavToggle.tsx",
+      "destination": "client/mobile/MobileNavToggle.tsx",
+      "sha256": "9994a69122152f35e53ec06fe16959be32e9c104452e697b154c24f5aafe3f60"
+    },
+    {
+      "source": "client/mobile/fileGuard.ts",
+      "destination": "client/mobile/fileGuard.ts",
+      "sha256": "f418dbc446302ccc0b36bc6c9993d5532700da61dcb3fa148644847c478c85fe"
+    },
+    {
+      "source": "client/mobile/icon-compat.mjs",
+      "destination": "client/mobile/icon-compat.mjs",
+      "sha256": "3aba6e1790d534dd409f2f96f43c29a9d44dbbf3e16f4142d3ead0a7cb817eb2"
+    },
+    {
+      "source": "client/mobile/layout-mode.mjs",
+      "destination": "client/mobile/layout-mode.mjs",
+      "sha256": "815ead72029addbe5424f2335ca9fd5bf784e10d857a21fb7ffc16f699ede7f6"
+    },
+    {
+      "source": "client/mobile/locales.ts",
+      "destination": "client/mobile/locales.ts",
+      "sha256": "52a7cc214dd3ea9c7494271f34346c9d76706b217e35a45456ad267988ff2dd1"
+    },
+    {
+      "source": "client/mobile/mobile-apply.tsx",
+      "destination": "client/mobile/mobile-apply.tsx",
+      "sha256": "0e230607fd7adc7d357a372e70256e2b0d8bcb9d0e6b6b9df1854b0209be10ab"
+    },
+    {
+      "source": "client/mobile/mobile.css.ts",
+      "destination": "client/mobile/mobile.css.ts",
+      "sha256": "5a8df96a073c1dcd5ec2d435753d6f83bbefff3502fd3a9f663015d3dc35219f"
+    },
+    {
+      "source": "client/mobile/nav-targets.mjs",
+      "destination": "client/mobile/nav-targets.mjs",
+      "sha256": "547a52f572c5cc4fe2af130d7b1e6be1ccb57450fd5fea0a6fd8f8a23d9293c3"
+    },
+    {
+      "source": "client/pocket-locales.js",
+      "destination": "client/pocket-locales.js",
+      "sha256": "964006fd5478e3c818a7e29b02c39a34b3cf18167fb7ce0f191b23e731d5977d"
+    },
+    {
+      "source": "lib/index.js",
+      "destination": "host/index.js",
+      "sha256": "11ec3e111d771aa561b352f9854567b174f1a286b93e2c236dea081e1637fb6f"
+    },
+    {
+      "source": "lib/ip.mjs",
+      "destination": "host/ip.mjs",
+      "sha256": "b36206c246003edd02313ebe8e125adc365f4ee2850850edd9389cbaebe30c21"
+    },
+    {
+      "source": "lib/proxy.mjs",
+      "destination": "host/proxy.mjs",
+      "sha256": "ad833762abc6521ee34d9cc6b56b5cdd0c0da6b0106c352c88220452823bd5d8"
+    },
+    {
+      "source": "lib/service.mjs",
+      "destination": "host/service.mjs",
+      "sha256": "ceb0bcb4c9f8e79deac198db35d5a763aa0e46a9a490e518b1177cf050da1f56"
+    },
+    {
+      "source": "lib/settings.mjs",
+      "destination": "host/settings.mjs",
+      "sha256": "f418e4738908900477937de887a380ea51e9787ee33fadd1b1d2a9c737f6faff"
+    },
+    {
+      "source": "lib/web-rpc.js",
+      "destination": "host/web-rpc.js",
+      "sha256": "6d90836827c5f4fecf38cffb04fdbd8a0d47101ae928563882469d01506033cc"
+    },
+    {
+      "source": "test/auth-hardening.test.js",
+      "destination": "test/auth-hardening.test.mjs",
+      "sha256": "02e9c5d8521a5b9e942acf62fd04d4e155e82905d787a76ebd6b42f5b1158e7c"
+    },
+    {
+      "source": "test/auth-routing.test.js",
+      "destination": "test/auth-routing.test.mjs",
+      "sha256": "fdce79acbffc3e6b178855b24a26be46866284f7cae8008a75b705083a4667df"
+    },
+    {
+      "source": "test/file-guard.test.js",
+      "destination": "test/file-guard.test.mjs",
+      "sha256": "0752252122517cab682da59307c570676fa4a837f92c20b5ddac06cfc92affbd"
+    },
+    {
+      "source": "test/file-read.test.js",
+      "destination": "test/file-read.test.mjs",
+      "sha256": "3ec167db70367d42f126d1c1c0534c8bc3efb1b00e139488f46704fc954a1ba8"
+    },
+    {
+      "source": "test/icon-compat.test.js",
+      "destination": "test/icon-compat.test.mjs",
+      "sha256": "ee34cd1ebe3eca689eada526fb2538688a1a1714baeb7a2a3313f37437286653"
+    },
+    {
+      "source": "test/layout-mode.test.js",
+      "destination": "test/layout-mode.test.mjs",
+      "sha256": "d2dccd2315f7eb83880eaa51c65a07094f882e4715c6b27669e22bd520bcd530"
+    },
+    {
+      "source": "test/locales.test.js",
+      "destination": "test/locales.test.mjs",
+      "sha256": "a8d204f01249ca45f07950efd52fa72bae82545e675d5cabc633076c88299a4c"
+    },
+    {
+      "source": "test/mobile-nav.test.js",
+      "destination": "test/mobile-nav.test.mjs",
+      "sha256": "11d6436e643cdf3bc1ea2b1b6f00bd36584c1eab8f4e4d787b9132e45fb7c561"
+    },
+    {
+      "source": "test/pocket-stats-optout.test.js",
+      "destination": "test/pocket-stats-optout.test.mjs",
+      "sha256": "8e4d96e118a5240eaded283d6a0daec19195cbf0c533fd8cf84fdb3c7bb50be0"
+    },
+    {
+      "source": "test/polyfill.test.js",
+      "destination": "test/polyfill.test.mjs",
+      "sha256": "4aaf50efbfddefd5ded178bc80a7cf971ba09c50568e82f8b05a3c752be65d5a"
+    },
+    {
+      "source": "test/proxy.test.js",
+      "destination": "test/proxy.test.mjs",
+      "sha256": "eee61728280e41a5240fed46f9359bb36024a4e5359039f6a40ffe5739082cd2"
+    },
+    {
+      "source": "test/service.test.js",
+      "destination": "test/service.test.mjs",
+      "sha256": "aea3ac65ee3a0e655f0ff74054e9d4f6421062ae95a9f7e96013a8f7913526a0"
+    },
+    {
+      "source": "test/settings.test.js",
+      "destination": "test/settings.test.mjs",
+      "sha256": "a654532ac17a01b624c5e4030b6d5e597beff97fc58639ca2afa43b8b40021b5"
+    },
+    {
+      "source": "test/smoke.test.js",
+      "destination": "test/smoke.test.mjs",
+      "sha256": "af4d2d10c17989e735af71a9170a6f1fc66b42074c3f5ce6d350640ae8e19497"
+    },
+    {
+      "source": "test/transport-shim.test.js",
+      "destination": "test/transport-shim.test.mjs",
+      "sha256": "13713483607c2ea3731d82e9eb708222327b850ae48246ef5a07c6189a6f1cc9"
+    },
+    {
+      "source": "test/webserver-mount.test.js",
+      "destination": "test/webserver-mount.test.mjs",
+      "sha256": "5b53f7b238451c36ae936b9911d11cbd0d60b4d557a8c1154fa78b9ee75acf7a"
+    }
+  ],
+  "excluded": {
+    "client/client.js": "由 client/index.jsx 和移动端源码构建生成",
+    "lib/restart.js": "宿主进程生命周期由 Kongming 管理",
+    "bin/": "独立 CLI 的安装、启动入口",
+    "package-lock.json": "Kongming 使用根 pnpm 锁文件",
+    "docs/": "上游截图、历史方案",
+    "logs/": "运行记录",
+    ".github/": "上游发布流程",
+    "test/cli-auth.test.js": "独立 CLI 专属测试",
+    "test/local/": "上游本机联调环境",
+    "lib/tunnel.mjs": "公网转发沿用现有 frp，移除内置隧道、下载与自动恢复。",
+    "test/download.test.js": "公网转发沿用现有 frp，移除内置隧道、下载与自动恢复。",
+    "test/plugin-home.test.js": "公网转发沿用现有 frp，移除内置隧道、下载与自动恢复。",
+    "test/tunnel-args.test.js": "公网转发沿用现有 frp，移除内置隧道、下载与自动恢复。"
+  },
+  "hashKind": "sha256 记录迁入前的上游原文件；目标文件包含 KMH 适配。",
+  "adaptations": [
+    "包身份、RPC 通道、数据目录和环境变量使用 KMH 命名。",
+    "Host 更新与自重启由 Kongming 维护入口管理。",
+    "移动端采用当前 DSH 服务类型和 UI 控件，文件响应使用共享契约校验。",
+    "会话日志导出保留宿主的会话菜单入口，侧栏底部提供文件入口。",
+    "公网入口改为用户提供的 frp 地址，本地代理使用固定端口。",
+    "Cloudflare 下载、隧道管理、自动恢复与相关界面均移出本包。"
+  ]
+}

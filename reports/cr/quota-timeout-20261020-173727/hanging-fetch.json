@@ -1,0 +1,10 @@
+{
+  "case": "quota HTTP response hangs",
+  "simulatedElapsedMs": 600000,
+  "loading": true,
+  "error": null,
+  "quotaRequests": 1,
+  "all100AttemptsSharePendingPromise": true,
+  "deadlineTimers": 0,
+  "actualCodexRequests": 0
+}

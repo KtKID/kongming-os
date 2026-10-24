@@ -14,6 +14,7 @@ import Tools, { defineContentToolFixture } from '../../../../third_party/dsh/pac
 import Agents from '../../../../third_party/dsh/packages/core/agent/lib/index.js';
 import Loop from '../../../../third_party/dsh/packages/core/agent-loop/lib/index.js';
 import Persistence from '../../../../third_party/dsh/packages/session/session-persistence-jsonl/lib/index.js';
+import Approval from '../../../../third_party/dsh/packages/interaction/user-approval/lib/index.js';
 import { LocalSubprocessRuntime } from '../../../../third_party/dsh/packages/subprocess/subprocess-local/lib/index.js';
 import * as Codex from '../../lib/src/index.js';
 import { startModelServer } from './model-server.mjs';
@@ -26,7 +27,7 @@ export async function profileHarness(t, options = {}) {
   const cwd = join(home, 'workspace');
   const codexHome = join(home, 'codex-home');
   mkdirSync(cwd); mkdirSync(codexHome);
-  let command = process.env.KMH_CODEX_BINARY ?? '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex';
+  let command = process.env.KMH_CODEX_BINARY ?? Codex.Config({ cwd, dataDir: home }).command;
   const versionGate = join(home, 'native-version-ready');
   if (options.versionGate) {
     const wrapper = join(home, 'codex-version-gate');
@@ -53,6 +54,7 @@ export async function profileHarness(t, options = {}) {
     ['prompt', 'prompt'], ['tools', 'tools'], ['agents', 'agents'], ['agent-loop', 'loop'], ['subprocess', 'subprocess'],
   ].map(([id, name]) => ({ id, name: `cordis:${name}`, ...(name === 'loop' ? { config: { agents: [] } } : {}) }));
   if (options.persistence) rows.push({ required: true, id: 'persistence', name: 'cordis:persistence', config: { root: join(home, 'sessions'), compression: 'none' } });
+  if (options.approval) rows.push({ required: true, id: 'approval', name: 'cordis:approval', config: { policy: 'ask' } });
   rows.push({ id: 'default-model', name: 'cordis:defaultModel', config: { provider: 'codex-cli', model: 'gpt-6-sol' } });
   rows.forEach(row => { row.required = true; });
   rows.push({ required: true, id: 'codex-entry', name: 'cordis:codex', config });
@@ -66,9 +68,9 @@ export async function profileHarness(t, options = {}) {
     ctx.provide('appReady', { onReady(listener) { listener(); return () => {}; } });
     Object.assign(ctx.loader.builtins, {
       editor: ConfigEditor, settings: Settings, defaultModel: DefaultModel, llm: Llm, sessions: Sessions, projection: Projection, prompt: Prompt,
-      tools: Tools, agents: Agents, loop: Loop, persistence: Persistence, subprocess: LocalSubprocessRuntime,
+      tools: Tools, agents: Agents, loop: Loop, persistence: Persistence, approval: Approval, subprocess: LocalSubprocessRuntime,
       // Text/tool-policy qualification supplies the exact runtime's consumed services.
-      codex: { Config: Codex.Config, inject: ['llm', 'subprocess', 'agents', 'tools'], apply: Codex.apply },
+      codex: { Config: Codex.Config, inject: ['llm', 'subprocess', 'agents', 'tools', ...options.approval ? ['approval'] : []], apply: Codex.apply },
     });
   });
   const spawn = ctx.subprocess.spawn.bind(ctx.subprocess);
@@ -114,7 +116,7 @@ export async function profileHarness(t, options = {}) {
       target.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }));
       await until(() => target.status === 'idle' && target.session.snapshotEvents().filter(event => event.type === 'turn/end').length > ended, 'profile loop idle', 45000);
       const failure = target.session.snapshotEvents().findLast(event => event.type === 'turn/end');
-      if (failure.data.finishKind === 'error') t.diagnostic('turn error: ' + JSON.stringify(target.session.snapshotEvents().slice(-4)));
+      if (failure.data.reason?.kind === 'error') t.diagnostic('turn error: ' + JSON.stringify(target.session.snapshotEvents().slice(-4)));
     },
   };
 }

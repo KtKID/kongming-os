@@ -24,6 +24,7 @@ Kongming 的 Web DSH 基础插件树由 [DSH Web Bundle](../../bundles/dsh-web/R
 | `@kmh/kmh-infra` | x-infra 服务插件：侧栏 Infra 入口、内嵌 x-dash 面板与只读服务查询接入 | [包说明](../../packages/kmh-infra/README.md) |
 | `@kmh/aggregated-token-analysis` | 聚合 Token 分析视图服务插件：侧栏"Token 分析"入口、内嵌打开 x-token 的聚合 Token 分析页、详情页填写页面地址与加载超时；只展示不加工页面内容 | [包说明](../../packages/aggregated-token-analysis/README.md) |
 | `@kmh/xmusic` | x-music 服务插件：侧栏 x-music 入口、内嵌打开 x-music 的 Web 端；第一阶段无配置表单与助手工具接入 | [包说明](../../packages/kmh-xmusic/README.md) |
+| `@kmh/remote` | 手机远程访问：局域网二维码、访问密码、frp 公网入口与移动端布局 | [包说明](../../packages/kmh-remote/README.md) |
 | `@kmh/dev-preset` | 开发模式预设 bundle | [清单](../../packages/kmh-dev-preset/package.json)、[配置](../../packages/kmh-dev-preset/cordis.patch.yml) |
 | `@kmh/bundle-mobile-assistant` | 移动助手 preset、精选技能与精简工具 | [包说明](../../bundles/mobile-assistant/README.md) |
 | `@kmh/mobile-assistant-runtime` | 助手 SDK、持久会话恢复与审批转发 | [包说明](../../packages/mobile-assistant-runtime/README.md) |

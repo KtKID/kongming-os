@@ -1,0 +1,89 @@
+{
+  "name": "@kmh/remote",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "KMH 手机远程访问：本地鉴权代理、frp 公网入口与移动端适配",
+  "license": "GPL-2.0",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client/api.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "client/mobile/LICENSE.dsh-web-mobile",
+    "upstream-source.json"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "node check.mjs && eslint client host shared --max-warnings 0",
+    "format:check": "prettier host client shared test *.mjs *.ts *.json *.yml README.md --check",
+    "test": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs",
+    "test:records": "vitest run",
+    "test:records:coverage": "vitest run --coverage && node test/access-records-coverage.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-store": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-alpha.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "link:../../third_party/dsh/vendor/cordis",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "react": "^18.3.1",
+    "@types/react": "^18.3.31",
+    "@types/node": "^22.20.0",
+    "ws": "^8.18.0",
+    "@deepseek-ai/dsh-client-ui-slots": "link:../../third_party/dsh/packages/client/ui-slots",
+    "@deepseek-ai/dsh-client-ui-layout": "link:../../third_party/dsh/packages/client/ui-layout",
+    "@deepseek-ai/dsh-client-ui-primitives": "link:../../third_party/dsh/packages/client/ui-primitives",
+    "@deepseek-ai/dsh-client-locale": "link:../../third_party/dsh/packages/client/locale",
+    "@deepseek-ai/dsh-client-connection": "link:../../third_party/dsh/packages/client/connection",
+    "@deepseek-ai/dsh-client-store": "link:../../third_party/dsh/packages/client/store",
+    "@deepseek-ai/dsh-client-ui-renderer": "link:../../third_party/dsh/packages/client/ui-renderer",
+    "@deepseek-ai/dsh-client-ui-conversation": "link:../../third_party/dsh/packages/client/ui-conversation",
+    "@deepseek-ai/dsh-client-ui-sidebar": "link:../../third_party/dsh/packages/client/ui-sidebar",
+    "vitest": "4.1.8",
+    "@vitest/coverage-v8": "4.1.8",
+    "react-dom": "^18.3.1",
+    "@types/react-dom": "^18.3.7",
+    "@testing-library/react": "16.3.2",
+    "jsdom": "29.1.1",
+    "@types/jsdom": "^28.0.3",
+    "vite": "8.0.16"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

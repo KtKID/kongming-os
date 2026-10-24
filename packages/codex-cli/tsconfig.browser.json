@@ -12,7 +12,9 @@
     "src/client/**/*.tsx",
     "src/account-status.ts",
     "src/live-state.ts",
-    "src/tool-switches.ts"
+    "src/tool-switches.ts",
+    "src/quota-protocol.ts",
+    "src/quota-rules.ts"
   ],
   "exclude": []
 }
